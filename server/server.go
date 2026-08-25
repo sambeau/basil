@@ -595,6 +595,31 @@ func (s *Server) initAuth() error {
 		return nil
 	}
 
+	// On a site root auth.enabled is operator-owned (config.OperatorOwnedKeys):
+	// it is on even for a release whose config never mentions auth, which is
+	// the normal shape after FEAT-156's init split. That must not turn a
+	// missing database into a dead server. Before FEAT-156 such a site started
+	// with auth off and simply declined git; forcing the setting on would
+	// instead make <data>/.basil-auth.db a startup requirement, so a site root
+	// whose data dir has not got one yet could not be started at all — and the
+	// fix (`basil users create`) needs a shell on the box, which is exactly the
+	// state the operator-owned rule exists to avoid.
+	//
+	// So this one degrade is allowed, and only here: a MISSING database is
+	// server-side state, never something the release's config can ask for. The
+	// server runs with authentication and the git endpoint off (they are the
+	// same guarantee — pushes are authorised out of this database) and says so
+	// loudly. The legacy layout does not reach this code: nothing is forced
+	// there, so auth.enabled false means auth off, as always.
+	if s.config.SiteRoot != "" {
+		if _, err := os.Stat(s.config.AuthDBPath()); os.IsNotExist(err) {
+			s.logWarn("no authentication database at %s — running with authentication AND the git deploy endpoint DISABLED for this run; create an account with `basil users create` on the server and restart to turn them back on", s.config.AuthDBPath())
+			s.config.Auth.Enabled = false
+			s.config.Git.Enabled = false
+			return nil
+		}
+	}
+
 	// Open auth database (separate from app database)
 	authDB, err := auth.OpenDB(s.config.AuthDBPath())
 	if err != nil {

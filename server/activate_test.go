@@ -365,6 +365,48 @@ func TestSwapReleaseCarriesRestartRequiredSections(t *testing.T) {
 	}
 }
 
+// data_dir is an anchor, not just a setting: the database connection, the
+// image cache and the certificate cache were all resolved against it at
+// startup, and site code still reads it live as basil.data_dir /
+// basil.uploads_dir and as its write policy. A release that moves it must be
+// carried like any other restart-required change, or handlers would start
+// writing under a data root no subsystem is using (FEAT-156 review).
+func TestSwapReleaseCarriesDataDirAnchor(t *testing.T) {
+	root := activationFixture(t)
+	s, _, stderr := newSiteRootServer(t, root)
+	oldDataDir := s.config.DataDir
+	oldUploads := s.config.UploadsDir()
+	oldAuthDB := s.config.AuthDBPath()
+
+	moved := writeRelease(t, root, "moved", "moved release", "data_dir: somewhere-else\n")
+	must(deploy.SetCurrent(root, moved))
+	if err := s.SwapRelease(); err != nil {
+		t.Fatalf("SwapRelease: %v", err)
+	}
+
+	if got := get(s, "/").Body.String(); !strings.Contains(got, "moved release") {
+		t.Errorf("expected the new release's content, got %q", got)
+	}
+	if s.config.DataDir != oldDataDir {
+		t.Errorf("data_dir applied live: got %q, want %q", s.config.DataDir, oldDataDir)
+	}
+	live := s.serving.Load().config
+	if live.DataDir != oldDataDir {
+		t.Errorf("live config shows the new data_dir %q; persistent state is still under %q", live.DataDir, oldDataDir)
+	}
+	// The derived paths handlers and the deploy machinery use must move with
+	// it, not stay pointing at the release's idea of the data root.
+	if live.UploadsDir() != oldUploads {
+		t.Errorf("uploads directory moved live: got %q, want %q", live.UploadsDir(), oldUploads)
+	}
+	if live.AuthDBPath() != oldAuthDB {
+		t.Errorf("auth database path moved live: got %q, want %q", live.AuthDBPath(), oldAuthDB)
+	}
+	if warnings := stderr.String(); !strings.Contains(warnings, "data_dir") || !strings.Contains(warnings, "restart required") {
+		t.Errorf("expected a restart-required warning naming data_dir, stderr: %s", warnings)
+	}
+}
+
 // fsnotifyDelivers probes whether filesystem events are delivered in this
 // environment at all, so the watcher test can distinguish "fsnotify cannot
 // work here" from "the watcher is broken".

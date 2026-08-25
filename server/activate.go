@@ -86,9 +86,11 @@ func (s *Server) servingHandler() http.Handler {
 // server.https) are not applied: the listener was bound at startup and
 // cannot be re-bound live. The same goes for every config section whose
 // subsystem is built once by New and not rebuilt here (database, session,
-// auth, git, images, logging, compression, security, CORS, proxy). A change
-// is reported with a restart-required warning and the running values are
-// kept, so the served config never disagrees with the subsystems behind it.
+// auth, git, images, logging, compression, security, CORS, proxy) and for
+// data_dir, the anchor all of their persistent paths were resolved against.
+// A change is reported with a restart-required warning and the running values
+// are kept, so the served config never disagrees with the subsystems behind
+// it.
 //
 // On any failure the previous release keeps serving: nothing is published,
 // no cache is cleared, and the replaced fields are restored.
@@ -201,8 +203,9 @@ func (s *Server) carryListenerSettings(newCfg *config.Config) {
 // registry, logging/compression/security-header/proxy middleware and CORS
 // were all constructed from the startup config, so applying a release's new
 // values to s.config alone would make the served config lie about the
-// subsystem behind it. Each changed section is kept at its running value
-// with one restart-required warning.
+// subsystem behind it. data_dir joins them as the anchor those subsystems
+// resolved their paths against. Each changed section is kept at its running
+// value with one restart-required warning.
 func (s *Server) carryRestartRequiredSettings(newCfg *config.Config) {
 	s.carryListenerSettings(newCfg)
 
@@ -214,6 +217,15 @@ func (s *Server) carryRestartRequiredSettings(newCfg *config.Config) {
 		keep()
 	}
 
+	// data_dir is an ANCHOR, not a section: every persistent path in the
+	// running server was resolved against it at startup (the database file,
+	// the image cache, the certificate cache, security.allow_write) and the
+	// uploads directory is still derived from it live, through
+	// cfg.UploadsDir(). A release that moved it would leave the served config
+	// pointing at a data root no subsystem is using — and the auth and deploy
+	// databases, which live under it, somewhere else again.
+	carry("data_dir", newCfg.DataDir != old.DataDir, func() { newCfg.DataDir = old.DataDir })
+
 	carry("database", !reflect.DeepEqual(newCfg.Database, old.Database), func() { newCfg.Database = old.Database })
 	carry("session", !reflect.DeepEqual(newCfg.Session, old.Session), func() { newCfg.Session = old.Session })
 	carry("auth", !reflect.DeepEqual(newCfg.Auth, old.Auth), func() { newCfg.Auth = old.Auth })
@@ -224,6 +236,13 @@ func (s *Server) carryRestartRequiredSettings(newCfg *config.Config) {
 	carry("security", !reflect.DeepEqual(newCfg.Security, old.Security), func() { newCfg.Security = old.Security })
 	carry("cors", !reflect.DeepEqual(newCfg.CORS, old.CORS), func() { newCfg.CORS = old.CORS })
 	carry("server.proxy", !reflect.DeepEqual(newCfg.Server.Proxy, old.Server.Proxy), func() { newCfg.Server.Proxy = old.Server.Proxy })
+
+	// deploy.* is deliberately absent from this list: this process builds
+	// nothing from it. The receive hooks and the CLI read deploy.branch and
+	// deploy.keep out of the active release's own file at every invocation,
+	// so pinning a stale copy here would make the served config disagree with
+	// what the next push will actually do — the opposite of what carrying is
+	// for.
 }
 
 // currentLinkDebounce coalesces the burst of filesystem events a symlink

@@ -159,7 +159,7 @@ func runPreReceive(cfg *config.Config, eng *deploy.Engine, updates []refUpdate, 
 				refusal = err
 				continue
 			}
-			if !ancestor && !acceptsStarterOverwrite(cfg, stdout) {
+			if !ancestor && !acceptsStarterOverwrite(cfg, eng, stdout) {
 				fmt.Fprintln(stdout, "force-pushing the release branch rewrites release history, which the deploy record and rollback rely on — it is refused for everyone")
 				refusal = errors.New("release branch force-push refused")
 				continue
@@ -197,9 +197,9 @@ func runPreReceive(cfg *config.Config, eng *deploy.Engine, updates []refUpdate, 
 
 // warnListenerChange relays the non-fatal listener notice for a release that
 // has already been accepted (FEAT-156). Listener settings stay deployable —
-// renaming a site over git is legitimate — so this is a gate, not a force: it
-// reports at push time, where the mistake is one commit deep, and NEVER
-// touches the push's exit status. Silence is correct whenever there is
+// renaming a site over git is legitimate — so this is a warning, never a
+// gate: it reports at push time, where the mistake is one commit deep, and
+// NEVER touches the push's exit status. Silence is correct whenever there is
 // nothing to compare against (no active release, an unloadable config on
 // either side) or the live site is not public.
 func warnListenerChange(stdout io.Writer, siteRoot, releaseDir string) {
@@ -232,8 +232,17 @@ func warnListenerChange(stdout io.Writer, siteRoot, releaseDir string) {
 // cannot be read is not an exception either (OnlyInitDeployed is conservative);
 // the read error is reported so an operator can tell "refused because history
 // exists" from "refused because the record is unreadable".
-func acceptsStarterOverwrite(cfg *config.Config, stdout io.Writer) bool {
-	starter, err := deploy.OnlyInitDeployed(cfg.DeployDBPath())
+//
+// The record is read UNDER THE SITE DEPLOY LOCK. Without it two pushes racing
+// at a fresh hub could both read "nothing but init" and both be granted the
+// one-time exception: Engine.Deploy holds the same lock from before it
+// activates until after it writes the deployed row, so taking it here makes
+// the second push wait and then see the first push's row. The lock is
+// released before returning — Prepare and Deploy each take it again for
+// themselves, and holding it across them would deadlock this process against
+// its own file lock.
+func acceptsStarterOverwrite(cfg *config.Config, eng *deploy.Engine, stdout io.Writer) bool {
+	starter, err := onlyInitDeployedLocked(cfg, eng)
 	if err != nil {
 		fmt.Fprintf(stdout, "cannot read the deploy record (%v) — treating this site as already deployed\n", err)
 		return false
@@ -243,6 +252,20 @@ func acceptsStarterOverwrite(cfg *config.Config, stdout io.Writer) bool {
 	}
 	fmt.Fprintln(stdout, "replacing the starter site created by 'basil --init' with your first release — this is the one non-fast-forward the release branch allows, and it will not be allowed again")
 	return true
+}
+
+// onlyInitDeployedLocked answers deploy.OnlyInitDeployed with the site's
+// deploy lock held, so a deploy running in another process cannot be halfway
+// through recording itself while the answer is read. A lock that cannot be
+// taken is reported as a read failure, which the caller already treats as
+// "assume this site has history" — the conservative direction.
+func onlyInitDeployedLocked(cfg *config.Config, eng *deploy.Engine) (bool, error) {
+	lock, err := deploy.AcquireLock(cfg.SiteRoot, eng.LockWait)
+	if err != nil {
+		return false, fmt.Errorf("waiting for the deploy lock: %w", err)
+	}
+	defer lock.Release()
+	return deploy.OnlyInitDeployed(cfg.DeployDBPath())
 }
 
 // warnUnformatted relays a non-fatal formatting notice for a release that has

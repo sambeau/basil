@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/sambeau/basil/server/config"
 	"github.com/sambeau/basil/server/deploy"
 )
 
@@ -357,6 +359,136 @@ func TestFromHook_FastForwardUnaffectedByStarterException(t *testing.T) {
 	}
 	if out := stdout.String(); strings.Contains(out, "starter site created by") {
 		t.Errorf("a fast-forward invoked the starter exception: %q", out)
+	}
+}
+
+// --- the listener-change warning (FEAT-156) --------------------------------
+//
+// These drive the wiring in warnListenerChange, which the localhost fixture
+// cannot reach: the warning is scoped to a PUBLIC active release, so the
+// fixture here is initialised with a real hostname.
+
+// The graduation accident: a developer's local basil.yaml, deployed onto the
+// public server it was cloned from. It is a warning, never a gate — the push
+// is accepted, the release is checked and prepared, and the developer is told
+// what will happen at the next restart while the mistake is one commit deep.
+func TestFromHook_ListenerChangeWarnsAndAcceptsThePush(t *testing.T) {
+	f := newDeployFixtureHost(t, "mysite.example.com")
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, config.ConfigFileName, localDevConfig, "deploy my laptop's config by accident")
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(before, sha, "refs/heads/live"))
+	if err != nil {
+		t.Fatalf("the listener warning rejected the push (it must never gate): %v\n%s", err, stdout.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "ok") {
+		t.Errorf("the release was not accepted:\n%s", out)
+	}
+	for _, want := range []string{
+		"warning: this release changes how the live site is served:",
+		"warning:   server.host: mysite.example.com → localhost",
+		"warning:   server.port: 443 → 8080",
+		"git revert HEAD && git push",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("push output lacks %q:\n%s", want, out)
+		}
+	}
+	// The prefix Git adds must not be duplicated by us.
+	if strings.Contains(out, "remote:") {
+		t.Errorf("output hand-writes the remote: prefix:\n%s", out)
+	}
+}
+
+// A release that leaves the listener alone says nothing about it — silence is
+// the normal case, and a warning on every push would train people to ignore
+// this one.
+func TestFromHook_SameListenerWarnsNothing(t *testing.T) {
+	f := newDeployFixtureHost(t, "mysite.example.com")
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(before, sha, "refs/heads/live"))
+	if err != nil {
+		t.Fatalf("pre-receive: %v\n%s", err, stdout.String())
+	}
+	if out := stdout.String(); strings.Contains(out, "changes how the live site is served") {
+		t.Errorf("a same-listener release produced a listener warning:\n%s", out)
+	}
+}
+
+// The warning lines go to a remote pusher's terminal, so the comparison reads
+// the environment as empty: a config that names its host through ${VAR} is
+// reported unresolved, never as the server's real value.
+func TestFromHook_ListenerWarningDoesNotLeakTheEnvironment(t *testing.T) {
+	const secret = "internal-name.corp.example.com"
+	t.Setenv("BASIL_TEST_HOOK_SECRET", secret)
+
+	f := newDeployFixtureHost(t, "mysite.example.com")
+	before := f.currentSHA(t)
+	sha := f.commitAndPush(t, config.ConfigFileName,
+		"server:\n  host: \"${BASIL_TEST_HOOK_SECRET}\"\n  port: 443\nsite:\n  path: ./site\npublic_dir: ./public\n",
+		"host from the environment")
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(before, sha, "refs/heads/live"))
+	if err != nil {
+		t.Fatalf("pre-receive: %v\n%s", err, stdout.String())
+	}
+	out := stdout.String()
+	if strings.Contains(out, secret) {
+		t.Errorf("the push output resolved an environment variable:\n%s", out)
+	}
+	if !strings.Contains(out, "server.host: mysite.example.com → (unset)") {
+		t.Errorf("the host change was not reported unresolved:\n%s", out)
+	}
+}
+
+// localDevConfig is what a graduated local folder's basil.yaml looks like:
+// the shape `basil --init` writes for local mode.
+const localDevConfig = `server:
+  host: localhost
+  port: 8080
+site:
+  path: ./site
+public_dir: ./public
+`
+
+// The starter-overwrite exception is read under the site's deploy lock, so a
+// deploy recording itself in another process cannot be half-visible to a
+// racing push. With the lock held elsewhere and no patience configured, the
+// answer is the conservative one — refuse, and say why.
+func TestFromHook_StarterExceptionReadsTheRecordUnderTheDeployLock(t *testing.T) {
+	f := newDeployFixtureHost(t, "localhost")
+
+	cfg, err := loadDeploySiteConfig(f.root, "", io.Discard, emptyEnv)
+	if err != nil {
+		t.Fatalf("loading the site config: %v", err)
+	}
+	eng := deploy.NewEngine(cfg)
+	eng.LockWait = 0 // a deterministic stand-in for "another deploy is running"
+
+	lock, err := deploy.AcquireLock(f.root, 0)
+	if err != nil {
+		t.Fatalf("taking the deploy lock: %v", err)
+	}
+
+	var out bytes.Buffer
+	if acceptsStarterOverwrite(cfg, eng, &out) {
+		t.Error("the exception was granted while another deploy held the lock")
+	}
+	if !strings.Contains(out.String(), "cannot read the deploy record") {
+		t.Errorf("the refusal does not explain itself: %q", out.String())
+	}
+
+	// With the lock free the same fresh hub grants it, so the refusal above
+	// was the lock and nothing else.
+	if err := lock.Release(); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if !acceptsStarterOverwrite(cfg, eng, &out) {
+		t.Errorf("the exception was refused on a fresh hub with the lock free: %q", out.String())
 	}
 }
 

@@ -242,3 +242,127 @@ func TestScanEntrySurfacesCorruptStartedAt(t *testing.T) {
 		t.Errorf("Reason = %q, want it to carry the raw started_at string", e.Reason)
 	}
 }
+
+// --- OnlyInitDeployed (the graduation exception's one question) ------------
+//
+// A true here is permission to rewrite the release branch, so every uncertain
+// answer must be false.
+
+// initEntry is a release-1 row as `basil --init --server` seeds it.
+func initEntry(sha string) Entry {
+	e := testEntry(sha, OutcomeDeployed)
+	e.Trigger = TriggerInit
+	e.Publisher = "init"
+	return e
+}
+
+// writeRecord builds a record at a fresh path and fills it with entries.
+func writeRecord(t *testing.T, entries ...Entry) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "data", "deploy.db")
+	rec, err := OpenRecord(path)
+	if err != nil {
+		t.Fatalf("OpenRecord: %v", err)
+	}
+	defer rec.Close()
+	for _, e := range entries {
+		if err := rec.Add(e); err != nil {
+			t.Fatalf("Add(%s): %v", e.CommitSHA, err)
+		}
+	}
+	return path
+}
+
+func TestOnlyInitDeployed(t *testing.T) {
+	cases := []struct {
+		name    string
+		entries []Entry
+		want    bool
+	}{
+		{
+			// The state graduation happens in: the hub has published nothing
+			// a human wrote.
+			name:    "the init release alone",
+			entries: []Entry{initEntry("aaa")},
+			want:    true,
+		},
+		{
+			// Several init rows can only come from repeated seeding, which is
+			// still a hub that has published nothing. Intended, not tolerated.
+			name:    "several init releases",
+			entries: []Entry{initEntry("aaa"), initEntry("bbb")},
+			want:    true,
+		},
+		{
+			// An empty table is not evidence of freshness: release 1 is always
+			// recorded, so an empty record is not the one this site deployed
+			// through.
+			name:    "an empty record",
+			entries: nil,
+			want:    false,
+		},
+		{
+			name:    "one real deploy spends the exception",
+			entries: []Entry{initEntry("aaa"), testEntry("bbb", OutcomeDeployed)},
+			want:    false,
+		},
+		{
+			// Even a deploy that FAILED is history: someone has pushed here.
+			name:    "a failed deploy still spends it",
+			entries: []Entry{initEntry("aaa"), testEntry("bbb", OutcomeFailed)},
+			want:    false,
+		},
+		{
+			// Order does not matter: the question is about the whole table.
+			name:    "a real deploy before the init row",
+			entries: []Entry{testEntry("bbb", OutcomeDeployed), initEntry("aaa")},
+			want:    false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := OnlyInitDeployed(writeRecord(t, tc.entries...))
+			if err != nil {
+				t.Fatalf("OnlyInitDeployed: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("OnlyInitDeployed = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// A record that is not there is not an exception — and asking must not create
+// one, or the next caller would find an empty record where there was no file.
+func TestOnlyInitDeployedMissingRecord(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data", "deploy.db")
+
+	got, err := OnlyInitDeployed(path)
+	if err == nil {
+		t.Fatal("a missing record was not reported as unreadable")
+	}
+	if got {
+		t.Error("a missing record granted the exception")
+	}
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+		t.Errorf("asking about a missing record created one (stat err = %v)", statErr)
+	}
+}
+
+// A file that is not a deploy record answers false with the reason, never
+// "probably fresh".
+func TestOnlyInitDeployedCorruptRecord(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "deploy.db")
+	if err := os.WriteFile(path, []byte("this is not a database\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := OnlyInitDeployed(path)
+	if err == nil {
+		t.Fatal("a corrupt record was accepted as readable")
+	}
+	if got {
+		t.Error("a corrupt record granted the exception")
+	}
+}

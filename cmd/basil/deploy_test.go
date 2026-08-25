@@ -24,13 +24,22 @@ type deployFixture struct {
 
 func newDeployFixture(t *testing.T) *deployFixture {
 	t.Helper()
+	return newDeployFixtureHost(t, "localhost")
+}
+
+// newDeployFixtureHost is newDeployFixture with the host `basil --init`
+// writes into the site's config. It exists for the listener-change warning
+// (FEAT-156), which by design says nothing at all about a site whose ACTIVE
+// release is on localhost — so the default fixture can never reach it.
+func newDeployFixtureHost(t *testing.T, host string) *deployFixture {
+	t.Helper()
 	requireGit(t)
 
 	tmp := t.TempDir()
 	root := filepath.Join(tmp, "mysite")
 	var stdout, stderr bytes.Buffer
 	opts := initOpts(root, &stdout, &stderr)
-	opts.Host = "localhost"
+	opts.Host = host
 	if err := runInitCommand(opts); err != nil {
 		t.Fatalf("runInitCommand: %v", err)
 	}

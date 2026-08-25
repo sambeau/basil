@@ -591,6 +591,7 @@ func (e *Engine) runHook(path string) error {
 		env.Security = &evaluator.SecurityPolicy{
 			AllowWriteAll:   false,
 			AllowWrite:      allowWrite,
+			RestrictWrite:   e.sandboxDeniedWrites(),
 			AllowExecuteAll: false,
 			AllowExecute:    nil, // block every binary
 			HardExecuteDeny: true,
@@ -616,6 +617,50 @@ func (e *Engine) runHook(path string) error {
 		return errors.New(msg)
 	}
 	return nil
+}
+
+// sandboxDeniedWrites names the files a push-triggered hook may never write,
+// however it spells the path. The sandbox's allow list is DataDir — and the
+// deploy record and the auth database live INSIDE DataDir, so the whitelist
+// alone leaves a pushed release free to delete or forge them from its own
+// deploy.pars (`../../data/deploy.db` from the release directory). Either
+// would be a way out of the fence: the record is what decides the one-time
+// starter-overwrite exception (FEAT-156), and the auth database holds the API
+// keys that authorise pushes at all.
+//
+// RestrictWrite is checked before the allow list, so naming the two files
+// closes the hole without narrowing the data dir for the legitimate hooks the
+// sandbox exists to keep working. SQLite keeps its sidecars beside the file
+// under derived names and losing a -wal is as damaging as losing the database,
+// so each sidecar is named too.
+//
+// CLI-triggered deploys (HookSandbox false) are operator code at the server
+// shell and keep full power, exactly as before.
+func (e *Engine) sandboxDeniedWrites() []string {
+	files := []string{}
+	if e.RecordPath != "" {
+		files = append(files, e.RecordPath)
+	}
+	if e.DataDir != "" {
+		// The names belong to config, not to this package: ask the same
+		// helpers the server and CLI use, so a future move of either database
+		// cannot leave this fence pointing at the old location.
+		anchors := &config.Config{DataDir: e.DataDir}
+		files = append(files, anchors.DeployDBPath(), anchors.AuthDBPath())
+	}
+
+	denied := make([]string, 0, len(files)*4)
+	seen := make(map[string]bool, len(files)*4)
+	for _, f := range files {
+		for _, sidecar := range []string{"", "-wal", "-shm", "-journal"} {
+			path := f + sidecar
+			if !seen[path] {
+				seen[path] = true
+				denied = append(denied, path)
+			}
+		}
+	}
+	return denied
 }
 
 // deployRefFromHookDir recovers the release SHA from a hook path

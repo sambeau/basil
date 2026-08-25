@@ -2,7 +2,6 @@ package deploy
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/sambeau/basil/server/config"
@@ -38,7 +37,7 @@ func ListenerChanges(activeReleaseDir, candidateReleaseDir string) []string {
 
 	// "Public" is decided from the release that is live now: it is the one
 	// whose loss would be an outage.
-	if active.Server.Host == "" || config.IsLocalHost(active.Server.Host) {
+	if !isPublicListener(active) {
 		return nil
 	}
 
@@ -55,21 +54,46 @@ func ListenerChanges(activeReleaseDir, candidateReleaseDir string) []string {
 	return changes
 }
 
-// loadReleaseConfig loads a release's basil.yaml the way the server will at
-// startup. The second result is false when there is nothing to compare —
-// which is the same answer for "no config there" and "config is broken",
-// because both are already Validate's business.
+// isPublicListener reports whether a release is serving the world rather than
+// one developer's machine. A named host that is not this machine says so
+// outright; so does a manual certificate with no host at all, which is a
+// legitimate production shape — the certificate names the site and the host
+// arrives from DNS or a proxy in front. An explicitly local host stays local
+// whatever certificate it carries: every listener value on a developer's own
+// machine is that developer's business, which is the whole reason the warning
+// is scoped this way.
+func isPublicListener(cfg *config.Config) bool {
+	if cfg.Server.Host != "" {
+		return !config.IsLocalHost(cfg.Server.Host)
+	}
+	return cfg.Server.HTTPS.Cert != ""
+}
+
+// loadReleaseConfig loads a release's basil.yaml for COMPARISON — which is
+// not quite the way the server loads it to run. The environment is read as
+// empty (a null getenv) on purpose: the lines this feeds are printed into a
+// remote pusher's terminal, and `host: ${INTERNAL_NAME}` interpolated with
+// the server's real environment would put a secret in that output. The
+// comparison needs the shape of the listener, not the resolved value, and an
+// unresolved ${VAR} reads the same on both sides.
+//
+// The second result is false when there is nothing to compare — which is the
+// same answer for "no config there" and "config is broken", because both are
+// already Validate's business.
 func loadReleaseConfig(releaseDir string) (*config.Config, bool) {
 	if releaseDir == "" {
 		return nil, false
 	}
 	path := filepath.Join(releaseDir, config.ConfigFileName)
-	cfg, err := config.Load(path, os.Getenv)
+	cfg, err := config.Load(path, nullGetenv)
 	if err != nil {
 		return nil, false
 	}
 	return cfg, true
 }
+
+// nullGetenv is an environment with nothing in it.
+func nullGetenv(string) string { return "" }
 
 // httpsSummary describes how a release obtains its certificate, in the terms
 // an operator would use. It compares the SHAPE of the https block rather than

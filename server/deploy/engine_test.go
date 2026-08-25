@@ -934,6 +934,137 @@ func TestDeployHookPushSandboxRefusesShell(t *testing.T) {
 	}
 }
 
+// The deploy record lives INSIDE the data dir, so scoping writes to the data
+// dir is not on its own a fence: a pushed release could forge or destroy the
+// record that decides the one-time starter-overwrite exception, from a path
+// as ordinary as ../../data/deploy.db. The write is refused; the release
+// still goes live and the refusal is recorded, exactly as any other hook
+// failure (FEAT-153).
+func TestDeployHookPushSandboxRefusesDeployRecordWrite(t *testing.T) {
+	f := newEngineFixture(t)
+	dataDir := filepath.Join(f.siteRoot, "data")
+	// The traversal an attacker would actually write: relative to the hook's
+	// own directory, <site root>/releases/<sha>/.
+	sha := commitHook(t, f, "\"forged\" ==> text(path(\"../../data/deploy.db\"))\n")
+
+	e := f.engine(nil)
+	e.DataDir = dataDir
+	e.Trigger = TriggerPush
+	e.Publisher = "mallory"
+	e.HookSandbox = true
+
+	res, err := e.Deploy(sha)
+	if err != nil {
+		t.Fatalf("push deploy should still succeed (hook failure is recorded, not fatal): %v", err)
+	}
+	if res.Outcome != OutcomeDeployed {
+		t.Errorf("outcome = %q, want %q", res.Outcome, OutcomeDeployed)
+	}
+	if res.Reason == "" {
+		t.Fatal("the hook's write to the deploy record was not refused")
+	}
+	if !strings.Contains(res.Reason, "deploy.db") {
+		t.Errorf("refusal reason does not name the file it protected: %q", res.Reason)
+	}
+	// The record is intact: still a readable deploy record, still holding
+	// this deploy's own row. A successful forge would have left a text file
+	// here and made every read below fail.
+	entries := recordEntries(t, e)
+	if len(entries) == 0 || entries[0].CommitSHA != sha {
+		t.Fatalf("deploy record does not hold this deploy: %+v", entries)
+	}
+	data, err := os.ReadFile(e.RecordPath)
+	if err != nil {
+		t.Fatalf("reading the deploy record file: %v", err)
+	}
+	if bytes.Contains(data, []byte("forged")) {
+		t.Error("the sandboxed hook wrote into the deploy record")
+	}
+}
+
+// The same fence around the auth database: it holds the API keys pushes are
+// authorised with, so a release that could delete it could lock the operator
+// out of the mechanism that would fix it.
+func TestDeployHookPushSandboxRefusesAuthDBWrite(t *testing.T) {
+	f := newEngineFixture(t)
+	dataDir := filepath.Join(f.siteRoot, "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	authDB := filepath.Join(dataDir, ".basil-auth.db")
+	if err := os.WriteFile(authDB, []byte("the real keys"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sha := commitHook(t, f, "\"forged\" ==> text(path(\"../../data/.basil-auth.db\"))\n")
+
+	e := f.engine(nil)
+	e.DataDir = dataDir
+	e.Trigger = TriggerPush
+	e.HookSandbox = true
+
+	res, err := e.Deploy(sha)
+	if err != nil {
+		t.Fatalf("push deploy: %v", err)
+	}
+	if res.Reason == "" {
+		t.Fatal("the hook's write to the auth database was not refused")
+	}
+	data, err := os.ReadFile(authDB)
+	if err != nil {
+		t.Fatalf("reading the auth database: %v", err)
+	}
+	if string(data) != "the real keys" {
+		t.Errorf("the sandboxed hook rewrote the auth database: %q", data)
+	}
+}
+
+// A sidecar is as good as the database: deleting a -wal loses committed
+// rows, so the fence names them too.
+func TestDeployHookPushSandboxRefusesRecordSidecarWrite(t *testing.T) {
+	f := newEngineFixture(t)
+	sha := commitHook(t, f, "\"forged\" ==> text(path(\"../../data/deploy.db-wal\"))\n")
+
+	e := f.engine(nil)
+	e.DataDir = filepath.Join(f.siteRoot, "data")
+	e.Trigger = TriggerPush
+	e.HookSandbox = true
+
+	res, err := e.Deploy(sha)
+	if err != nil {
+		t.Fatalf("push deploy: %v", err)
+	}
+	if res.Reason == "" {
+		t.Fatal("the hook's write to the deploy record's -wal sidecar was not refused")
+	}
+}
+
+// The CLI path is unchanged: a `basil deploy` at the server shell is
+// operator code, and the fence is the sandbox's, not the engine's.
+func TestDeployHookCLIMayWriteTheDeployRecordDir(t *testing.T) {
+	f := newEngineFixture(t)
+	dataDir := filepath.Join(f.siteRoot, "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dataDir, "deploy.db.backup")
+	sha := commitHook(t, f, fmt.Sprintf("%q ==> text(path(%q))\n", "operator backup", target))
+
+	e := f.engine(nil)
+	e.DataDir = dataDir
+	// HookSandbox is false: full power, as before.
+
+	res, err := e.Deploy(sha)
+	if err != nil {
+		t.Fatalf("CLI deploy: %v", err)
+	}
+	if res.Reason != "" {
+		t.Errorf("CLI hook should keep full power, got reason %q", res.Reason)
+	}
+	if _, err := os.Stat(target); err != nil {
+		t.Errorf("CLI hook write was blocked: %v", err)
+	}
+}
+
 // The common case still works on push: a hook that only persists durable
 // state to the data dir (a stand-in for DB/network/data-dir writes, none of
 // which are execute-gated) succeeds under the sandbox.

@@ -214,12 +214,17 @@ func (r *Record) lastDeployed() (*Entry, error) {
 // so an empty table means the record is not the one this site deployed
 // through.
 //
-// The file is opened read-only in the sense that matters here: nothing is
-// written. (OpenRecord would create an empty record, so a missing file is
-// checked for first, not created and then found empty.)
+// SEVERAL init rows answer true, and that is intended: repeated `basil --init
+// --server` seeding is still a hub that has never published anything a human
+// wrote, which is the only question being asked.
+//
+// A missing file is checked for FIRST rather than opened: OpenRecord creates
+// the database it cannot find (directory, WAL, schema), so opening a missing
+// record would manufacture the empty table this function then has to
+// disbelieve. Beyond that creation the call is read-only.
 func OnlyInitDeployed(path string) (bool, error) {
 	if _, err := os.Stat(path); err != nil {
-		return false, fmt.Errorf("reading the deploy record: %w", err)
+		return false, err
 	}
 	rec, err := OpenRecord(path)
 	if err != nil {
@@ -227,19 +232,18 @@ func OnlyInitDeployed(path string) (bool, error) {
 	}
 	defer rec.Close()
 
-	entries, err := rec.List(0)
+	// Two EXISTS probes rather than reading the log: the answer is a property
+	// of the table, and a hub with a long history should not pay to be told
+	// its first row disqualifies it.
+	var anyRow, foreignRow bool
+	err = rec.db.QueryRow(
+		`SELECT EXISTS(SELECT 1 FROM deploys), EXISTS(SELECT 1 FROM deploys WHERE "trigger" <> ?)`,
+		TriggerInit,
+	).Scan(&anyRow, &foreignRow)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("reading the deploy record: %w", err)
 	}
-	if len(entries) == 0 {
-		return false, nil
-	}
-	for _, e := range entries {
-		if e.Trigger != TriggerInit {
-			return false, nil
-		}
-	}
-	return true, nil
+	return anyRow && !foreignRow, nil
 }
 
 // Close closes the record.

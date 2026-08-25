@@ -600,6 +600,180 @@ func TestGitE2E_NoAuthDBNoGit(t *testing.T) {
 	srv.cleanupDevTools()
 }
 
+// GRADUATION, end to end (FEAT-156): the local folder a hobbyist starts with
+// becomes the live site on a real server, with no restructuring — one init on
+// the box, `git remote add`, and a push. This is the phase's headline test:
+// it exercises local init, the transport, the one-time starter-overwrite
+// exception, the engine, and the swap that makes the local site's own page
+// the one the server answers with.
+func TestGitE2E_GraduationFromLocalInitToServer(t *testing.T) {
+	site := newGitSite(t) // on the box: basil --init <root> --server --host localhost --admin alice
+	srv, ts := site.startServer(t, true, false)
+	starterLive := site.currentSHA(t)
+
+	// --- on the laptop: basil --init mysite, no flags at all ---------------
+	local := filepath.Join(t.TempDir(), "mysite")
+	initOut, err := exec.Command(site.basil, "--init", local).CombinedOutput()
+	if err != nil {
+		t.Fatalf("local basil --init: %v:\n%s", err, initOut)
+	}
+	// The local mode is the plain folder, not a miniature deployment server.
+	for _, unwanted := range []string{"site.git", config.ReleasesDirName, config.CurrentLinkName, config.DataDirName} {
+		if _, err := os.Stat(filepath.Join(local, unwanted)); !os.IsNotExist(err) {
+			t.Errorf("local init created server topology: %s exists (stat err = %v)", unwanted, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(local, ".git")); err != nil {
+		t.Fatalf("local init did not make the folder a repository: %v", err)
+	}
+
+	// A day's work in the local folder.
+	const marker = "written on my laptop"
+	gitMust(t, local, "config", "user.name", "Test Author")
+	gitMust(t, local, "config", "user.email", "author@example.com")
+	localSHA := commit(t, local, filepath.Join("site", "index.pars"), fmt.Sprintf("<h1>%q</h1>\n", marker), "my first page")
+
+	// --- connect and push main: stored, published to nobody ---------------
+	gitMust(t, local, "remote", "add", "origin", cloneURL(ts, "", ""))
+	if out, err := gitRun(local, nil, "push", "-u", "origin", "main"); err != nil {
+		t.Fatalf("pushing main from a graduated local folder failed: %v:\n%s", err, out)
+	}
+	if got := site.refSHA(t, "refs/heads/main"); got != localSHA {
+		t.Errorf("main stored as %q, want %s", got, localSHA)
+	}
+	if got := site.currentSHA(t); got != starterLive {
+		t.Errorf("pushing main published it: live moved %s -> %s", starterLive, got)
+	}
+
+	// --- the one permitted force-push: main onto the release branch -------
+	// The hub seeded its own starter commit, so the developer's history is
+	// unrelated to it and this first publish can only be a non-fast-forward.
+	out, err := gitRun(local, nil, "push", "--force", "origin", "main:"+releaseBranch)
+	if err != nil {
+		t.Fatalf("the first publish from a graduated site was refused: %v:\n%s", err, out)
+	}
+	if !strings.Contains(out, "starter site created by 'basil --init'") {
+		t.Errorf("push output does not announce the one-time starter overwrite:\n%s", out)
+	}
+	if got := site.currentSHA(t); got != localSHA {
+		t.Fatalf("current points at %s, want the graduated release %s:\n%s", got, localSHA, out)
+	}
+
+	// --- and the server serves the LOCAL site ------------------------------
+	// The running server learns about a deploy through its `current` watcher;
+	// this test drives the same swap directly, then asks over HTTP.
+	if err := srv.SwapRelease(); err != nil {
+		t.Fatalf("activating the graduated release: %v", err)
+	}
+	resp, err := http.Get(ts.URL + "/")
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET / returned %d, want 200", resp.StatusCode)
+	}
+	if !bytes.Contains(body, []byte(marker)) {
+		t.Errorf("the server is not serving the local site's page; body:\n%s", body)
+	}
+
+	// --- the exception is spent: a second force-push is refused ------------
+	gitMust(t, local, "reset", "--hard", "HEAD~1")
+	rewritten := commit(t, local, filepath.Join("site", "index.pars"), "<h1>\"rewritten\"</h1>\n", "rewritten history")
+	out, err = gitRun(local, nil, "push", "--force", "origin", "main:"+releaseBranch)
+	if err == nil {
+		t.Fatalf("a second force-push of the release branch was accepted:\n%s", out)
+	}
+	if !strings.Contains(out, "force-pushing the release branch rewrites release history") {
+		t.Errorf("the second force-push was refused for the wrong reason:\n%s", out)
+	}
+	if got := site.refSHA(t, releaseBranch); got != localSHA {
+		t.Errorf("the refused force-push moved the release branch to %s (rewritten = %s)", got, rewritten)
+	}
+	if got := site.currentSHA(t); got != localSHA {
+		t.Errorf("the refused force-push changed the live site: %s", got)
+	}
+}
+
+// A site root whose auth database is MISSING still starts (FEAT-156 review).
+// auth.enabled is operator-owned on a site root, so a release cannot switch
+// it off — which would have made a missing <data>/.basil-auth.db fatal, and
+// the fix for that needs the very shell access the rule exists to avoid.
+// Instead the server degrades: it starts, it serves, it warns loudly, and it
+// runs with authentication and the git endpoint off until the database is
+// created. The weakening comes from server-side state; no config can ask for
+// it.
+func TestGitE2E_SiteRootWithoutAuthDBStartsWithGitOff(t *testing.T) {
+	site := newGitSite(t)
+
+	// Take the auth database away, sidecars and all, as if the site root had
+	// been restored from a backup that (rightly) never held it.
+	authDB := filepath.Join(site.root, config.DataDirName, ".basil-auth.db")
+	for _, sidecar := range []string{"", "-wal", "-shm"} {
+		if err := os.Remove(authDB + sidecar); err != nil && !os.IsNotExist(err) {
+			t.Fatalf("removing %s: %v", authDB+sidecar, err)
+		}
+	}
+
+	cfgPath := filepath.Join(site.root, config.CurrentLinkName, config.ConfigFileName)
+	cfg, absPath, err := config.LoadWithPath(cfgPath, os.Getenv)
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	cfg.Server.Dev = false
+	// The release's own config asks for both (init writes them, and a site
+	// root forces them anyway) — the degrade below is state, not config.
+	if !cfg.Auth.Enabled || !cfg.Git.Enabled {
+		t.Fatalf("site-root config should arrive with auth and git on, got auth=%v git=%v", cfg.Auth.Enabled, cfg.Git.Enabled)
+	}
+
+	var stderr bytes.Buffer
+	srv, err := New(cfg, absPath, "test", "test", io.Discard, &stderr)
+	if err != nil {
+		t.Fatalf("a site root with no auth database must still start: %v", err)
+	}
+	t.Cleanup(func() {
+		if srv.db != nil {
+			srv.db.Close()
+		}
+		srv.cleanupDevTools()
+	})
+
+	warning := stderr.String()
+	if !strings.Contains(warning, "authentication database") {
+		t.Errorf("startup did not warn about the missing authentication database:\n%s", warning)
+	}
+	if !strings.Contains(warning, "basil users create") {
+		t.Errorf("the warning does not name the fix:\n%s", warning)
+	}
+
+	// Off, and honestly so: the served config agrees with the subsystems.
+	if srv.authDB != nil || srv.gitHandler != nil {
+		t.Errorf("auth/git were built without an auth database: authDB=%v gitHandler=%v", srv.authDB != nil, srv.gitHandler != nil)
+	}
+	if srv.config.Auth.Enabled || srv.config.Git.Enabled {
+		t.Errorf("served config still claims auth=%v git=%v", srv.config.Auth.Enabled, srv.config.Git.Enabled)
+	}
+
+	// It serves the site…
+	ts := httptest.NewServer(srv.servingHandler())
+	t.Cleanup(ts.Close)
+	resp, err := http.Get(ts.URL + "/")
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("GET / returned %d, want 200: the site must still be served", resp.StatusCode)
+	}
+
+	// …and refuses git, to a real client.
+	if out, err := gitRun(".", nil, "clone", "--quiet", cloneURL(ts, site.admin, site.adminKey), filepath.Join(t.TempDir(), "nope")); err == nil {
+		t.Errorf("clone succeeded against a server with no auth database:\n%s", out)
+	}
+}
+
 // Plain HTTP: refused for a non-dev server even from localhost; allowed for
 // dev-localhost. Verified against the real listener with a real client.
 func TestGitE2E_PlainHTTPRefusedOutsideDev(t *testing.T) {

@@ -158,6 +158,47 @@ site:
 `,
 			candidate: publicRelease,
 		},
+		{
+			// …unless it is serving a manual certificate. A production site
+			// can legitimately leave server.host unset — the certificate
+			// names it and the host arrives from DNS or a proxy — and that
+			// site is exactly as public as a named one.
+			name: "an active release with no host but a manual certificate warns",
+			active: `server:
+  port: 443
+  https:
+    cert: ./certs/site.pem
+    key: ./certs/site.key
+site:
+  path: ./site
+`,
+			candidate: `server:
+  host: localhost
+  port: 8080
+site:
+  path: ./site
+`,
+			want: []string{
+				"server.host: (unset) → localhost",
+				"server.port: 443 → 8080",
+				"https: manual certificate (site.pem) → automatic (Let's Encrypt)",
+			},
+		},
+		{
+			// A certificate does not make a developer's machine public: on
+			// localhost every listener value is still their business.
+			name: "a localhost active release with a manual certificate is silent",
+			active: `server:
+  host: localhost
+  port: 8443
+  https:
+    cert: ./certs/local.pem
+    key: ./certs/local.key
+site:
+  path: ./site
+`,
+			candidate: publicRelease,
+		},
 	}
 
 	for _, tc := range cases {
@@ -176,6 +217,33 @@ site:
 				}
 			}
 		})
+	}
+}
+
+// The warning lines are printed into a remote pusher's terminal, so the
+// configs are compared with the environment read as empty: a host written as
+// ${SOME_VAR} is reported unresolved, never as whatever the server's
+// environment holds.
+func TestListenerChangesDoesNotLeakEnvironmentValues(t *testing.T) {
+	const secret = "internal-name.corp.example.com"
+	t.Setenv("BASIL_TEST_LISTENER_SECRET", secret)
+
+	active := writeReleaseConfig(t, publicRelease)
+	candidate := writeReleaseConfig(t, `server:
+  host: "${BASIL_TEST_LISTENER_SECRET}"
+  port: 443
+  https:
+    auto: true
+site:
+  path: ./site
+`)
+
+	got := strings.Join(ListenerChanges(active, candidate), "\n")
+	if strings.Contains(got, secret) {
+		t.Errorf("the warning resolved an environment variable into the pusher's terminal:\n%s", got)
+	}
+	if !strings.Contains(got, "server.host: mysite.example.com → (unset)") {
+		t.Errorf("ListenerChanges = %q, want the host change reported unresolved", got)
 	}
 }
 
