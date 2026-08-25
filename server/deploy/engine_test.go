@@ -1065,6 +1065,51 @@ func TestDeployHookCLIMayWriteTheDeployRecordDir(t *testing.T) {
 	}
 }
 
+// BUG-036: naming the denied files in RestrictWrite is not enough on its own.
+// The hook's allow list is the whole data dir and the denied files live inside
+// it, so a recursive delete of the data dir (or any ancestor) would carry them
+// off with the tree — the forward "is the target itself restricted?" check does
+// not see a restricted *descendant*. A recursive rmdir must therefore be refused
+// when its target contains a denied entry, and the auth database must survive.
+func TestDeployHookPushSandboxRefusesRecursiveDeleteOfDataDir(t *testing.T) {
+	f := newEngineFixture(t)
+	dataDir := filepath.Join(f.siteRoot, "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	authDB := filepath.Join(dataDir, ".basil-auth.db")
+	if err := os.WriteFile(authDB, []byte("the real keys"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// The traversal reaches the data dir from the hook's own directory,
+	// <site root>/releases/<sha>/, and asks for a recursive removal of it.
+	sha := commitHook(t, f, "dir(path(\"../../data\")).rmdir({recursive: true})\n")
+
+	e := f.engine(nil)
+	e.DataDir = dataDir
+	e.Trigger = TriggerPush
+	e.HookSandbox = true
+
+	res, err := e.Deploy(sha)
+	if err != nil {
+		t.Fatalf("push deploy should still succeed (hook failure is recorded, not fatal): %v", err)
+	}
+	if res.Outcome != OutcomeDeployed {
+		t.Errorf("outcome = %q, want %q", res.Outcome, OutcomeDeployed)
+	}
+	if res.Reason == "" {
+		t.Fatal("the hook's recursive delete of the data dir was not refused")
+	}
+	// The auth database (a denied descendant of the deleted tree) is intact.
+	data, err := os.ReadFile(authDB)
+	if err != nil {
+		t.Fatalf("the auth database was removed by the recursive delete: %v", err)
+	}
+	if string(data) != "the real keys" {
+		t.Errorf("the auth database was altered: %q", data)
+	}
+}
+
 // The common case still works on push: a hook that only persists durable
 // state to the data dir (a stand-in for DB/network/data-dir writes, none of
 // which are execute-gated) succeeds under the sandbox.

@@ -425,13 +425,31 @@ func (e *Environment) checkPathAccess(path string, operation string) error {
 			return fmt.Errorf("file read restricted: %s", path)
 		}
 
-	case "write":
+	case "write", "delete-tree":
+		// "write" names the exact file it touches; "delete-tree" is a recursive
+		// removal (os.RemoveAll) that names an ancestor and takes every
+		// descendant with it. Both share the write policy below; delete-tree
+		// adds one extra, inverse check.
+
 		// First check if all writes are denied
 		if e.Security.NoWrite {
 			return fmt.Errorf("file write access denied: %s", path)
 		}
-		// Check blacklist (deny specific paths)
+		// Check blacklist (deny specific paths). This is the forward question:
+		// is the operated-on path itself inside a restricted entry?
 		if isPathRestricted(absPath, e.Security.RestrictWrite) {
+			return fmt.Errorf("file write restricted: %s", path)
+		}
+		// For a recursive removal the forward check is not enough. A normal
+		// write names its victim exactly, so if that path is not restricted the
+		// write is safe. A tree removal instead names a parent and deletes
+		// everything beneath it — so a restricted entry can be the *descendant*,
+		// invisible to the forward check. Ask the inverse: does the target equal
+		// or contain any restricted entry? If so, RemoveAll would carry that
+		// entry off with the tree, so refuse. (BUG-036: FEAT-156 denied writes
+		// to the deploy record and auth DB, but both live inside the hook's
+		// writable data dir, so a recursive delete of the dir still reached them.)
+		if operation == "delete-tree" && restrictedEntryUnder(absPath, e.Security.RestrictWrite) {
 			return fmt.Errorf("file write restricted: %s", path)
 		}
 		// If AllowWriteAll is true (default for pars), allow the write
@@ -497,6 +515,35 @@ func isPathRestricted(path string, restrictList []string) bool {
 			resolvedRestricted = resolved
 		}
 		if path == resolvedRestricted || strings.HasPrefix(path, resolvedRestricted+string(filepath.Separator)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// restrictedEntryUnder is the inverse of isPathRestricted. isPathRestricted asks
+// "is this path inside a restricted entry?"; this asks "does this path equal, or
+// contain, a restricted entry?". Only a recursive removal needs the inverse: a
+// plain write names one file, but os.RemoveAll on a parent deletes every
+// descendant, so a restricted entry sitting beneath the target would be
+// destroyed without ever matching the forward check.
+func restrictedEntryUnder(path string, restrictList []string) bool {
+	// Empty restrict list = no restrictions
+	if len(restrictList) == 0 {
+		return false
+	}
+
+	for _, restricted := range restrictList {
+		// Resolve symlinks in the restricted entry for consistent comparison,
+		// exactly as isPathRestricted does, so both directions compare canonical
+		// paths. (A restricted entry that does not exist yet stays as written;
+		// EvalSymlinks fails and we keep the raw path.)
+		resolvedRestricted := restricted
+		if resolved, err := filepath.EvalSymlinks(restricted); err == nil {
+			resolvedRestricted = resolved
+		}
+		if resolvedRestricted == path || strings.HasPrefix(resolvedRestricted, path+string(filepath.Separator)) {
 			return true
 		}
 	}

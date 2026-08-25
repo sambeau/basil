@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/sambeau/basil/pkg/parsley/ast"
 )
 
 // TestFilePathTraversalAttacks tests that path traversal attempts are blocked
@@ -411,6 +413,181 @@ func TestFileDeleteSecurity(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestDeleteTreeInverseContainment covers BUG-036: a recursive removal
+// (checkPathAccess operation "delete-tree") must be refused when its target
+// equals OR contains a RestrictWrite entry, because os.RemoveAll would carry the
+// denied descendant off with the tree. The ordinary "write" operation only asks
+// the forward question (is the target itself restricted?), so a bare parent dir
+// slips past it — that is the hole this test pins down.
+func TestDeleteTreeInverseContainment(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Layout:
+	//   dataDir/            <- writable (the hook's data dir)
+	//     deploy.db         <- RestrictWrite entry (the denied victim)
+	//   siblingDir/         <- writable, holds nothing restricted
+	dataDir := filepath.Join(tmpDir, "data")
+	deniedFile := filepath.Join(dataDir, "deploy.db")
+	siblingDir := filepath.Join(tmpDir, "sibling")
+
+	for _, d := range []string{dataDir, siblingDir} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatalf("Failed to create dir %s: %v", d, err)
+		}
+	}
+	if err := os.WriteFile(deniedFile, []byte("record"), 0o644); err != nil {
+		t.Fatalf("Failed to create denied file: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		path        string
+		operation   string
+		expectError bool
+		desc        string
+	}{
+		{
+			name:        "delete-tree of dir containing restricted entry",
+			path:        dataDir,
+			operation:   "delete-tree",
+			expectError: true,
+			desc:        "Recursive delete of a parent of the denied file must be refused",
+		},
+		{
+			name:        "delete-tree of the restricted entry itself",
+			path:        deniedFile,
+			operation:   "delete-tree",
+			expectError: true,
+			desc:        "Recursive delete of the denied file's exact path must be refused",
+		},
+		{
+			name:        "delete-tree of a sibling with nothing restricted",
+			path:        siblingDir,
+			operation:   "delete-tree",
+			expectError: false,
+			desc:        "Recursive delete of a dir with no restricted descendant is allowed",
+		},
+		{
+			// Fail-before / pass-after witness: the SAME parent dir, checked as a
+			// plain "write", passes — proving the forward check alone missed the
+			// descendant and the inverse check is what closes the hole.
+			name:        "plain write of dir containing restricted entry (control)",
+			path:        dataDir,
+			operation:   "write",
+			expectError: false,
+			desc:        "The old forward-only check does not see the descendant",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := NewEnvironment()
+			env.Security = &SecurityPolicy{
+				AllowWriteAll: true,
+				RestrictWrite: []string{deniedFile},
+			}
+
+			err := env.checkPathAccess(tt.path, tt.operation)
+			gotError := err != nil
+			if gotError != tt.expectError {
+				t.Errorf("%s: expected error=%v, got error=%v (err: %v)",
+					tt.desc, tt.expectError, gotError, err)
+			}
+		})
+	}
+}
+
+// TestDeleteTreeViaRmdirMethod drives the fix through the real rmdir method
+// (methods_file_http.go), which selects os.RemoveAll for recursive:true and
+// therefore must pass the "delete-tree" operation. It confirms the wiring, not
+// just the policy helper: a recursive rmdir of a dir holding a denied file is
+// refused (and the file survives on disk), while a non-recursive remove of an
+// ordinary allowed file still succeeds.
+func TestDeleteTreeViaRmdirMethod(t *testing.T) {
+	tmpDir := t.TempDir()
+	dataDir := filepath.Join(tmpDir, "data")
+	deniedFile := filepath.Join(dataDir, "deploy.db")
+	if err := os.Mkdir(dataDir, 0o755); err != nil {
+		t.Fatalf("Failed to create data dir: %v", err)
+	}
+	if err := os.WriteFile(deniedFile, []byte("record"), 0o644); err != nil {
+		t.Fatalf("Failed to create denied file: %v", err)
+	}
+
+	env := NewEnvironment()
+	env.Security = &SecurityPolicy{
+		AllowWriteAll: true,
+		RestrictWrite: []string{deniedFile},
+	}
+
+	// Recursive rmdir of the parent must be refused, and the denied file must
+	// still exist afterwards.
+	parts, isAbs := parsePathString(dataDir)
+	dirDict := dirToDict(pathToDict(parts, isAbs, env), env)
+	recursiveOpt := &Dictionary{Pairs: map[string]ast.Expression{"recursive": &ast.Boolean{Value: true}}, Env: env}
+	result := rmdirFromDict(dirDict, []Object{recursiveOpt}, env, "dir")
+	if !isError(result) {
+		t.Fatalf("Expected recursive rmdir of dir containing a denied file to be refused, got %T", result)
+	}
+	if _, err := os.Stat(deniedFile); err != nil {
+		t.Errorf("Denied file should have survived the refused delete, but: %v", err)
+	}
+
+	// A non-recursive remove of an ordinary allowed file still works.
+	okFile := filepath.Join(tmpDir, "ok.txt")
+	if err := os.WriteFile(okFile, []byte("x"), 0o644); err != nil {
+		t.Fatalf("Failed to create ok file: %v", err)
+	}
+	okDict := buildTestFileDict(okFile, "text", env)
+	if res := evalFileRemove(okDict, env); isError(res) {
+		t.Errorf("Non-recursive remove of an ordinary allowed file should succeed, got: %s", res.(*Error).Message)
+	}
+	if _, err := os.Stat(okFile); !os.IsNotExist(err) {
+		t.Errorf("Ordinary file should have been removed, stat err: %v", err)
+	}
+}
+
+// TestDeleteTreeSymlinkedTarget checks that the inverse containment check
+// resolves the target through EvalSymlinks before comparing, exactly as the
+// forward check does. The delete-tree target is a symlink to the real data dir
+// that holds the restricted file; after resolution the target becomes the real
+// dir, which contains the restricted entry, so the removal must be refused.
+// Skips where symlink creation is unavailable.
+func TestDeleteTreeSymlinkedTarget(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping Unix-specific symlink test on Windows")
+	}
+	tmpDir := t.TempDir()
+	// Resolve tmpDir up front so path comparisons are stable on macOS
+	// (/var -> /private/var).
+	if resolved, err := filepath.EvalSymlinks(tmpDir); err == nil {
+		tmpDir = resolved
+	}
+
+	realDir := filepath.Join(tmpDir, "real") // holds the restricted file
+	if err := os.Mkdir(realDir, 0o755); err != nil {
+		t.Fatalf("mkdir realDir: %v", err)
+	}
+	restricted := filepath.Join(realDir, "deploy.db")
+	if err := os.WriteFile(restricted, []byte("record"), 0o644); err != nil {
+		t.Fatalf("write restricted: %v", err)
+	}
+	// A symlink pointing at realDir; deleting through it must still be refused.
+	linkDir := filepath.Join(tmpDir, "link")
+	if err := os.Symlink(realDir, linkDir); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+
+	env := NewEnvironment()
+	env.Security = &SecurityPolicy{
+		AllowWriteAll: true,
+		RestrictWrite: []string{restricted},
+	}
+	if err := env.checkPathAccess(linkDir, "delete-tree"); err == nil {
+		t.Errorf("Expected delete-tree of a symlink to a dir containing a restricted entry to be refused")
 	}
 }
 

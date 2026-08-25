@@ -176,7 +176,15 @@ func rmdirFromDict(dict *Dictionary, args []Object, env *Environment, typeLabel 
 			}
 		}
 	}
-	if err := env.checkPathAccess(absPath, "write"); err != nil {
+	// A recursive removal deletes every descendant, so it needs the stricter
+	// "delete-tree" check that also refuses when a sandbox-denied path sits
+	// beneath the target (BUG-036). A non-recursive remove names one file and
+	// uses the ordinary "write" check.
+	op := "write"
+	if recursive {
+		op = "delete-tree"
+	}
+	if err := env.checkPathAccess(absPath, op); err != nil {
 		return newSecurityError("write", err)
 	}
 	var err error
