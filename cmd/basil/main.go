@@ -51,6 +51,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 			return runStatusCommand(args[1:], stdout, stderr, getenv)
 		case "check":
 			return runCheckCommand(args[1:], stdout, stderr, getenv)
+		case "fmt":
+			return runFmtCommand(args[1:], stdout, stderr, getenv)
 		}
 	}
 
@@ -242,6 +244,9 @@ Deployment:
   basil releases                 Show the deploy record; * marks the live release
   basil status                   What is live, and whether the release branch is ahead
   basil check                    Verify bootstrap preconditions (DNS, port 80, certificate, layout)
+
+Formatting:
+  basil fmt [path...]            Format Parsley (.pars) source; dirs are walked, -w writes, -l lists, -d diffs
 
 User Management:
   basil users create           Create a new user

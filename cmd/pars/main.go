@@ -916,28 +916,18 @@ func formatFile(filename string, write, diff, list bool) error {
 
 	source := string(content)
 
-	// Create lexer and parser
-	l := lexer.NewWithFilename(source, filename)
-	p := parser.New(l)
-
-	// Parse the program
-	program := p.ParseProgram()
-	if errs := p.StructuredErrors(); len(errs) != 0 {
-		// Print parse errors
+	// Format via the shared pipeline (lex, parse, FormatProgram, newline
+	// normalisation) so pars and basil share one implementation.
+	formatted, err := format.FormatSource(filename, source)
+	if err != nil {
+		// Reproduce the original parse-error report exactly: the structured
+		// error's PrettyString followed by a source-context pointer.
 		lines := strings.Split(source, "\n")
-		for _, err := range errs {
-			fmt.Fprintln(os.Stderr, err.PrettyString())
-			printSourceContext(lines, err.Line, err.Column)
+		if perr, ok := format.AsParsleyError(err); ok {
+			fmt.Fprintln(os.Stderr, perr.PrettyString())
+			printSourceContext(lines, perr.Line, perr.Column)
 		}
 		return fmt.Errorf("parse errors")
-	}
-
-	// Format the AST
-	formatted := format.FormatProgram(program)
-
-	// Ensure file ends with newline
-	if !strings.HasSuffix(formatted, "\n") {
-		formatted += "\n"
 	}
 
 	// Check if formatting changed anything
@@ -974,33 +964,9 @@ func formatFile(filename string, write, diff, list bool) error {
 	return nil
 }
 
-// showDiff displays a simple diff between original and formatted content
+// showDiff displays a simple diff between original and formatted content.
+// The diff rendering now lives in the shared format package so pars and basil
+// emit identical output; this wrapper just prints it.
 func showDiff(filename, original, formatted string) {
-	fmt.Printf("diff %s\n", filename)
-
-	origLines := strings.Split(original, "\n")
-	fmtLines := strings.Split(formatted, "\n")
-
-	// Simple line-by-line diff (not a full unified diff, but useful)
-	maxLines := max(len(fmtLines), len(origLines))
-
-	for i := range maxLines {
-		origLine := ""
-		fmtLine := ""
-		if i < len(origLines) {
-			origLine = origLines[i]
-		}
-		if i < len(fmtLines) {
-			fmtLine = fmtLines[i]
-		}
-
-		if origLine != fmtLine {
-			if origLine != "" {
-				fmt.Printf("-%d: %s\n", i+1, origLine)
-			}
-			if fmtLine != "" {
-				fmt.Printf("+%d: %s\n", i+1, fmtLine)
-			}
-		}
-	}
+	fmt.Print(format.Diff(filename, original, formatted))
 }

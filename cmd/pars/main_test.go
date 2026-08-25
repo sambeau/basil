@@ -153,6 +153,50 @@ func TestEvaluateInlineRawPrettyPrint(t *testing.T) {
 	}
 }
 
+// TestFormatFileWrite exercises the refactored formatFile (now backed by the
+// shared pkg/parsley/format pipeline) via its file-touching -w path: messy
+// source is rewritten, a parse error is reported and never mangles the file,
+// and already-formatted source is a no-op.
+func TestFormatFileWrite(t *testing.T) {
+	dir := t.TempDir()
+
+	// Messy source is rewritten in place.
+	messy := dir + "/messy.pars"
+	if err := os.WriteFile(messy, []byte("let    x    =    5\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := formatFile(messy, true, false, false); err != nil {
+		t.Fatalf("formatFile(-w) on messy source: %v", err)
+	}
+	got, _ := os.ReadFile(messy)
+	if string(got) != "let x = 5\n" {
+		t.Errorf("messy source not reformatted: got %q", got)
+	}
+
+	// Re-running is a byte-for-byte no-op.
+	if err := formatFile(messy, true, false, false); err != nil {
+		t.Fatalf("formatFile(-w) idempotent run: %v", err)
+	}
+	got2, _ := os.ReadFile(messy)
+	if string(got2) != "let x = 5\n" {
+		t.Errorf("formatting not idempotent: got %q", got2)
+	}
+
+	// A parse error returns an error and leaves the file untouched.
+	broken := dir + "/broken.pars"
+	const brokenSrc = "let x = = 2\n"
+	if err := os.WriteFile(broken, []byte(brokenSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := formatFile(broken, true, false, false); err == nil {
+		t.Error("expected a parse error, got nil")
+	}
+	gotBroken, _ := os.ReadFile(broken)
+	if string(gotBroken) != brokenSrc {
+		t.Errorf("parse error mangled the file: got %q", gotBroken)
+	}
+}
+
 // TestMain ensures the binary is built before running tests
 func TestMain(m *testing.M) {
 	// Build the binary
