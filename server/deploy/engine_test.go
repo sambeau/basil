@@ -3,9 +3,11 @@ package deploy
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -835,5 +837,132 @@ func TestPrepareThenDeployEndToEnd(t *testing.T) {
 	}
 	if entries[0].Outcome != OutcomeDeployed || entries[0].Trigger != TriggerPush {
 		t.Errorf("entry = %+v, want deployed via push", entries[0])
+	}
+}
+
+// --- FEAT-154 Option 1: sandbox deploy.pars on the push trigger -----------
+//
+// The trust boundary: a `basil deploy` at the server shell is operator code
+// and keeps full @shell/@exec power; a push runs deploy.pars on behalf of a
+// remote pusher, so exec is refused and writes are scoped to the data dir.
+
+// commitHook writes a deploy.pars into the fixture repo and commits it,
+// returning the new commit's SHA.
+func commitHook(t *testing.T, f engineFixture, content string) string {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(f.repo, HookFileName), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runTestGit(t, f.repo, "add", "-A")
+	runTestGit(t, f.repo, "commit", "-m", "hook under test")
+	return runTestGit(t, f.repo, "rev-parse", "HEAD")
+}
+
+// A CLI-triggered deploy (server shell) keeps full power: a deploy.pars that
+// shells out actually runs the command.
+func TestDeployHookCLIAllowsShell(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("hook uses the touch binary")
+	}
+	f := newEngineFixture(t)
+	sentinel := filepath.Join(t.TempDir(), "cli-shell-ran")
+	sha := commitHook(t, f, fmt.Sprintf("@shell(%q, [%q]) <=#=> null\n", "touch", sentinel))
+
+	e := f.engine(nil)
+	e.DataDir = filepath.Join(f.siteRoot, "data")
+	// HookSandbox is false (default): the server-shell path keeps full power.
+
+	res, err := e.Deploy(sha)
+	if err != nil {
+		t.Fatalf("CLI deploy: %v", err)
+	}
+	if res.Reason != "" {
+		t.Errorf("CLI hook should succeed, got reason %q", res.Reason)
+	}
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Errorf("@shell did not run under the CLI (full-power) policy: %v", err)
+	}
+}
+
+// A push-triggered deploy of the SAME hook: the release still goes live, but
+// the hook's @shell is refused. The refusal is recorded (not rolled back, per
+// FEAT-153) and names the `basil deploy` escape hatch, and the command's side
+// effect is absent — proof the exec never happened.
+func TestDeployHookPushSandboxRefusesShell(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("hook uses the touch binary")
+	}
+	f := newEngineFixture(t)
+	sentinel := filepath.Join(t.TempDir(), "push-shell-ran")
+	sha := commitHook(t, f, fmt.Sprintf("@shell(%q, [%q]) <=#=> null\n", "touch", sentinel))
+
+	e := f.engine(nil)
+	e.DataDir = filepath.Join(f.siteRoot, "data")
+	e.Trigger = TriggerPush
+	e.Publisher = "alice"
+	e.HookSandbox = true
+
+	res, err := e.Deploy(sha)
+	if err != nil {
+		t.Fatalf("push deploy should still succeed (hook failure is recorded, not fatal): %v", err)
+	}
+	// The deploy went live regardless of the hook's failure.
+	if res.Outcome != OutcomeDeployed {
+		t.Errorf("outcome = %q, want %q", res.Outcome, OutcomeDeployed)
+	}
+	if got := currentSHA(t, f.siteRoot); got != sha {
+		t.Errorf("release is not live: current = %q, want %q", got, sha)
+	}
+	// The hook was refused, loudly, with an actionable escape hatch.
+	if res.Reason == "" {
+		t.Fatal("sandboxed @shell hook was not refused")
+	}
+	if !strings.Contains(res.Reason, "basil deploy") {
+		t.Errorf("refusal reason does not name the escape hatch: %q", res.Reason)
+	}
+	// ...and the refusal is on the record (deployed-with-reason, not rolled back).
+	newest := recordEntries(t, e)[0]
+	if newest.Outcome != OutcomeDeployed || newest.CommitSHA != sha {
+		t.Errorf("newest record = %+v, want deployed %s", newest, sha)
+	}
+	if !strings.Contains(newest.Reason, "basil deploy") {
+		t.Errorf("recorded reason does not name the escape hatch: %q", newest.Reason)
+	}
+	// The @shell never ran: its side effect is absent.
+	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
+		t.Errorf("sandboxed @shell ran anyway: sentinel present (stat err = %v)", err)
+	}
+}
+
+// The common case still works on push: a hook that only persists durable
+// state to the data dir (a stand-in for DB/network/data-dir writes, none of
+// which are execute-gated) succeeds under the sandbox.
+func TestDeployHookPushSandboxAllowsDataDirWrite(t *testing.T) {
+	f := newEngineFixture(t)
+	dataDir := filepath.Join(f.siteRoot, "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	statePath := filepath.Join(dataDir, "hook-state.txt")
+	sha := commitHook(t, f, fmt.Sprintf("%q ==> text(path(%q))\n", "hook persisted", statePath))
+
+	e := f.engine(nil)
+	e.DataDir = dataDir
+	e.Trigger = TriggerPush
+	e.HookSandbox = true
+
+	res, err := e.Deploy(sha)
+	if err != nil {
+		t.Fatalf("push deploy: %v", err)
+	}
+	if res.Reason != "" {
+		t.Errorf("data-dir-write hook should succeed under the sandbox, got reason %q", res.Reason)
+	}
+	data, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("hook did not persist to the data dir: %v", err)
+	}
+	if !strings.Contains(string(data), "hook persisted") {
+		t.Errorf("hook wrote %q, want it to contain %q", data, "hook persisted")
 	}
 }

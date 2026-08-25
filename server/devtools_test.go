@@ -741,3 +741,49 @@ func TestBytesEqual(t *testing.T) {
 		})
 	}
 }
+
+// The devtools Git panel must reflect what is actually SERVED, not
+// cfg.Git.Enabled (which now defaults true). A server with no Git handler
+// mounted must not advertise "Git enabled"; once a handler is mounted it does.
+func TestDevToolsConfigGitPanelFollowsServedState(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := config.Defaults()
+	cfg.ReleaseDir = tmpDir
+	cfg.DataDir = tmpDir
+	cfg.Server.Dev = true
+
+	var stdout, stderr bytes.Buffer
+	s, err := New(cfg, "", "test", "test-commit", &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer s.Close()
+
+	render := func() string {
+		h := newDevToolsHandler(s)
+		req := httptest.NewRequest("GET", "/__/env", http.NoBody)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("/__/env: got %d", w.Code)
+		}
+		return w.Body.String()
+	}
+
+	// No handler served → no Git panel, despite cfg.Git.Enabled == true.
+	if s.gitHandler != nil {
+		t.Fatal("precondition: expected no Git handler on this bare-layout test server")
+	}
+	if !cfg.Git.Enabled {
+		t.Fatal("precondition: cfg.Git.Enabled should default true, making this test meaningful")
+	}
+	if body := render(); strings.Contains(body, "Git HTTP server settings") {
+		t.Error("Git panel shown though no Git handler is served")
+	}
+
+	// Once a handler is mounted, the panel appears.
+	s.gitHandler = newTestGitHandler(t, cfg, nil)
+	if body := render(); !strings.Contains(body, "Git HTTP server settings") {
+		t.Error("Git panel missing though a Git handler is served")
+	}
+}

@@ -383,6 +383,54 @@ func TestGitE2E_PushReleaseBranchDeploysWithPublisher(t *testing.T) {
 	}
 }
 
+// An EDITOR (not admin) can publish the release branch: the push deploys and
+// the record names the editor as publisher. Every other release-push test
+// authenticates as the admin; this closes the role-matrix gap the spec review
+// named — the editor role is what most contributors actually hold.
+func TestGitE2E_EditorPublishesReleaseBranch(t *testing.T) {
+	site := newGitSite(t)
+	srv, ts := site.startServer(t, false, true)
+
+	// Add an editor with an API key to the site's auth DB.
+	editor, err := srv.authDB.CreateUserWithRole("Eddy", "eddy@example.com", auth.RoleEditor)
+	if err != nil {
+		t.Fatalf("creating editor: %v", err)
+	}
+	_, editorKey, err := srv.authDB.CreateAPIKey(editor.ID, "e2e")
+	if err != nil {
+		t.Fatalf("creating editor API key: %v", err)
+	}
+
+	work := clone(t, cloneURL(ts, "eddy", editorKey))
+	sha := commit(t, work, "site/index.pars", "<h1>\"editor release\"</h1>\n", "editor release")
+
+	out, err := gitRun(work, nil, "push", "origin", releaseBranch)
+	if err != nil {
+		t.Fatalf("editor release push failed: %v:\n%s", err, out)
+	}
+
+	if got := site.currentSHA(t); got != sha {
+		t.Errorf("current points at %s, want the editor-pushed %s", got, sha)
+	}
+	var rec deploy.Entry
+	found := false
+	for _, e := range site.recordEntries(t) {
+		if e.CommitSHA == sha {
+			rec, found = e, true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no record row for the editor-pushed release %s", sha)
+	}
+	if rec.Trigger != deploy.TriggerPush {
+		t.Errorf("record trigger = %q, want %q", rec.Trigger, deploy.TriggerPush)
+	}
+	if rec.Publisher != editor.Name {
+		t.Errorf("record publisher = %q, want the editor %q", rec.Publisher, editor.Name)
+	}
+}
+
 // A broken release commit is REJECTED before the ref moves: git push exits
 // non-zero, the remote release branch is unmoved, the developer's terminal
 // shows the file:line error, and the live site is unchanged. This is the

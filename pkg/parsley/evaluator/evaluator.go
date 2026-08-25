@@ -660,6 +660,14 @@ type SecurityPolicy struct {
 	AllowWriteAll   bool     // Allow all writes (default true for pars)
 	AllowExecute    []string // Allowed execute directories (whitelist)
 	AllowExecuteAll bool     // Allow all executes
+
+	// HardExecuteDeny makes a blocked command execution surface as a real
+	// evaluator error (fail-closed, aborting the script) instead of the
+	// default soft behaviour where @shell/@exec returns a result dictionary
+	// carrying an "error" field. Served handlers keep the soft behaviour (a
+	// Part that shells out just gets an error result); the push-triggered
+	// deploy hook sets this so a blocked exec cannot be silently ignored.
+	HardExecuteDeny bool
 }
 
 // Logger interface for log()/logLine() output
@@ -4285,6 +4293,12 @@ func executeCommand(cmdDict *Dictionary, input Object, env *Environment) Object 
 	// Security check
 	if env.Security != nil {
 		if err := env.checkPathAccess(resolvedPath, "execute"); err != nil {
+			// Fail-closed callers (e.g. the sandboxed deploy hook) want a real
+			// error that aborts the script; the default is a soft error result
+			// so served Parts can inspect and continue.
+			if env.Security.HardExecuteDeny {
+				return newSecurityError("execute", err)
+			}
 			return createErrorResult("security: "+err.Error(), -1)
 		}
 	}

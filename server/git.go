@@ -14,6 +14,7 @@ package server
 import (
 	"compress/gzip"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -25,6 +26,39 @@ import (
 	"github.com/sambeau/basil/server/auth"
 	"github.com/sambeau/basil/server/config"
 )
+
+// maxDecompressedPush bounds how far a gzipped RPC body may inflate before it
+// reaches git's stdin. A gzip bomb is a tiny POST body that decompresses
+// without limit; unbounded, it drives arbitrary CPU/IO in the git child. The
+// cap is deliberately generous — far larger than any real push's smart-protocol
+// stream (the pack it carries is already compressed, so gzip barely shrinks it)
+// — so it never trips a legitimate push. This is only the decompression bound;
+// a total-push-size limit is a separate, deferred concern (spec Open Q#2).
+const maxDecompressedPush = 1 << 30 // 1 GiB
+
+// errPushTooLarge is the refusal when a decompressed RPC body passes
+// maxDecompressedPush.
+var errPushTooLarge = errors.New("git RPC body exceeded the decompressed size limit")
+
+// limitReader wraps r so that reading more than limit bytes in total fails with
+// errPushTooLarge. It is deliberately NOT io.LimitReader: that reports a clean
+// EOF at the cap, silently truncating the stream — a git stream cut at an
+// arbitrary point must be an error, never a short read git could mistake for a
+// complete (tiny) request.
+type limitReader struct {
+	r     io.Reader
+	limit int64
+	read  int64
+}
+
+func (l *limitReader) Read(p []byte) (int, error) {
+	n, err := l.r.Read(p)
+	l.read += int64(n)
+	if l.read > l.limit {
+		return n, errPushTooLarge
+	}
+	return n, err
+}
 
 // publisherEnv is the environment variable the receive hooks read to record
 // who pushed (cmd/basil/fromhook.go, DESIGN-git-deploy D20).
@@ -78,6 +112,11 @@ func (h *GitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The requested git service, decided ONCE from the decoded request. The
+	// role gate and the advertisement/RPC routing below both read this single
+	// value, so they cannot disagree under percent-encoding.
+	service, isGit := h.gitService(r)
+
 	// publisher is the authenticated account name, exported to the receive
 	// hooks as BASIL_PUBLISHER so the deploy record names who pushed.
 	var publisher string
@@ -94,7 +133,9 @@ func (h *GitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return // response already sent
 		}
-		if h.isPushRequest(r) && user.Role != auth.RoleAdmin && user.Role != auth.RoleEditor {
+		// The write/push gate applies whenever the decoded service is
+		// receive-pack — on the info/refs advertisement as well as the RPC.
+		if service == "receive-pack" && user.Role != auth.RoleAdmin && user.Role != auth.RoleEditor {
 			http.Error(w, fmt.Sprintf("Forbidden: pushing requires the editor or admin role (%s has the %s role)", user.Name, user.Role), http.StatusForbidden)
 			return
 		}
@@ -113,11 +154,18 @@ func (h *GitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Route. The mux mounts us at /.git/; everything the Smart HTTP
 	// protocol needs is exactly these paths, so anything else is 404 — the
-	// repository's files themselves are never served.
+	// repository's files themselves are never served. Both branches route on
+	// the same decoded service the gate used above.
 	path := strings.TrimPrefix(r.URL.Path, "/.git")
 	switch {
 	case r.Method == http.MethodGet && path == "/info/refs":
-		h.advertiseRefs(w, r)
+		if !isGit {
+			// The dumb HTTP protocol (no/unknown service) is deliberately not
+			// served: every git since 2010 speaks Smart HTTP.
+			http.Error(w, "smart HTTP is required: ?service=git-upload-pack or ?service=git-receive-pack", http.StatusForbidden)
+			return
+		}
+		h.advertiseRefs(w, r, service)
 	case r.Method == http.MethodPost && path == "/git-upload-pack":
 		h.serviceRPC(w, r, "upload-pack", "")
 	case r.Method == http.MethodPost && path == "/git-receive-pack":
@@ -129,15 +177,9 @@ func (h *GitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // advertiseRefs answers GET /info/refs?service=git-{upload,receive}-pack —
 // the ref advertisement that starts every Smart HTTP exchange.
-func (h *GitHandler) advertiseRefs(w http.ResponseWriter, r *http.Request) {
-	service := strings.TrimPrefix(r.URL.Query().Get("service"), "git-")
-	if service != "upload-pack" && service != "receive-pack" {
-		// The dumb HTTP protocol (no service parameter) is deliberately not
-		// served: every git since 2010 speaks Smart HTTP.
-		http.Error(w, "smart HTTP is required: ?service=git-upload-pack or ?service=git-receive-pack", http.StatusForbidden)
-		return
-	}
-
+func (h *GitHandler) advertiseRefs(w http.ResponseWriter, r *http.Request, service string) {
+	// service is the decoded, validated value computed in ServeHTTP — the
+	// same one the role gate read, so advertisement and gate never diverge.
 	cmd := exec.CommandContext(r.Context(), h.gitPath, service, "--stateless-rpc", "--advertise-refs", ".")
 	cmd.Dir = h.repoDir
 	cmd.Stderr = h.stderr
@@ -175,7 +217,9 @@ func (h *GitHandler) serviceRPC(w http.ResponseWriter, r *http.Request, service,
 			return
 		}
 		defer gz.Close()
-		body = gz
+		// Bound the DECOMPRESSED stream (not the compressed body): a gzip bomb
+		// is small on the wire and huge once inflated.
+		body = &limitReader{r: gz, limit: maxDecompressedPush}
 	}
 
 	// The hooks inherit this environment. Any BASIL_PUBLISHER the server
@@ -319,17 +363,32 @@ func (h *GitHandler) sendAuthChallenge(w http.ResponseWriter, message string) {
 	http.Error(w, message, http.StatusUnauthorized)
 }
 
-// isPushRequest returns true if this is a Git push operation.
-func (h *GitHandler) isPushRequest(r *http.Request) bool {
-	// Push requests go to git-receive-pack
-	if strings.Contains(r.URL.Path, "git-receive-pack") {
-		return true
+// gitService identifies which git service a request drives, from the DECODED
+// request — the query is parsed by net/url, not substring-matched on the raw
+// bytes. This is the single source of truth for BOTH the role gate and the
+// advertisement/RPC routing: deriving them separately let the two disagree
+// under percent-encoding (?service=git-receive%2dpack decodes to receive-pack
+// for the advertisement but slips a raw substring match, skipping the gate).
+//
+// It returns the service ("upload-pack" or "receive-pack") and whether the
+// request is a recognised smart-HTTP git request at all; anything else (an
+// unknown or missing service) returns ok=false and is refused by the caller.
+func (h *GitHandler) gitService(r *http.Request) (service string, ok bool) {
+	path := strings.TrimPrefix(r.URL.Path, "/.git")
+	switch {
+	case r.Method == http.MethodGet && path == "/info/refs":
+		service = strings.TrimPrefix(r.URL.Query().Get("service"), "git-")
+	case r.Method == http.MethodPost && path == "/git-upload-pack":
+		service = "upload-pack"
+	case r.Method == http.MethodPost && path == "/git-receive-pack":
+		service = "receive-pack"
+	default:
+		return "", false
 	}
-	// Also check the service parameter for refs requests
-	if strings.Contains(r.URL.RawQuery, "service=git-receive-pack") {
-		return true
+	if service != "upload-pack" && service != "receive-pack" {
+		return "", false
 	}
-	return false
+	return service, true
 }
 
 // isDevLocalhost returns true if we're in dev mode and the request is from

@@ -85,7 +85,8 @@ func TestCheckVerificationRateLimit_DailyLimitPerEmail(t *testing.T) {
 
 	// Create multiple users sending to same email (spam attack simulation)
 	for i := range 20 {
-		user, _ := db.CreateUser("User "+string(rune(i)), email)
+		// Distinct printable names (control chars are rejected as account names).
+		user, _ := db.CreateUser("User "+string(rune('A'+i)), email)
 		token, _ := GenerateVerificationToken()
 		hash, _ := HashToken(token)
 		tokenID, _ := db.StoreVerificationToken(ctx, user.ID, email, hash, TokenLookupHash(token), time.Now().Add(1*time.Hour))

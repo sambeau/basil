@@ -328,6 +328,36 @@ func TestCreateUserWithRole(t *testing.T) {
 	}
 }
 
+// SetUserRole must accept every role createUserInternal accepts, viewer
+// included — otherwise `basil users role <u> viewer` fails though create
+// allows it.
+func TestSetUserRoleViewer(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	user, err := db.CreateUserWithRole("Downgrade Me", "viewer@example.com", RoleEditor)
+	if err != nil {
+		t.Fatalf("CreateUserWithRole failed: %v", err)
+	}
+
+	if err := db.SetUserRole(user.ID, RoleViewer); err != nil {
+		t.Fatalf("SetUserRole to viewer failed: %v", err)
+	}
+
+	got, err := db.GetUser(user.ID)
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if got.Role != RoleViewer {
+		t.Errorf("role after SetUserRole = %q, want %q", got.Role, RoleViewer)
+	}
+
+	// The three real roles all round-trip; a bogus one is still refused.
+	if err := db.SetUserRole(user.ID, "wizard"); err == nil {
+		t.Error("SetUserRole accepted an invalid role")
+	}
+}
+
 func TestUpdateUser(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
@@ -490,4 +520,41 @@ func setupTestDB(t *testing.T) *DB {
 	}
 
 	return db
+}
+
+// An account name is echoed into the git stdout log; a newline in it would
+// forge log lines. Names with control characters are refused at creation and
+// rename.
+func TestAccountNameRejectsControlChars(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	bad := []string{
+		"alice\nadmin",    // newline: the log-forging vector
+		"bob\rcarol",      // carriage return
+		"eve\x00",         // NUL
+		"mallory\tsneaky", // tab
+	}
+	for _, name := range bad {
+		if _, err := db.CreateUserWithRole(name, "x@example.com", RoleEditor); err == nil {
+			t.Errorf("CreateUserWithRole(%q) was accepted, want rejection", name)
+		}
+	}
+
+	// A clean name still works, and renaming it to a control-char name is
+	// refused while the record stays intact.
+	user, err := db.CreateUserWithRole("Clean Name", "clean@example.com", RoleEditor)
+	if err != nil {
+		t.Fatalf("clean name rejected: %v", err)
+	}
+	if err := db.UpdateUser(user.ID, "renamed\nadmin", ""); err == nil {
+		t.Error("UpdateUser accepted a control-char rename, want rejection")
+	}
+	got, err := db.GetUser(user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "Clean Name" {
+		t.Errorf("name after refused rename = %q, want it unchanged", got.Name)
+	}
 }

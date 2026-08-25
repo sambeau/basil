@@ -1341,8 +1341,11 @@ func (h *devToolsHandler) createDevToolsEnv(path string, r *http.Request) *evalu
 			})
 		}
 
-		// Git section (if enabled)
-		if cfg.Git.Enabled {
+		// Git section (only when a Git handler is actually served). Gating on
+		// cfg.Git.Enabled (which now defaults true) would advertise "Git
+		// enabled" even where no handler is mounted — e.g. the legacy layout;
+		// the served handler is the truthful signal.
+		if h.server.gitHandler != nil {
 			configGroups = append(configGroups, map[string]any{
 				"name":        "Git",
 				"description": "Git HTTP server settings",

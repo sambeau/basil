@@ -121,6 +121,10 @@ func runFromHook(which, site, configPath string, stdin io.Reader, stdout, stderr
 	eng.Trigger = deploy.TriggerPush
 	eng.Publisher = hookPublisher(getenv)
 	eng.Out = stdout
+	// A push runs deploy.pars on behalf of a remote pusher, so the hook is
+	// sandboxed: no @shell/@exec, writes scoped to the data dir. Full shell
+	// power stays with `basil deploy` at the server shell (HookSandbox false).
+	eng.HookSandbox = true
 
 	releaseRef := cfg.Deploy.ReleaseRef()
 	switch which {

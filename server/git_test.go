@@ -2,7 +2,10 @@ package server
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/tls"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
@@ -183,6 +186,48 @@ func TestGitHandler_ViewerCannotPush(t *testing.T) {
 	}
 }
 
+// A percent-encoded service must not slip the role gate: ?service=git-
+// receive%2dpack decodes to receive-pack for the advertisement, so it must
+// decode to receive-pack for the gate too. (Regression PoC for the FEAT-154
+// review: raw-substring gate vs decoded advertisement disagreed.)
+func TestGitHandler_ViewerCannotPushPercentEncoded(t *testing.T) {
+	cfg := &config.Config{Server: config.ServerConfig{Dev: false}}
+	authDB, key := newTestAuthDB(t, "Vera", auth.RoleViewer)
+	h := newTestGitHandler(t, cfg, authDB)
+
+	for _, target := range []string{
+		"/.git/info/refs?service=git-receive-pack",   // plain form
+		"/.git/info/refs?service=git-receive%2dpack", // %2d = '-'
+	} {
+		req := tlsRequest("GET", target)
+		req.SetBasicAuth("vera", key)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		if w.Code != http.StatusForbidden {
+			t.Errorf("viewer at %s: got %d, want 403 (body: %s)", target, w.Code, w.Body.String())
+		}
+		if body := w.Body.String(); !strings.Contains(body, "editor or admin") {
+			t.Errorf("viewer at %s: refusal should name the required role, got: %q", target, body)
+		}
+	}
+}
+
+// The same percent-encoded receive-pack advertisement an editor requests is
+// allowed — the gate decodes, it does not blanket-refuse encoded forms.
+func TestGitHandler_EditorMayPushPercentEncoded(t *testing.T) {
+	cfg := &config.Config{Server: config.ServerConfig{Dev: false}}
+	authDB, key := newTestAuthDB(t, "Eddy", auth.RoleEditor)
+	h := newTestGitHandler(t, cfg, authDB)
+
+	req := tlsRequest("GET", "/.git/info/refs?service=git-receive%2dpack")
+	req.SetBasicAuth("eddy", key)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("editor percent-encoded push advertisement: got %d, want 200 (body: %s)", w.Code, w.Body.String())
+	}
+}
+
 // An editor gets through the role gate for pushes.
 func TestGitHandler_EditorMayPush(t *testing.T) {
 	cfg := &config.Config{Server: config.ServerConfig{Dev: false}}
@@ -198,26 +243,36 @@ func TestGitHandler_EditorMayPush(t *testing.T) {
 	}
 }
 
-func TestGitHandler_IsPushRequest(t *testing.T) {
+func TestGitHandler_GitService(t *testing.T) {
 	cfg := &config.Config{Server: config.ServerConfig{Dev: true}}
 	h := newTestGitHandler(t, cfg, nil)
 
 	tests := []struct {
-		path   string
-		query  string
-		isPush bool
+		method  string
+		path    string
+		query   string
+		service string
+		ok      bool
 	}{
-		{"/.git/info/refs", "service=git-upload-pack", false},
-		{"/.git/info/refs", "service=git-receive-pack", true},
-		{"/.git/git-upload-pack", "", false},
-		{"/.git/git-receive-pack", "", true},
+		{"GET", "/.git/info/refs", "service=git-upload-pack", "upload-pack", true},
+		{"GET", "/.git/info/refs", "service=git-receive-pack", "receive-pack", true},
+		// Percent-encoded hyphen (%2d = '-') must decode to the same service
+		// the advertisement runs, so the role gate cannot be slipped.
+		{"GET", "/.git/info/refs", "service=git-receive%2dpack", "receive-pack", true},
+		{"GET", "/.git/info/refs", "service=git-upload%2dpack", "upload-pack", true},
+		// Unknown / missing / dumb-protocol services are not git requests.
+		{"GET", "/.git/info/refs", "service=git-evil-pack", "", false},
+		{"GET", "/.git/info/refs", "", "", false},
+		{"POST", "/.git/git-upload-pack", "", "upload-pack", true},
+		{"POST", "/.git/git-receive-pack", "", "receive-pack", true},
 	}
 
 	for _, tt := range tests {
-		req := httptest.NewRequest("POST", tt.path+"?"+tt.query, http.NoBody)
-		got := h.isPushRequest(req)
-		if got != tt.isPush {
-			t.Errorf("isPushRequest(%s?%s) = %v, want %v", tt.path, tt.query, got, tt.isPush)
+		req := httptest.NewRequest(tt.method, tt.path+"?"+tt.query, http.NoBody)
+		service, ok := h.gitService(req)
+		if service != tt.service || ok != tt.ok {
+			t.Errorf("gitService(%s %s?%s) = (%q, %v), want (%q, %v)",
+				tt.method, tt.path, tt.query, service, ok, tt.service, tt.ok)
 		}
 	}
 }
@@ -338,5 +393,51 @@ func TestCheckRepoOutsideServedRoots(t *testing.T) {
 	cfg4 := &config.Config{DataDir: root, SiteRoot: filepath.Dir(root)}
 	if err := checkRepoOutsideServedRoots(cfg4, filepath.Join(root, "uploads", "site.git")); err == nil {
 		t.Fatal("repository inside the uploads directory was accepted")
+	}
+}
+
+// A gzipped RPC body is bounded by its DECOMPRESSED size, so a tiny "gzip
+// bomb" cannot inflate without limit into git's stdin. limitReader refuses
+// (errors) rather than truncating; a normal body passes straight through.
+func TestGitHandler_BoundedGzip(t *testing.T) {
+	gzipOf := func(n int) []byte {
+		var buf bytes.Buffer
+		zw := gzip.NewWriter(&buf)
+		if _, err := zw.Write(bytes.Repeat([]byte("A"), n)); err != nil {
+			t.Fatal(err)
+		}
+		if err := zw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return buf.Bytes()
+	}
+
+	// Under the cap: the full decompressed payload reads back cleanly.
+	small := gzipOf(4096)
+	gz, err := gzip.NewReader(bytes.NewReader(small))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := io.ReadAll(&limitReader{r: gz, limit: 1 << 20})
+	if err != nil {
+		t.Fatalf("normal body was refused: %v", err)
+	}
+	if len(got) != 4096 {
+		t.Errorf("decompressed %d bytes, want 4096", len(got))
+	}
+
+	// Over the cap: a body that inflates past the limit is refused. The
+	// compressed input here is a few dozen bytes; decompressed it is 1 MiB.
+	bomb := gzipOf(1 << 20)
+	if len(bomb) > 4096 {
+		t.Fatalf("test bomb is not actually small on the wire: %d bytes", len(bomb))
+	}
+	gz, err = gzip.NewReader(bytes.NewReader(bomb))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = io.ReadAll(&limitReader{r: gz, limit: 64 << 10}) // 64 KiB cap
+	if !errors.Is(err, errPushTooLarge) {
+		t.Errorf("over-limit decompressed body: err = %v, want errPushTooLarge", err)
 	}
 }

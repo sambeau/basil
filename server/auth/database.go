@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	// SQLite driver
 	_ "modernc.org/sqlite"
@@ -291,8 +292,25 @@ func (d *DB) CreateUserWithRole(name, email, role string) (*User, error) {
 	return d.createUserInternal(generateID("usr"), name, email, role)
 }
 
+// validateAccountName rejects names containing control characters (newline
+// included). The account name is echoed verbatim into the `[git] … by <name>`
+// stdout log line (server/git.go); a newline in a name would forge additional
+// log lines. Names are admin-assigned, so this is low-risk, but the check is
+// cheap and closes the injection at the source (create and rename).
+func validateAccountName(name string) error {
+	for _, r := range name {
+		if unicode.IsControl(r) {
+			return fmt.Errorf("invalid account name: control characters (including newlines) are not allowed")
+		}
+	}
+	return nil
+}
+
 // createUserInternal is the internal user creation function.
 func (d *DB) createUserInternal(id, name, email, role string) (*User, error) {
+	if err := validateAccountName(name); err != nil {
+		return nil, err
+	}
 	if role == "" {
 		role = RoleEditor
 	}
@@ -537,6 +555,11 @@ func (d *DB) UpdateUser(id, name, email string) error {
 	if name == "" && email == "" {
 		return fmt.Errorf("at least one of name or email must be provided")
 	}
+	if name != "" {
+		if err := validateAccountName(name); err != nil {
+			return err
+		}
+	}
 
 	// Build update query dynamically
 	query := "UPDATE users SET "
@@ -571,8 +594,8 @@ func (d *DB) UpdateUser(id, name, email string) error {
 
 // SetUserRole changes a user's role.
 func (d *DB) SetUserRole(id, role string) error {
-	if role != RoleAdmin && role != RoleEditor {
-		return fmt.Errorf("invalid role: %s (must be 'admin' or 'editor')", role)
+	if role != RoleAdmin && role != RoleEditor && role != RoleViewer {
+		return fmt.Errorf("invalid role: %s (must be 'admin', 'editor', or 'viewer')", role)
 	}
 
 	result, err := d.db.Exec("UPDATE users SET role = ? WHERE id = ?", role, id)

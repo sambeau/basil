@@ -39,10 +39,25 @@ type Engine struct {
 	SiteRoot   string // The site root (holds releases/, current, the lock)
 	RepoDir    string // Repository commits are resolved and extracted from
 	RecordPath string // Deploy record database (cfg.DeployDBPath())
+	DataDir    string // Persistent state root (cfg.DataDir); the only tree a sandboxed hook may write
 	Keep       int    // Releases to retain when pruning (deploy.keep)
 	Publisher  string // Who pushed the button: Basil account, or cli:<user>
 	Trigger    string // TriggerCLI, TriggerHook, ... (defaults to TriggerCLI)
 	NoValidate bool   // Emergency override: skip the validation gate
+
+	// HookSandbox selects the security posture for the post-deploy hook. It
+	// is set DELIBERATELY at the call site, never inferred from the Trigger
+	// label, so the trust boundary is explicit.
+	//
+	//   false (default): the CLI/server-shell path — full power. A `basil
+	//     deploy` is operator-triggered code, so its deploy.pars may @shell,
+	//     @exec and write anywhere, exactly like `pars <script>`.
+	//   true: the push path — deploy.pars runs on behalf of a remote pusher,
+	//     so exec is blocked and writes are scoped to DataDir. DB and network
+	//     are not execute-gated and keep working.
+	//
+	// Decision: FEAT-154 Option 1 (sandbox-on-push), @sambeau 2026-08-24.
+	HookSandbox bool
 
 	// LockWait is how long to wait for the deploy lock; 0 refuses
 	// immediately when another deploy holds it. NewEngine sets
@@ -67,6 +82,7 @@ func NewEngine(cfg *config.Config) *Engine {
 		SiteRoot:   cfg.SiteRoot,
 		RepoDir:    cfg.BareRepoPath(),
 		RecordPath: cfg.DeployDBPath(),
+		DataDir:    cfg.DataDir,
 		Keep:       cfg.Deploy.Keep,
 		Trigger:    TriggerCLI,
 		LockWait:   DefaultLockWait,
@@ -224,7 +240,7 @@ func (e *Engine) Deploy(refOrSHA string) (*Result, error) {
 	// half-run migration is not improved by reverting the code under it.
 	reason := ""
 	if hookPath := filepath.Join(releaseDir, HookFileName); fileExists(hookPath) {
-		if hookErr := runHook(hookPath); hookErr != nil {
+		if hookErr := e.runHook(hookPath); hookErr != nil {
 			reason = fmt.Sprintf("post-deploy hook %s failed: %v", HookFileName, hookErr)
 			fmt.Fprintf(e.out(), "DEPLOY WARNING: %s\n", reason)
 			fmt.Fprintf(e.out(), "The release is live. Inspect the hook's work and roll back deliberately if needed: basil rollback\n")
@@ -532,7 +548,23 @@ func (e *Engine) commitAuthor(sha string) (commitIdentity, error) {
 // parse, then evaluate with @env and @args populated. It returns an error
 // for a parse failure or a runtime error object; the caller decides how
 // loudly to report it (loudly).
-func runHook(path string) error {
+//
+// The security posture is chosen by e.HookSandbox, set deliberately at the
+// call site (never inferred from the Trigger label):
+//
+//   - CLI / server-shell path (HookSandbox false): full power —
+//     AllowWriteAll + AllowExecuteAll. `basil deploy` is operator-triggered
+//     code, the same stance `pars <script>` takes for a hand-run script.
+//   - Push path (HookSandbox true): exec is blocked and writes are scoped to
+//     the persistent data dir, mirroring how served handlers are sandboxed
+//     (server/handler.go). DB access and network are not execute-gated, so
+//     the common case (migrations, cache warms, notifications) still works;
+//     only @shell/@exec are refused. HardExecuteDeny makes a blocked exec a
+//     hard error so the refusal is recorded and reported, not swallowed.
+//
+// Decision: FEAT-154 Option 1 (sandbox-on-push), @sambeau 2026-08-24. Full
+// @shell/@exec power stays only for `basil deploy` at the server shell.
+func (e *Engine) runHook(path string) error {
 	src, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -547,26 +579,55 @@ func runHook(path string) error {
 
 	env := evaluator.NewEnvironmentWithArgs(nil)
 	env.Filename = path
-	// EXPLICIT security policy, deliberately permissive: the hook is
-	// operator-triggered code (basil deploy at a shell), so it may exec and
-	// write, the same stance `pars <script>` takes for a script run by hand.
-	// A nil policy would behave the same today only by accident — cmd/pars
-	// always builds a policy and a nil one skips the exec check entirely —
-	// so the decision is written down here where it can be seen. FEAT-154's
-	// push trigger runs hooks on behalf of remote users and MUST revisit
-	// this policy before reusing runHook.
-	env.Security = &evaluator.SecurityPolicy{
-		AllowWriteAll:   true,
-		AllowExecuteAll: true,
+	if e.HookSandbox {
+		// Scope writes to the data dir (durable state) only. Guard against an
+		// empty DataDir: an empty entry in the allow list would match every
+		// absolute path (isPathAllowed prefixes with "/"), so an unset DataDir
+		// must mean "no writes", never "all writes".
+		var allowWrite []string
+		if e.DataDir != "" {
+			allowWrite = []string{e.DataDir}
+		}
+		env.Security = &evaluator.SecurityPolicy{
+			AllowWriteAll:   false,
+			AllowWrite:      allowWrite,
+			AllowExecuteAll: false,
+			AllowExecute:    nil, // block every binary
+			HardExecuteDeny: true,
+		}
+	} else {
+		env.Security = &evaluator.SecurityPolicy{
+			AllowWriteAll:   true,
+			AllowExecuteAll: true,
+		}
 	}
 	result := evaluator.Eval(program, env)
 	if errObj, ok := result.(*evaluator.Error); ok {
+		msg := errObj.Message
 		if errObj.Line > 0 {
-			return fmt.Errorf("line %d: %s", errObj.Line, errObj.Message)
+			msg = fmt.Sprintf("line %d: %s", errObj.Line, errObj.Message)
 		}
-		return errors.New(errObj.Message)
+		// A sandboxed exec refusal is opaque on its own; name the escape hatch
+		// so the developer sees how to run a hook that legitimately needs a
+		// shell (SEC-0004 is the evaluator's execute-denied code).
+		if e.HookSandbox && errObj.Code == "SEC-0004" {
+			return fmt.Errorf("%s — @shell/@exec is not permitted for push-triggered deploys; run `basil deploy %s` on the server for hooks that need shell access", msg, deployRefFromHookDir(path))
+		}
+		return errors.New(msg)
 	}
 	return nil
+}
+
+// deployRefFromHookDir recovers the release SHA from a hook path
+// (…/releases/<sha>/deploy.pars) so the escape-hatch message can suggest the
+// exact `basil deploy <sha>` to run. Falls back to "<sha>" when the layout is
+// unexpected.
+func deployRefFromHookDir(hookPath string) string {
+	sha := filepath.Base(filepath.Dir(hookPath))
+	if sha == "" || sha == "." || sha == string(filepath.Separator) {
+		return "<sha>"
+	}
+	return sha
 }
 
 // recordFailure writes a failed entry and returns the original cause
