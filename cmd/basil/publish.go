@@ -104,6 +104,23 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 		base = firstField(out) // "" when the branch does not exist on origin yet
 	}
 
+	// --- unreachable origin with no cached base ---------------------------
+	// A base of "" is only a genuine first publish when origin ANSWERED and
+	// lacked the branch. When origin was unreachable AND this clone has no
+	// cached remote-tracking ref, there is no server-side tip to diff against,
+	// so the range to publish is unknown - it is not a first publish, and
+	// dumping the whole tree would misrepresent it. Show what we can about
+	// local HEAD and stop; never push in this state.
+	if !reachable && base == "" {
+		fmt.Fprintf(stdout, "Cannot compute the publish plan for %q: origin is unreachable and this clone has no cached state for it, so the range to publish against the server is unknown.\n", branch)
+		fmt.Fprintf(stdout, "Local HEAD is %s.\n", shortRelease(headSHA))
+		if *dryRun {
+			fmt.Fprintln(stdout, "\n--dry-run: nothing was pushed.")
+			return nil
+		}
+		return fmt.Errorf("cannot publish %q: origin is unreachable and no cached state exists to compute the plan - retry when the server answers", branch)
+	}
+
 	// --- nothing to publish -----------------------------------------------
 	if base == headSHA {
 		fmt.Fprintf(stdout, "Nothing to publish: %s is already the tip of %q on origin.\n", shortRelease(headSHA), branch)
@@ -142,8 +159,10 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 	}
 
 	// Drift: how far the server's release branch trails this publish. Only
-	// meaningful when origin answered; unreachable already warned above.
-	if reachable {
+	// meaningful when origin answered AND the branch already exists there;
+	// unreachable already warned above, and a branch that does not exist yet
+	// (base == "", a first publish) cannot be "behind".
+	if reachable && base != "" {
 		fmt.Fprintf(stdout, "\ndrift: the release branch %q on origin is %d %s behind HEAD (this publish closes it).\n", branch, count, commitWord)
 	}
 
@@ -174,12 +193,12 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 		return fmt.Errorf("publish failed: the push to %q was rejected (see the messages above)", branch)
 	}
 
-	// Configure the refspec on first use so a later bare `git push` also
-	// publishes. Best-effort convenience: the explicit HEAD:<ref> above is
-	// what actually makes this push work, so any failure here is ignored.
-	if reachable && base == "" {
-		configureReleasePush(top, ref)
-	}
+	// Configure the refspec whenever it is currently unset so a later bare
+	// `git push` from this clone also publishes - not only on a first publish.
+	// Best-effort convenience: the explicit HEAD:<ref> above is what actually
+	// makes this push work, so configureReleasePush ignores any failure (and
+	// leaves an existing refspec untouched).
+	configureReleasePush(top, ref)
 
 	fmt.Fprintf(stdout, "Published %s to %q.\n", shortRelease(headSHA), branch)
 	return nil

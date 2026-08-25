@@ -283,6 +283,114 @@ func TestPublish_UnreachableOriginDegradesToWarning(t *testing.T) {
 	}
 }
 
+// --- server unreachable with no cached base: not a first publish ------------
+
+// TestPublish_UnreachableOriginNoCachedRefIsNotFirstPublish reproduces the
+// case where origin cannot be reached AND the clone has no cached
+// remote-tracking ref: the plan cannot be computed, so publish must not
+// mislabel it "first publish" nor dump the whole tree as the change set.
+func TestPublish_UnreachableOriginNoCachedRefIsNotFirstPublish(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.commitLocal(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+
+	// Drop the cached remote-tracking ref and point origin at nothing, so
+	// ls-remote fails and there is no cached base to plan from.
+	testGit(t, f.work, "update-ref", "-d", "refs/remotes/origin/live")
+	testGit(t, f.work, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "gone.git"))
+
+	var out bytes.Buffer
+	err := runPublish([]string{f.work, "--dry-run"}, strings.NewReader(""), &out, &out, emptyEnv)
+	if err != nil {
+		t.Fatalf("--dry-run should not fail in this state: %v\n%s", err, out.String())
+	}
+	got := out.String()
+	if strings.Contains(got, "first publish") {
+		t.Errorf("unreachable origin with no cached ref must not claim first publish:\n%s", got)
+	}
+	// The whole tree must not be dumped as the plan (basil.yaml is only ever
+	// listed by the whole-tree change set).
+	if strings.Contains(got, "basil.yaml") {
+		t.Errorf("the whole tree must not be dumped as the plan:\n%s", got)
+	}
+	if !strings.Contains(got, "Cannot compute the publish plan") {
+		t.Errorf("expected the plan-unknown message:\n%s", got)
+	}
+}
+
+// TestPublish_UnreachableOriginNoCachedRefDoesNotPush confirms that without
+// --dry-run this same state errors out and never pushes.
+func TestPublish_UnreachableOriginNoCachedRefDoesNotPush(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.commitLocal(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	testGit(t, f.work, "update-ref", "-d", "refs/remotes/origin/live")
+	testGit(t, f.work, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "gone.git"))
+
+	var out bytes.Buffer
+	err := runPublish([]string{f.work, "--yes"}, strings.NewReader(""), &out, &out, emptyEnv)
+	if err == nil {
+		t.Fatal("publish must not proceed when the plan cannot be computed")
+	}
+	if strings.Contains(out.String(), "first publish") {
+		t.Errorf("must not claim first publish:\n%s", out.String())
+	}
+	// origin still points at the gone path, so nothing could have been pushed.
+}
+
+// --- genuine first publish to a reachable origin: no drift line -------------
+
+// TestPublish_FirstPublishReachableOriginHasNoDriftLine points the release
+// branch at one the reachable origin does not have. That is a real first
+// publish (base == ""); the plan should say so and must NOT also print a drift
+// line - a branch that does not exist cannot be "behind".
+func TestPublish_FirstPublishReachableOriginHasNoDriftLine(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	// Retarget the release branch to one absent from origin. origin stays
+	// reachable (the bare repo exists), so ls-remote answers with no such ref.
+	writePubFile(t, filepath.Join(f.work, "basil.yaml"),
+		"server:\n  host: localhost\ndeploy:\n  branch: prod\n")
+	testGit(t, f.work, "add", "-A")
+	testGit(t, f.work, "commit", "--quiet", "--no-verify", "-m", "target prod")
+
+	var out bytes.Buffer
+	err := runPublish([]string{f.work, "--dry-run"}, strings.NewReader(""), &out, &out, emptyEnv)
+	if err != nil {
+		t.Fatalf("first-publish dry-run failed: %v\n%s", err, out.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "first publish") {
+		t.Errorf("expected the first-publish line:\n%s", got)
+	}
+	if strings.Contains(got, "drift:") {
+		t.Errorf("a non-existent branch cannot be behind; no drift line expected:\n%s", got)
+	}
+}
+
+// --- first-use refspec config -----------------------------------------------
+
+// TestPublish_SetsPushRefspecOnExistingBranch verifies a successful publish
+// from a clone with no remote.origin.push sets it to the release refspec, even
+// when the branch already exists on origin (base != "").
+func TestPublish_SetsPushRefspecOnExistingBranch(t *testing.T) {
+	f := newPublishFixture(t, "live")
+	f.installAcceptHook(t)
+	f.commitLocal(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+
+	// A fresh clone has no remote.origin.push configured.
+	if existing, err := gitOutput(f.work, "config", "--get", "remote.origin.push"); err == nil && strings.TrimSpace(existing) != "" {
+		t.Fatalf("precondition failed: clone already has remote.origin.push = %q", existing)
+	}
+
+	var out bytes.Buffer
+	if err := runPublish([]string{f.work, "--yes"}, strings.NewReader(""), &out, &out, emptyEnv); err != nil {
+		t.Fatalf("publish failed: %v\n%s", err, out.String())
+	}
+
+	got := testGit(t, f.work, "config", "--get", "remote.origin.push")
+	if want := "HEAD:refs/heads/live"; got != want {
+		t.Errorf("remote.origin.push = %q, want %q", got, want)
+	}
+}
+
 // --- deploy.branch: main round trip -----------------------------------------
 
 func TestPublish_NonDefaultBranchRoundTrip(t *testing.T) {

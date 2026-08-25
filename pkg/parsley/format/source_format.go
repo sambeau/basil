@@ -67,9 +67,10 @@ func AsParsleyError(err error) (*perrors.ParsleyError, bool) {
 // Diff renders a simple, line-numbered diff between original and formatted
 // source. It is deliberately the same hand-rolled format `pars fmt -d` has
 // always printed (a "diff <file>" header followed by -/+ lines), lifted here so
-// both binaries emit identical diffs. The result ends with a trailing newline
-// per emitted line and is empty only when the inputs are identical apart from
-// that header.
+// both binaries emit identical diffs. The result always contains at least the
+// "diff <file>" header line (each line it emits ends with a newline), followed
+// by a -/+ pair for every line that differs; when the inputs are identical it
+// contains only that header line.
 func Diff(filename, original, formatted string) string {
 	var sb strings.Builder
 

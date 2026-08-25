@@ -194,6 +194,76 @@ func TestFmt_SingleFileStdout(t *testing.T) {
 	}
 }
 
+// TestFmt_WriteErrorNotReportedAsParseError makes the write fail (read-only
+// target) after a successful format, and checks it surfaces as a write error,
+// not a parse error. Skipped where the OS does not enforce the read-only bit
+// for the current user (e.g. running as root), since the write would succeed
+// and there would be nothing to observe.
+func TestFmt_WriteErrorNotReportedAsParseError(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "a.pars")
+	writeFile(t, f, fmtMessy) // messy -> a write is attempted
+
+	if err := os.Chmod(f, 0o444); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(f, 0o644) })
+	// Probe: if the read-only file is still writable, perms are not enforced.
+	if fh, err := os.OpenFile(f, os.O_WRONLY, 0); err == nil {
+		fh.Close()
+		t.Skip("read-only file is still writable for this user; cannot force a write error")
+	}
+
+	var stdout, stderr bytes.Buffer
+	err := runFmtCommand([]string{"-w", f}, &stdout, &stderr, emptyEnv)
+	if err == nil {
+		t.Fatal("expected a write error, got nil")
+	}
+	if code := exitCode(err); code == 0 {
+		t.Errorf("a write failure must exit non-zero, got %d", code)
+	}
+	if !strings.Contains(err.Error(), "could not be written") {
+		t.Errorf("expected a write-error message, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "could not be formatted") {
+		t.Errorf("a write failure must not be reported as a parse error: %v", err)
+	}
+	if !strings.Contains(stderr.String(), "error writing") {
+		t.Errorf("expected an 'error writing' diagnostic on stderr, got: %q", stderr.String())
+	}
+}
+
+// TestFmt_ConflictingModeFlagsRejected checks that combining the mutually
+// exclusive mode flags (-w/-l/-d) is a usage error (exit 2) instead of silently
+// letting one win.
+func TestFmt_ConflictingModeFlagsRejected(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a.pars"), fmtMessy)
+
+	for _, args := range [][]string{
+		{"-l", "-w", dir},
+		{"-d", "-w", dir},
+		{"-l", "-d", dir},
+	} {
+		var stdout, stderr bytes.Buffer
+		err := runFmtCommand(args, &stdout, &stderr, emptyEnv)
+		if err == nil {
+			t.Errorf("%v: expected a usage error, got nil", args)
+			continue
+		}
+		if code := exitCode(err); code != 2 {
+			t.Errorf("%v: exit code = %d, want 2", args, code)
+		}
+		if !strings.Contains(stderr.String(), "Usage:") {
+			t.Errorf("%v: usage not printed, got: %q", args, stderr.String())
+		}
+		// The file must be left untouched by a rejected invocation.
+		if got := readFile(t, filepath.Join(dir, "a.pars")); got != fmtMessy {
+			t.Errorf("%v: a rejected invocation modified the file: %q", args, got)
+		}
+	}
+}
+
 // TestFmt_NoArgsWalksCwd confirms a bare `basil fmt` walks the current
 // directory and defaults to list mode (non-zero exit when unformatted).
 func TestFmt_NoArgsWalksCwd(t *testing.T) {

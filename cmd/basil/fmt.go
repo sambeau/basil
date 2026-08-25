@@ -28,6 +28,20 @@ func runFmtCommand(args []string, stdout, stderr io.Writer, getenv func(string) 
 		return &usageError{err: err}
 	}
 
+	// -w, -l and -d select mutually exclusive modes. Giving more than one is
+	// ambiguous - previously the extra flag was silently ignored (e.g. `-l -w`
+	// listed but never wrote), so reject it as a usage error rather than guess.
+	modes := 0
+	for _, on := range []bool{*write, *list, *diff} {
+		if on {
+			modes++
+		}
+	}
+	if modes > 1 {
+		printFmtUsage(stderr)
+		return &usageError{err: fmt.Errorf("-w, -l and -d are mutually exclusive; pass only one")}
+	}
+
 	paths := flags.Args()
 
 	// Collect the set of files to format. Explicit file arguments are taken as
@@ -52,6 +66,7 @@ func runFmtCommand(args []string, stdout, stderr io.Writer, getenv func(string) 
 	var (
 		unformatted int
 		parseErrors int
+		writeErrors int
 	)
 
 	for _, filename := range targets {
@@ -93,8 +108,12 @@ func runFmtCommand(args []string, stdout, stderr io.Writer, getenv func(string) 
 		case *write:
 			if changed {
 				if err := os.WriteFile(filename, []byte(formatted), 0644); err != nil {
+					// Formatting succeeded; the failure is in persisting it
+					// (permissions, a full disk, a read-only target). Count it
+					// as a write error so it is not misreported as a file that
+					// "could not be formatted".
 					fmt.Fprintf(stderr, "error writing %s: %v\n", filename, err)
-					parseErrors++
+					writeErrors++
 				}
 			}
 		default: // single-file stdout
@@ -104,6 +123,9 @@ func runFmtCommand(args []string, stdout, stderr io.Writer, getenv func(string) 
 
 	if parseErrors > 0 {
 		return fmt.Errorf("%s could not be formatted", plural(parseErrors, "file"))
+	}
+	if writeErrors > 0 {
+		return fmt.Errorf("%s could not be written", plural(writeErrors, "file"))
 	}
 	// Under list mode (explicit -l or the tree default), an unformatted file is
 	// a non-zero exit so the command is usable as a CI gate.
