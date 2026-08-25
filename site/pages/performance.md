@@ -4,11 +4,11 @@ title: Performance
 
 # Performance
 
-Is Basil fast enough? For most sites, yes. Here is the detail.
+Is Basil fast enough? For most sites, **yes.** 
 
 ## How fast is Basil?
 
-Basil is a Go web server with an interpreter inside. Go serves static files, and does it as fast as you would expect. The Parsley interpreter runs dynamic pages, and that is where the time goes.
+Basil is a Go web server with a built-in interpreter. Go serves static files, and does it as fast as you would expect. The Parsley interpreter runs dynamic pages, and that is where the time goes.
 
 We have not published benchmarks yet. Treat these as rough figures from our own testing on a laptop:
 
@@ -18,9 +18,9 @@ We have not published benchmarks yet. Treat these as rough figures from our own 
 | Cached dynamic page | Tens of thousands per second |
 | Uncached dynamic page | Hundreds to a few thousand per second |
 
-That puts a Parsley page in the same league as PHP, Ruby, or Python, and well behind a hand-written Go handler. Parsley is a tree-walking interpreter. It does not compile to machine code, and it does not try to.
+That puts a Parsley page in the same league as PHP, Ruby, or Python.
 
-## Why it is fast enough
+## Why it is fast enough?
 
 Four things keep the common case quick.
 
@@ -42,7 +42,7 @@ Basil skips all of that. SQLite runs inside the Basil process, on a connection B
 
 So small queries are cheap, and a page that runs ten costs little more than one that runs one. The "N+1 query" problem that hurts other stacks mostly disappears. You can write the obvious code — find the user, then their orders, then each order's items — and it will be fine.
 
-Reads are the sweet spot: SQLite in WAL mode lets many readers run while one writer writes. For the sites Basil is aimed at, that is the right trade. See [Database](basil/database.html).
+Reads are super cheap: SQLite in WAL mode lets many readers run while one writer writes. For the sites Basil is aimed at, that is the right trade. See [Database](basil/database.html).
 
 ## What it suits, and what it doesn't
 
@@ -54,10 +54,10 @@ Basil fits:
 - Prototypes and side projects you want online today.
 - Anything one modest server can carry.
 
-Think harder before using it for:
+Think first before using it for:
 
 - Very busy sites with thousands of uncached dynamic requests per second. Basil scales out behind a load balancer with a shared session secret, but at that point a compiled stack may serve you better.
 - Heavy computation inside a request. Parsley is a scripting language; long loops over large data run slower than in Go.
 - Workloads that need Postgres-scale concurrency. SQLite excels at reads and handles moderate writes, but it is one file on one disk. Basil connects to [Postgres or MySQL](manual/features/database.html) when you outgrow it — and then you pay the round trip like everyone else.
 
-In short: one Basil process on a small VPS will comfortably serve the kind of site most people actually build. If you are not sure whether that is you, it probably is.
+In short: one Basil process on a small VPS will comfortably serve the kind of site most people actually build. If you are not sure whether that is you, *it probably is.*

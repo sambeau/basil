@@ -17,7 +17,7 @@ export HomePage = fn({exampleHtml}) {
                 <p class="hero-lede">
                     <strong>"Parsley"</strong>" is a programming language for working with data and making web pages. "
                     <strong>"Basil"</strong>" is a web server that runs Parsley files. "
-                    "Put a file in a folder and it becomes a page."
+                    "Put a file in a folder and it becomes a page. Just like we did in 2002."
                 </p>
                 <ul class="hero-chips" aria-label="What you don't need">
                     <li>"no build step"</li>
@@ -43,9 +43,9 @@ export HomePage = fn({exampleHtml}) {
         <section class="home-section">
             <h2>"What is it?"</h2>
             <p>
-                "Parsley is a scripting language. It reads files, talks to databases, and writes HTML. "
+                "Parsley is a server-side scripting language. It reads files, talks to databases, and writes HTML. "
                 "HTML tags are part of the language, so a page is just a function that returns markup. "
-                "The program above reads a CSV file and turns it into a web page. That is the whole program."
+                "The code above reads a CSV file and turns it into a web page. That is the whole program."
             </p>
             <p>
                 "Basil is the server. It serves static files, runs " <code>".pars"</code> " files as pages or API endpoints, "
@@ -77,7 +77,7 @@ export HomePage = fn({exampleHtml}) {
         <section class="home-section">
             <h2>"Data is built in"</h2>
             <p>
-                "Most languages leave data to libraries. Parsley has it in the language. "
+                "Most languages need specialist libraries to work with data. Parsley has data processing built into the core language. "
                 "Four ideas do most of the work:"
             </p>
             <ul>
@@ -113,7 +113,7 @@ export HomePage = fn({exampleHtml}) {
             <h2>"Types that match the real world"</h2>
             <p>
                 "Dates, money, and measurements are values in their own right, not strings or floats. "
-                "You can write them directly, do arithmetic on them, and print them properly:"
+                "You can write them directly, do arithmetic on them, and print them properly formatted:"
             </p>
             <ul class="type-grid">
                 <li><code>"@2024-01-15"</code><small>"a date"</small></li>
