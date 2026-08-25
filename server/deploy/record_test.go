@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -364,5 +365,52 @@ func TestOnlyInitDeployedCorruptRecord(t *testing.T) {
 	}
 	if got {
 		t.Error("a corrupt record granted the exception")
+	}
+}
+
+// Opening a brand-new record from several goroutines at once must not fail.
+// It used to: the first opener's conversion of the file to WAL takes an
+// exclusive lock, and SQLite does not run the busy handler while waiting for
+// that one, so busy_timeout could not save the others - they came straight
+// back with SQLITE_BUSY. This is the unit under the flake in
+// TestDeployRaceSerialises, where two racing deploys each opened the record.
+func TestOpenRecordConcurrently(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "deploys.db")
+
+	const openers = 4
+	var wg sync.WaitGroup
+	errs := make([]error, openers)
+	for i := range openers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rec, err := OpenRecord(path)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			defer rec.Close()
+			errs[i] = rec.Add(testEntry("aaa", OutcomeDeployed))
+		}()
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("opener %d: %v", i, err)
+		}
+	}
+
+	rec, err := OpenRecord(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rec.Close()
+	entries, err := rec.List(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != openers {
+		t.Errorf("record has %d entries, want %d (one per opener)", len(entries), openers)
 	}
 }

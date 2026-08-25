@@ -2,13 +2,15 @@ package deploy
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	// SQLite driver
-	_ "modernc.org/sqlite"
+	// SQLite driver. Imported by name, not blank: opening the record needs
+	// the driver's error type to tell "the file is busy" from a real fault.
+	"modernc.org/sqlite"
 )
 
 // Trigger labels: what started a deploy.
@@ -81,6 +83,20 @@ type Record struct {
 	path string
 }
 
+// recordBusyTimeout is how long a statement waits for a lock held by the
+// other opener - the CLI and a running server share this file.
+const recordBusyTimeout = 5 * time.Second
+
+// recordDSN carries the pragmas in the DSN (the initSQLite form) so that ANY
+// connection the pool opens gets them: database/sql may replace a broken
+// connection at any time, and a replacement opened from a bare path would
+// silently lose the busy timeout and WAL mode. The driver applies
+// busy_timeout first whatever the order here.
+func recordDSN(path string) string {
+	return fmt.Sprintf("%s?_pragma=busy_timeout(%d)&_pragma=journal_mode(WAL)",
+		path, recordBusyTimeout.Milliseconds())
+}
+
 // OpenRecord opens (creating if needed) the deploy record at path -
 // normally cfg.DeployDBPath(). WAL and a busy timeout are set because the
 // CLI and a running server open the same file concurrently.
@@ -91,31 +107,9 @@ func OpenRecord(path string) (*Record, error) {
 		}
 	}
 
-	// The pragmas ride in the DSN (the initSQLite form) so that ANY
-	// connection the pool opens carries them — database/sql may replace a
-	// broken connection at any time, and a replacement opened from a bare
-	// path would silently lose the busy timeout and WAL mode.
-	db, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+	db, err := connectRecord(path)
 	if err != nil {
-		return nil, fmt.Errorf("opening deploy record: %w", err)
-	}
-	// One connection, and busy_timeout before journal_mode. Both matter:
-	// pragmas are per-connection, so on a pool they would land on arbitrary
-	// connections and silently protect nothing; and switching to WAL takes
-	// a lock of its own, so two processes (or two racing deploys) opening
-	// the record together fail with SQLITE_BUSY unless the timeout is
-	// already in force. One connection is no loss for an append-only log.
-	// The explicit Execs below also surface pragma failures loudly, which
-	// the DSN form does not.
-	db.SetMaxOpenConns(1)
-	for _, pragma := range []string{
-		"PRAGMA busy_timeout=5000",
-		"PRAGMA journal_mode=WAL",
-	} {
-		if _, err := db.Exec(pragma); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("%s: %w", pragma, err)
-		}
+		return nil, err
 	}
 	if _, err := db.Exec(recordSchema); err != nil {
 		db.Close()
@@ -127,6 +121,65 @@ func OpenRecord(path string) (*Record, error) {
 		db.Exec(migration)
 	}
 	return &Record{db: db, path: path}, nil
+}
+
+// connectRecord opens the pool and its one connection, retrying while
+// SQLite says the file is busy.
+//
+// The retry is not belt-and-braces: converting a fresh record to WAL takes
+// an exclusive lock, and SQLite does NOT run the busy handler while it
+// waits for that one, so busy_timeout - however early it is applied -
+// cannot cover it. Two openers arriving together (a deploy and the CLI, or
+// two racing deploys) therefore have to be spaced out here instead.
+func connectRecord(path string) (*sql.DB, error) {
+	deadline := time.Now().Add(recordBusyTimeout)
+	for delay := time.Millisecond; ; {
+		db, err := openRecordDB(path)
+		if err == nil {
+			return db, nil
+		}
+		if !isBusy(err) || !time.Now().Before(deadline) {
+			return nil, err
+		}
+		time.Sleep(delay)
+		if delay < 100*time.Millisecond {
+			delay *= 2
+		}
+	}
+}
+
+// openRecordDB makes one attempt at a connected pool.
+func openRecordDB(path string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", recordDSN(path))
+	if err != nil {
+		return nil, fmt.Errorf("opening deploy record: %w", err)
+	}
+	// One connection: pragmas are per-connection, and this is an
+	// append-only log, so a pool buys nothing.
+	db.SetMaxOpenConns(1)
+	// sql.Open is lazy - it has not touched the file yet. Ping is what
+	// connects, and connecting is what applies (and reports failures from)
+	// the DSN pragmas, WAL conversion included.
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("opening deploy record: %w", err)
+	}
+	return db, nil
+}
+
+// isBusy reports whether err is SQLite refusing for a lock it could not
+// take. Extended result codes are on, so the primary code - SQLITE_BUSY (5)
+// or SQLITE_LOCKED (6) - is the low byte.
+func isBusy(err error) bool {
+	var serr *sqlite.Error
+	if !errors.As(err, &serr) {
+		return false
+	}
+	switch serr.Code() & 0xff {
+	case 5, 6:
+		return true
+	}
+	return false
 }
 
 // Add appends one entry. It is called on every outcome - a deploy that is
