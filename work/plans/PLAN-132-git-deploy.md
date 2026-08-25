@@ -1,8 +1,8 @@
 ---
 id: PLAN-132
-feature: FEAT-152, FEAT-153, FEAT-156, FEAT-154, FEAT-155, BUG-033
+feature: FEAT-152, FEAT-153, FEAT-154, FEAT-155, FEAT-156, BUG-033
 title: "Implementation Plan for Git Deploy"
-status: draft
+status: in progress — phases 0–4 implemented; phase 5 (FEAT-156) remains
 created: 2026-08-24
 updated: 2026-08-25
 ---
@@ -15,28 +15,29 @@ Delivers `DESIGN-git-deploy.md` in five features plus a scoped bug fix. The feat
 strictly sequential — each depends on the one before — so this is one plan rather than
 five, with a phase per feature.
 
-| Phase | Unit | Depends on | Shape |
-| --- | --- | --- | --- |
-| 0 | BUG-033 (scoped) | — | Docs + `.gitignore`. Independent, ships immediately |
-| 1 | FEAT-152 Site layout | — | Wide blast radius, low conceptual difficulty |
-| 2 | FEAT-153 Deploy engine | 1 | The substantial piece. Self-contained, CLI-testable |
-| 3 | FEAT-156 Init defaults | 1 | Local-simple init as the default; operator-owned settings. Must land before the hub |
-| 4 | FEAT-154 Git hub | 1, 2, 3 | Replaces `server/git.go`. Closes BUG-033 structurally |
-| 5 | FEAT-155 `basil publish` | 4 | Developer ergonomics. The optional part is here |
+| Phase | Unit | Depends on | Shape | Status |
+| --- | --- | --- | --- | --- |
+| 0 | BUG-033 (scoped) | — | Docs + `.gitignore`. Independent, ships immediately | done |
+| 1 | FEAT-152 Site layout | — | Wide blast radius, low conceptual difficulty | done |
+| 2 | FEAT-153 Deploy engine | 1 | The substantial piece. Self-contained, CLI-testable | done |
+| 3 | FEAT-154 Git hub | 1, 2 | Replaces `server/git.go`. Closes BUG-033 structurally | done |
+| 4 | FEAT-155 `basil publish` | 3 | Developer ergonomics. The optional part is here | done |
+| 5 | FEAT-156 Init defaults | 1–4 | Local-simple init as the default; closes two gaps in shipped code | **next** |
 
-**Why sequential.** `CLAUDE.md` requires one in-flight unit per subsystem, and phases 1–5
+**Phase 5 was added 2026-08-25** (after phases 0–4 had landed), from backlog #150/#151.
+Beyond the init split, two of its pieces close gaps the shipped phases left open: a
+deployed config can currently disable the hub (`git.enabled: false` in a pushed
+`basil.yaml` turns off the endpoint it arrived through), and graduating a local site to
+a fresh server is currently impossible without shell access (the hub refuses the
+unrelated-history first publish as a force-push). That is why it runs immediately
+rather than resting in the backlog.
+
+**Why sequential.** `CLAUDE.md` requires one in-flight unit per subsystem, and phases 1–4
 all touch `server/config`, `server/server.go` and `cmd/basil`. Running them in parallel
 worktrees is exactly the failure mode that rule exists to prevent.
 
-**Why FEAT-156 sits ahead of the hub.** Its operator-owned settings decision (a release
-cannot disable `git.*`/`auth.*` on a site root) must be enforced before FEAT-154 makes
-the hub load-bearing — otherwise the first graduated local site to push a minimal config
-bricks the deploy mechanism from inside a deploy. Slotting it after FEAT-153 also means
-its listener-change criterion (recorded in FEAT-153's spec) is already implemented by
-the time init starts generating configs without `https:` blocks.
-
-**Where it could stop.** After phase 4 the design is functionally complete: teams can
-share work and releases are validated. Phase 5 is what makes it pleasant.
+**Where it could stop.** After phase 3 the design is functionally complete: teams can
+share work and releases are validated. Phase 4 is what makes it pleasant.
 
 **Defaults.** `reports/GIT-DEPLOY-DEFAULTS-REVIEW-2026-08-24.md` reduced the programme's
 configuration surface from ten settings to three and hardened four security defaults.
@@ -48,7 +49,6 @@ reasoning there first.
 - [x] `DESIGN-git-deploy.md` agreed and merged
 - [x] BUG-033 filed and scoped
 - [ ] Specs FEAT-152 … FEAT-155 reviewed by @sambeau
-- [x] FEAT-156 spec decided (@sam, 2026-08-25; all open questions resolved)
 - [ ] Working tree clean, `main` current
 
 ---
@@ -158,12 +158,7 @@ Extract a commit into `releases/<id>/` with no `.git` inside it. `git archive` p
 
 ### Task 2.3 — Validate
 Parse every `.pars` handler, part and layout; load the config. Return structured errors
-with file, line and message — the hook in phase 4 relays these verbatim.
-
-Includes the listener-change check (FEAT-156, decided @sam 2026-08-25): warn at push
-time when a release's config changes `server.host`, `server.port` or the `https` block
-relative to the active release on a public server. See FEAT-153's acceptance criteria
-and `DESIGN-git-deploy.md` §6.2.
+with file, line and message — the hook in phase 3 relays these verbatim.
 
 ### Task 2.4 — Activate
 Re-point `current`, update the running server's release path, clear the script, response
@@ -187,66 +182,12 @@ rollback; pruning; in-flight request during activation.
 **Verify**: `/verify` — deploy a change and watch the served output change; deploy a broken
 release and watch it refused with the old output still served.
 
-**Note**: this phase is fully exercisable with no Git transport. Do not let phase 4 start
+**Note**: this phase is fully exercisable with no Git transport. Do not let phase 3 start
 before its tests are green.
 
 ---
 
-## Phase 3 — FEAT-156: Init defaults
-
-**Effort**: Small-to-medium. One command split along existing seams, plus a config
-enforcement point. See `work/specs/FEAT-156.md` — all decisions are settled
-
-### Task 3.1 — Split `--init` into local and server modes
-`cmd/basil/init.go`, `cmd/basil/main.go`. Local is the default: `basil --init mysite`
-with no other flags produces `basil.yaml`, `site/index.pars`, `public/.keep`,
-`.gitignore` and runs immediately with `basil --dev`. `--server` carries today's
-behaviour byte-for-byte — existing init tests must pass against it unchanged. Flag
-validation: `--admin` implies `--server`; `--server` implies `--init`.
-
-### Task 3.2 — Local starter content
-Minimal config (no `auth:`/`git:`/`https:` blocks; commented `database:`, `data_dir:`
-and `developers:` examples), the runtime-state `.gitignore` (auth DB, `*.db` and
-sidecars, `certs/`, `cache/`, `search/`, `uploads/`), and a mode-appropriate summary:
-no API key, no clone command, always ending with the one-line graduation pointer.
-
-### Task 3.3 — Git as a quiet nicety
-When `git` is on the PATH: normal repository on `main`, `core.hooksPath .githooks`,
-the formatting hook, one initial commit. When absent: skip silently. `--no-git` opts
-out explicitly. Git is never a gate in local mode.
-
-### Task 3.4 — Operator-owned settings
-Where the site-root layout is detected (the same knowledge that picks `DataDir`):
-force `git.enabled`, `git.require_auth` and `auth.enabled` on, warning when a release
-config explicitly disables them, silent on omission. Legacy layout forces nothing —
-`git.enabled` still defaults to false there.
-
-### Task 3.5 — Record for the hub
-Write the first-publish non-fast-forward rule into `DESIGN-git-deploy.md` for phase 4:
-the hub accepts a non-fast-forward on the release branch only while `live` still points
-at the `--init` starter commit and nothing has ever been deployed.
-
-### Task 3.6 — Documentation
-Getting-started leads with local init; the deploy guide owns `--server` and
-graduation; `docs/guide/configuration.md` gains the one-file layering section
-("the file describes the site, not your machine") and the operator-owned list.
-
-**Tests**: local init with/without git and with `--no-git`; refusals (`--admin`
-without `--server`); generated config loadable, valid, and containing no server-only
-blocks; operator-owned table test per forced key per layout; server-mode tests
-unchanged.
-
-**Verify**: `basil --init x && cd x && basil --dev` serves the starter page; a local
-site graduated to a fresh `--server` root end-to-end on localhost (remote add, push).
-
-**Why this phase must precede the hub**: the operator-owned enforcement is what makes
-a graduated local config safe to deploy. Once phase 4 makes pushes load-bearing, a
-minimal config arriving before this enforcement exists would disable the git endpoint
-it arrived through.
-
----
-
-## Phase 4 — FEAT-154: Git hub
+## Phase 3 — FEAT-154: Git hub
 
 **Effort**: Medium
 
@@ -291,7 +232,7 @@ superseded.
 
 ---
 
-## Phase 5 — FEAT-155: `basil publish`
+## Phase 4 — FEAT-155: `basil publish`
 
 **Effort**: Medium
 
@@ -332,6 +273,64 @@ warns and succeeds.
 
 ---
 
+## Phase 5 — FEAT-156: Init defaults (added 2026-08-25)
+
+**Effort**: Small-to-medium. One command split along existing seams, plus three surgical
+changes to shipped code. See `work/specs/FEAT-156.md` — all decisions are settled.
+Source: backlog #150 (simple-by-default init) and the server-side half of #151
+
+### Task 5.1 — Split `--init` into local and server modes
+`cmd/basil/init.go`, `cmd/basil/main.go`. Local is the default: `basil --init mysite`
+with no other flags produces `basil.yaml`, `site/index.pars`, `public/.keep`,
+`.gitignore` and runs immediately with `basil --dev`. `--server` carries today's
+behaviour byte-for-byte — existing init tests must pass against it unchanged. Flag
+validation: `--admin` implies `--server`; `--server` implies `--init`.
+
+### Task 5.2 — Local starter content
+Minimal config (no `auth:`/`git:`/`https:` blocks; commented `database:`, `data_dir:`
+and `developers:` examples), the runtime-state `.gitignore` (auth DB, `*.db` and
+sidecars, `certs/`, `cache/`, `search/`, `uploads/`), and a mode-appropriate summary:
+no API key, no clone command, always ending with the one-line graduation pointer.
+
+### Task 5.3 — Git as a quiet nicety
+When `git` is on the PATH: normal repository on `main`, `core.hooksPath .githooks`,
+the formatting hook, one initial commit. When absent: skip silently. `--no-git` opts
+out explicitly. Git is never a gate in local mode.
+
+### Task 5.4 — Operator-owned settings (closes a live gap)
+Where the site-root layout is detected (the same knowledge that picks `DataDir`):
+force `git.enabled`, `git.require_auth` and `auth.enabled` on, warning when a release
+config explicitly disables them, silent on omission. Legacy layout forces nothing —
+`git.enabled` still defaults to false there. Until this lands, a pushed config can
+disable the hub it arrived through.
+
+### Task 5.5 — Graduation (closes a live gap)
+Two changes to shipped code, both spec'd in FEAT-156:
+- `cmd/basil/fromhook.go`: accept a non-fast-forward on the release branch only while
+  the deploy record shows nothing but the `init`-triggered release 1; refuse as
+  shipped afterwards. Without this, connecting a local site to a fresh server is
+  impossible without shell access.
+- `server/deploy/validate.go`: warn when a release's config changes `server.host`,
+  `server.port` or the `https` block relative to the active release on a public
+  server (hand-off recorded in FEAT-153's Out of Scope).
+
+### Task 5.6 — Documentation
+Getting-started leads with local init; the deploy guide owns `--server` and
+graduation; `docs/guide/configuration.md` gains the one-file layering section
+("the file describes the site, not your machine") and the operator-owned list.
+
+**Tests**: local init with/without git and with `--no-git`; refusals (`--admin`
+without `--server`); generated config loadable, valid, and containing no server-only
+blocks; operator-owned table test per forced key per layout; both sides of the
+first-publish non-fast-forward boundary; listener-change warning fires and stays
+silent appropriately; server-mode init tests unchanged.
+
+**Verify**: `basil --init x && cd x && basil --dev` serves the starter page; a full
+graduation end-to-end on localhost — local init → server init → remote add → push →
+publish → the local site is live.
+
+---
+
 ## Definition of Done
 
 Every phase must satisfy the project checklist in `CLAUDE.md`:
@@ -350,8 +349,8 @@ Plus, for this programme specifically:
 
 - [ ] **No happy-path-only tests.** Every phase has an explicit failure-path test. This is
       a deployment system; the failure paths are the product
-- [ ] **Failure leaves the previous release serving.** Asserted in phases 2, 4 and 5
-- [ ] **Manual end-to-end round trip** performed at the end of phases 4 and 5 against a
+- [ ] **Failure leaves the previous release serving.** Asserted in phases 2, 3 and 4
+- [ ] **Manual end-to-end round trip** performed at the end of phases 3 and 4 against a
       real server over HTTPS, not just `httptest`
 - [ ] **A clean-install bootstrap is performed at least once** on a fresh host with real
       DNS: `--init`, start, clone, edit, publish — with no manual certificate or Git setup
@@ -361,8 +360,8 @@ Plus, for this programme specifically:
       as written before the phase is called done
 - [ ] **The spec is updated with implementation notes**, and any deferral goes to
       `work/BACKLOG.md` with a trigger for revisiting
-- [ ] **BUG-033 closed** at the end of phase 4, with its regression test in place
-- [ ] **FEAT-035 marked superseded** at the end of phase 4
+- [ ] **BUG-033 closed** at the end of phase 3, with its regression test in place
+- [ ] **FEAT-035 marked superseded** at the end of phase 3
 
 ## Risks
 
@@ -376,11 +375,11 @@ Plus, for this programme specifically:
 | Cold-start deadlock: no release → no cert → no clone → no release | **High if missed** | `--init` deploys release 1 (Task 1.6). Covered by the clean-install bootstrap in the DoD |
 | `sudo basil --init` leaves a root-owned tree the server cannot write to | **High** | Task 1.6 chowns to `SUDO_USER`. The clean-install bootstrap must be done via sudo, not as root, so this path is actually exercised |
 | Plain-HTTP refusal breaks ACME renewal | Medium | Scope the refusal to Git endpoints; explicit test that a challenge path still answers |
-| A graduated local config disables git/auth or deploys a dev listener onto a public server | Medium | Phase 3 forces `git.*`/`auth.*` on site roots; phase 2's validation gate warns on listener changes. Phase 3 must merge before phase 4 makes pushes load-bearing |
 | Phases run in parallel and conflict | Medium | Strictly sequential; one in-flight unit per subsystem |
+| A pushed config disables the hub, or a graduated first publish is refused (gaps open until phase 5) | **High until phase 5 lands** | Task 5.4 forces `git.*`/`auth.*` on site roots; Task 5.5 adds the starter-commit non-fast-forward exception and the listener-change warning |
 
 ## Deferred
 
-Recorded in `DESIGN-git-deploy.md` §10 and to be added to `work/BACKLOG.md` when phase 5
+Recorded in `DESIGN-git-deploy.md` §10 and to be added to `work/BACKLOG.md` when phase 4
 merges: pull from an external upstream, push from CI, Git over SSH, an admin panel deploy
 view, branch → environment mapping, Git LFS and submodules.

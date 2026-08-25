@@ -5,7 +5,7 @@ status: proposed
 priority: high
 created: 2026-08-25
 author: "@sambeau / @claude"
-related: FEAT-152, FEAT-154, FEAT-155, PLAN-132
+related: FEAT-152, FEAT-153, FEAT-154, FEAT-155, PLAN-132, BACKLOG #150, BACKLOG #151
 ---
 
 # FEAT-156: Init defaults — a simple local site by default, server topology opt-in
@@ -38,7 +38,15 @@ back as the default.
 It also settles a decision the split exposes: **a release must not be able to disable
 the server's deploy mechanism.** `git.*` and `auth.*` become operator-owned on a site
 root — a deployed `basil.yaml` that omits or disables them cannot turn off the git
-endpoint it arrived through. This must land before or with FEAT-154.
+endpoint it arrived through. FEAT-154 has shipped, so this enforcement closes a live
+gap rather than gating a future one; it is the reason this feature is the programme's
+next unit.
+
+This spec is the design @sambeau committed to propose for **backlog #150**
+(simple-by-default init). Its graduation path is the server-side half of the companion
+item **#151** (a local project publishing to a remote hub); #151's client ergonomics
+(`basil publish --to`, a stored `deploy.remote`) remain backlogged and out of scope
+here.
 
 ## User Story
 
@@ -170,12 +178,14 @@ then `basil publish` (FEAT-155) — or `git push origin main:live` — to go liv
 
 One mechanical wrinkle: server init creates its own starter commit on the release
 branch, so the developer's history and the hub's history are unrelated, and the first
-publish is a non-fast-forward update of `live`. The hub must accept it in exactly one
-case: **when `live` still points at the starter commit created by `--init` and
-nothing else has ever been deployed.** After that, non-fast-forward pushes to the
-release branch are refused as usual. Enforcement lives in the FEAT-154 receive hooks;
-this spec owns stating the rule, and `basil publish` (FEAT-155) owns making the
-first-publish experience seamless.
+publish is a non-fast-forward update of `live`. The shipped hub refuses release-branch
+force-pushes for everyone (`cmd/basil/fromhook.go:163`, FEAT-154) — correctly, since
+the deploy record and rollback rely on release history — which means graduation is
+currently **impossible** without shell access. This feature amends that check with
+exactly one exception: **a non-fast-forward is accepted when `live` still points at
+the starter commit created by `--init` and nothing else has ever been deployed** (the
+deploy record knows — release 1 is seeded with trigger `init`). After that, the
+refusal applies as shipped.
 
 ### One config file: it describes the site, not a machine
 
@@ -221,18 +231,20 @@ forced — a local dev server with no git endpoint is correct.
 This is the narrow version of FEAT-152 Open Question 1 (may a release change server
 settings?). It does not settle the general question — port, TLS and listener settings
 stay deployable — it fences off only the settings whose loss is unrecoverable
-without a shell. It must land before or with FEAT-154, because FEAT-154 is where the
-hub becomes load-bearing.
+without a shell. The hub (FEAT-154) is already live, so this gap is open in shipped
+code today; enforcement is the most urgent piece of this feature.
 
 **Decision (@sam, 2026-08-25): listener changes are gated, not forced.** `server.host`
 stays deployable — renaming a site over git is legitimate — but the graduation path
 makes deploying a dev listener onto a public server an easy accident: a graduated
 local config says `host: localhost`, port 8080, no `https:`, and on the next restart
-the public site (and its git endpoint) would be gone. So the FEAT-153 validation gate
-must flag a release whose config changes `server.host`, `server.port` or the `https`
-block on a public server — warning by default, in the developer's terminal at push
-time, where the mistake is one commit deep and trivially reverted. This spec records
-the requirement; FEAT-153 owns the implementation.
+the public site (and its git endpoint) would be gone. So the validation gate
+(`server/deploy/validate.go`, built by FEAT-153) must flag a release whose config
+changes `server.host`, `server.port` or the `https` block on a public server —
+warning by default, in the developer's terminal at push time, where the mistake is
+one commit deep and trivially reverted. FEAT-153 shipped before this decision was
+taken, so **this feature implements the check** in the pipeline FEAT-153 built;
+FEAT-153's spec records the hand-off under Out of Scope.
 
 ## Acceptance Criteria
 
@@ -277,9 +289,12 @@ the requirement; FEAT-153 owns the implementation.
 
 - [ ] A folder created by local init (with git) can add the server as `origin` and
       push `main` with no local restructuring
-- [ ] The rule for the one permitted non-fast-forward on the release branch (hub
-      still on the init starter commit, nothing ever deployed) is recorded in
-      `DESIGN-git-deploy.md` for FEAT-154 to implement
+- [ ] The one permitted non-fast-forward on the release branch is implemented in the
+      receive-hook path (`cmd/basil/fromhook.go`): accepted only while the deploy
+      record shows nothing but the `init`-triggered release 1, refused as shipped
+      afterwards — with tests for both sides of the boundary
+- [ ] A full graduation exercised end-to-end on localhost: local init → server init →
+      remote add → push `main` → publish → the local site is live
 
 ### Operator-owned settings
 
@@ -290,10 +305,12 @@ the requirement; FEAT-153 owns the implementation.
 - [ ] In the legacy layout, nothing is forced: `git.enabled` still defaults to false
 - [ ] `docs/guide/configuration.md` documents which settings are operator-owned on a
       site root and why
-- [x] The listener-change requirement (validation gate flags a release changing
-      `server.host`, `server.port` or `https` on a public server) is recorded in
-      `work/specs/FEAT-153.md` and `DESIGN-git-deploy.md` for FEAT-153 to implement
-      (done 2026-08-25, alongside this spec)
+- [ ] The listener-change warning is implemented in the validation gate
+      (`server/deploy/validate.go`): a release whose config changes `server.host`,
+      `server.port` or the `https` block relative to the active release on a public
+      server warns in the push output; a same-listener release stays silent. The
+      decision is recorded in `DESIGN-git-deploy.md` §6.2 and handed off in
+      FEAT-153's Out of Scope (both done 2026-08-25, alongside this spec)
 
 ### Documentation
 
@@ -358,6 +375,8 @@ the requirement; FEAT-153 owns the implementation.
 | `cmd/basil/init_test.go` | Local-mode tests (with/without git, `--no-git`, refusals); assert server-mode tests unchanged |
 | `cmd/basil/main.go` | `--server`, `--no-git` flags; flag-combination validation (`--admin` implies `--server`; `--server` implies `--init`) |
 | `server/config/load.go` or `server/server.go` | Operator-owned enforcement when the site-root layout is active (the code already knows which layout it resolved — the same knowledge that picks `DataDir`) |
+| `server/deploy/validate.go` | Listener-change warning: compare the candidate release's `server.host`/`server.port`/`https` against the active release's |
+| `cmd/basil/fromhook.go` | The starter-commit non-fast-forward exception, decided from the deploy record |
 | `work/design/DESIGN-git-deploy.md` | Record the operator-owned decision and the first-publish non-fast-forward rule |
 | `docs/guide/` | Getting-started leads with local init; deploy guide owns `--server` and graduation |
 | `CHANGELOG.md` | `## [Unreleased]` |
@@ -389,14 +408,16 @@ the requirement; FEAT-153 owns the implementation.
 
 ## Dependencies
 
-- FEAT-152 (implemented) — both layouts and their anchors already exist.
-- Sequencing: the operator-owned settings decision must land before or with
-  FEAT-154. The init split itself has no ordering constraint against FEAT-153–155,
-  but landing it early keeps `--init` from teaching the wrong default in docs and
-  demos in the meantime.
-- **Slotted into PLAN-132 as phase 3** (2026-08-25): after FEAT-153 (whose validation
-  gate carries this spec's listener-change check), before FEAT-154 (which must not
-  make pushes load-bearing until operator-owned enforcement exists).
+- FEAT-152–155 (all implemented) — both layouts, the deploy engine, the hub and
+  `basil publish` exist. This feature builds on all four: it splits the init that
+  FEAT-152 wrote, adds a check to the validation gate FEAT-153 built, amends the
+  receive-hook refusal FEAT-154 shipped, and completes the graduation story that
+  FEAT-155's `basil publish` assumes.
+- **Slotted into PLAN-132 as phase 5** (2026-08-25), the programme's next unit. Two
+  of its pieces close gaps in shipped code — the operator-owned enforcement (a
+  deployed config can currently disable the hub) and the graduation
+  non-fast-forward exception (graduation is currently impossible without shell
+  access) — which is why it follows immediately rather than waiting.
 
 ## Definition of Done
 

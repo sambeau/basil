@@ -23,19 +23,18 @@ fast-forward merge, worktree, CHANGELOG `[Unreleased]`, Parsley (`.pars`), `http
 1. `CLAUDE.md` — build/test commands and the project Definition of Done.
 2. `work/plans/PLAN-132-git-deploy.md` — the phase plan you are executing.
 3. `work/design/DESIGN-git-deploy.md` — the agreed design, including decisions D1–D20.
-4. The spec for the phase in hand: `work/specs/FEAT-153.md`, then `FEAT-156.md`,
-   then `FEAT-154.md`, then `FEAT-155.md`.
-5. `git log --oneline -15` — phases 0 and 1 (BUG-033 scoped, FEAT-152) are already on
-   `main`. Do not redo them.
+4. The spec for the phase in hand: `work/specs/FEAT-156.md`.
+5. `git log --oneline -30` — phases 0–4 (BUG-033 scoped, FEAT-152, FEAT-153,
+   FEAT-154, FEAT-155) are already on `main`. Do not redo them.
 
 ## Constraints
 
-- ALWAYS run phases sequentially (153 → 156 → 154 → 155) BECAUSE they all touch
-  `server/config`, `server/server.go` and `cmd/basil`, and CLAUDE.md allows one
-  in-flight unit per subsystem — parallel worktrees on shared files is the recorded
-  failure mode. FEAT-156 must merge before FEAT-154 BECAUSE its operator-owned
-  settings enforcement is what stops a deployed config from disabling the git
-  endpoint it arrived through.
+- ALWAYS run phases sequentially BECAUSE they all touch `server/config`,
+  `server/server.go` and `cmd/basil`, and CLAUDE.md allows one in-flight unit per
+  subsystem — parallel worktrees on shared files is the recorded failure mode. One
+  phase remains: FEAT-156 (init defaults). It closes two gaps in shipped code — a
+  deployed config can disable the hub, and a graduated first publish is refused as
+  a force-push — so treat it as the immediate next unit, not backlog.
 - ALWAYS put at least one review stage between implementation and merge BECAUSE
   unreviewed agent code has shipped plausible-but-wrong work before; review is where
   this process earns its cost.
@@ -70,10 +69,11 @@ fast-forward merge, worktree, CHANGELOG `[Unreleased]`, Parsley (`.pars`), `http
 
 ## Task
 
-Implement PLAN-132 phases 2–5 (FEAT-153 deploy engine, FEAT-156 init defaults,
-FEAT-154 Git hub, FEAT-155 `basil publish`), each to the project Definition of Done,
-each with at least one review stage. BUG-033 closes when FEAT-154 lands with its
-regression test.
+Implement PLAN-132 phase 5 (FEAT-156 init defaults — phases 2–4 are already on
+`main`), to the project Definition of Done, with at least one review stage. Review
+lenses for this phase: spec-conformance and code-craft always; add security for the
+receive-hook change (the non-fast-forward exception must not weaken the shipped
+force-push refusal beyond the single starter-commit case).
 
 Effort expectation: each phase is a full development cycle — plan on 5–10 delegated
 agent tasks per phase, and spend your own effort on task definition, review
@@ -121,9 +121,9 @@ anything outside the plan's scope, or force-landing over an unresolved blocker.
 
 ## Retrieval anchors
 
-- Which phases remain, and in what order? → PLAN-132 phases 2–5, sequentially
-  (153 → 156 → 154 → 155).
+- Which phases remain, and in what order? → PLAN-132 phase 5 (FEAT-156) only;
+  phases 0–4 are on `main`.
 - Where is the Definition of Done? → `CLAUDE.md`, plus per-spec DoD sections.
 - Who pushes to origin? → You, the orchestrator, once per phase, after verifying.
-- When does BUG-033 close? → When FEAT-154 lands with its regression test.
+- When does BUG-033 close? → Closed — FEAT-154 landed with its regression test.
 - Where do out-of-scope discoveries go? → `work/BACKLOG.md`.
