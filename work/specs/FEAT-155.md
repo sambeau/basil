@@ -1,7 +1,7 @@
 ---
 id: FEAT-155
 title: "basil publish: explicit releases, drift reporting and the formatting gate"
-status: draft
+status: implemented
 priority: high
 created: 2026-08-24
 author: "@sambeau / @claude"
@@ -164,10 +164,47 @@ Project checklist (`CLAUDE.md`) plus:
 - [ ] `CHANGELOG.md` entry under `## [Unreleased]`
 - [ ] Merged to `main` and pushed; worktree and branch removed
 
-## Open Questions
+## Open Questions — resolved
 
-1. Should `basil publish` refuse when the working tree is dirty? Recommend warning, not
-   refusing: publishing a committed state with uncommitted local edits is legitimate, but
-   surprising often enough to mention.
-2. Does `basil status` need to work without network access? Recommend yes, reporting local
-   state and noting the server was unreachable.
+1. Dirty working tree: `basil publish` **warns** ("publishing the committed state <sha>")
+   and proceeds — it never refuses.
+2. `basil status` without network: **works**, reporting local state and noting the server
+   was unreachable; drift degrades to a warning rather than a failure.
+
+## Implementation Notes (2026-08-25)
+
+Implemented on `claude/basil-git-deploy-0ad5un` (P1 `21824db` shared formatter + `basil
+fmt`; P2 `d314b52` `basil publish` + drift + `status` reads `deploy.branch`; P3 `663e77a`
+pre-commit hook uses `basil fmt` + server warns on unformatted push; P4 `d588e96` docs; fix
+round `7bbc46b`). Reviewed by spec + craft lenses (no security lens — this unit adds no
+transport/auth surface; the only server-touching change is a warning that cannot alter the
+push exit status). No blockers or majors; all functional criteria met with proving tests.
+
+Verified end to end by the orchestrator against a running `--dev` server with a real clone:
+`basil publish` (confirmation, streamed validation, served output changed), `--dry-run`
+(plan only, nothing pushed), `n`-abort, a broken release (exit 1, reason shown, release
+branch unmoved), an unformatted-but-valid push (warns naming `basil fmt -w`, deploys, exit
+0), `basil fmt` (byte-identical to `pars fmt`, `-l` CI-usable), and the pre-commit hook
+formatting a staged file on commit.
+
+Decisions and deviations:
+
+- **The release branch is read from the clone's committed `basil.yaml`**, not from the
+  server. The spec preferred a server round-trip, but no config/status endpoint exists;
+  `basil.yaml` is versioned in the clone, so this is correct and needs no new surface. A
+  server live-state endpoint is deferred — backlog #148.
+- **`basil fmt` shares one implementation with `pars fmt`** via `pkg/parsley/format`
+  (`FormatSource`/`IsFormatted`/`Diff`); no shelling to the `pars` binary. `basil fmt -l`
+  exits non-zero on unformatted files (a CI gate), a deliberate divergence from `pars fmt
+  -l`; the three mode flags are mutually exclusive.
+- **The server's unformatted warning is a separate non-fatal `deploy.Unformatted` walk**,
+  never folded into the rejecting validation gate; a file that fails to read or parse is
+  skipped, not warned about. No `git.fmt_check` setting exists.
+- **`basil status` now reads the configured `deploy.branch`** (was hardcoded to `live`).
+- **Developer-side live drift is partial**: from a clone `basil status` and the `basil
+  --dev` startup note cannot see the live release (it lives in the server's `current`
+  symlink); `basil publish` reports release-branch-tip drift, which covers the day-to-day
+  need. Full clone-side live drift is deferred — backlog #148.
+- **Publisher on a `--dev` push** records `push`, not the account, though production
+  (authenticated) pushes record the account (proven by `TestGitE2E_PushReleaseBranchDeploys
+  WithPublisher`) — backlog #149.
