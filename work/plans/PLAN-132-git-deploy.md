@@ -2,7 +2,7 @@
 id: PLAN-132
 feature: FEAT-152, FEAT-153, FEAT-154, FEAT-155, FEAT-156, BUG-033
 title: "Implementation Plan for Git Deploy"
-status: in progress — phases 0–4 implemented; phase 5 (FEAT-156) remains
+status: complete — phases 0–5 implemented
 created: 2026-08-24
 updated: 2026-08-25
 ---
@@ -22,7 +22,7 @@ five, with a phase per feature.
 | 2 | FEAT-153 Deploy engine | 1 | The substantial piece. Self-contained, CLI-testable | done |
 | 3 | FEAT-154 Git hub | 1, 2 | Replaces `server/git.go`. Closes BUG-033 structurally | done |
 | 4 | FEAT-155 `basil publish` | 3 | Developer ergonomics. The optional part is here | done |
-| 5 | FEAT-156 Init defaults | 1–4 | Local-simple init as the default; closes two gaps in shipped code | **next** |
+| 5 | FEAT-156 Init defaults | 1–4 | Local-simple init as the default; closes two gaps in shipped code | done (2026-08-25) |
 
 **Phase 5 was added 2026-08-25** (after phases 0–4 had landed), from backlog #150/#151.
 Beyond the init split, two of its pieces close gaps the shipped phases left open: a

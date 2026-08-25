@@ -1,9 +1,10 @@
 ---
 id: FEAT-156
 title: "Init defaults: a simple local site by default, server topology opt-in"
-status: proposed
+status: implemented
 priority: high
 created: 2026-08-25
+implemented: 2026-08-25
 author: "@sambeau / @claude"
 related: FEAT-152, FEAT-153, FEAT-154, FEAT-155, PLAN-132, BACKLOG #150, BACKLOG #151
 ---
@@ -450,3 +451,79 @@ All resolved (@sam, 2026-08-25):
    deploying `host: localhost` onto a public server, taking down the site *and its
    git endpoint* on the next restart — is caught instead by the FEAT-153 validation
    gate flagging listener changes at push time (see Operator-owned settings).
+
+## Implementation notes (2026-08-25, branch `feat-156-init-defaults`)
+
+Implemented by an orchestrated team (two builders, an integration pass, a docs pass,
+three review lenses, two fix rounds), each stage verified by the orchestrator.
+
+### Deviations from the spec as written
+
+- **The operator-owned set is `git.enabled` + `auth.enabled` only** — `git.require_auth`
+  no longer exists (removed by FEAT-154 after this spec's operator-owned section was
+  drafted).
+- **The spec's "legacy layout: `git.enabled` still defaults to false" line was stale.**
+  Since FEAT-154 it defaults to true everywhere, with the endpoint active only when
+  `site.git` exists — in the legacy layout there is no repository, so the key is inert
+  there. Recorded as backlog #154 (the key now has no configuration where it does
+  anything).
+- **Graduation's first publish is `git push --force origin main:live`,** not
+  `basil publish`: the histories are unrelated, and `basil publish` fails opaquely on
+  that state. The receive-hook exception works as spec'd; the client ergonomics are
+  #151's (noted there). Docs describe the forced push honestly, and `basil publish`
+  works normally from the second release on.
+- **The listener-change comparison compares https by effective shape**, not raw text:
+  `https.auto` defaults on, so a config that merely omits the block serves TLS
+  identically and stays silent. What warns: auto turned off, or a manual certificate
+  appearing/disappearing/moving.
+- The local template's one-shape rule (port 8080 whatever the host — Open Question 3)
+  survived review with one consequence: the graduation docs instruct setting
+  `server.host` **and** `server.port: 443` before the first publish (`https.auto`
+  defaults on; `--dev` maps 443 back to 8080 locally, so the edit costs nothing in dev).
+
+### Security-review hardening (beyond the spec)
+
+- The push-triggered `deploy.pars` sandbox now **denies writes to the deploy record and
+  the auth database** (+ sidecars) via the evaluator's `RestrictWrite` — the record is
+  an authorization input to the starter-overwrite exception and was forgeable from
+  inside a pushed release. CLI deploys keep full power.
+- A site root **missing its auth database starts degraded** (warning naming
+  `basil users create`; auth + git endpoint off for the run) instead of refusing to
+  start — forcing `auth.enabled` had turned a dropped dotfile into an outage.
+- `data_dir` is **carried across live swaps** with the standard restart-required
+  warning. The `deploy` section is deliberately not carried: nothing in the server
+  reads it, and every consumer loads from disk per invocation.
+- The listener comparison loads configs with **env interpolation disabled** (no secret
+  echo into `remote:` output); an active config with a manual certificate and no host
+  counts as public; the starter-exception check runs **under the site deploy lock**.
+
+### Deferred, with owners
+
+- Tree-level sandbox gap (recursive removal of `data_dir` bypasses the file-level
+  deny list) → backlog **#152** (evaluator change).
+- `deploy.branch` is release-controlled and can un-protect the release branch;
+  whether it (and `data_dir` at startup) becomes operator-owned → backlog **#153**
+  (@sambeau decision).
+- `git.enabled` vestigiality → backlog **#154**.
+- First-publish `basil publish` ergonomics → **#151** (noted there).
+- Local `git init` inherits the `--initial-branch` git ≥ 2.28 floor from server mode;
+  an older git errors rather than degrading silently. Accepted, unprobed.
+- Pre-existing `main` failures discovered during integration (not this feature's):
+  `TestCheckRepoOutsideServedRoots` (real static-root gap in
+  `checkRepoOutsideServedRoots`), `TestCurrentLinkWatcherActivatesRepointedRelease`
+  (watcher misses the symlink swap — corroborated by a live repro during docs
+  verification), and flaky `TestDeployRaceSerialises` (SQLITE_BUSY on concurrent
+  `OpenRecord`). All three handed off as separate task chips with diagnoses.
+
+### Verification (orchestrator, observed directly)
+
+- `go build ./...` clean; `go test ./...`: 19 packages ok; the only failures are the
+  two pre-existing `main` issues above, with unchanged signatures.
+- `basil --init mysite` → three-entry folder, repo on `main`, hook wired; summary has
+  no API key, no clone command, one-line graduation pointer. `basil --dev` inside it
+  served the starter page (HTTP 200, observed).
+- `TestGitE2E_GraduationFromLocalInitToServer` passes: local init → server init →
+  remote add → push `main` → one forced `main:live` (starter-overwrite message) →
+  server serves the local site's content → a second forced push is refused.
+- Operator-owned table tests (11 cases) pass; explicit-false warns, omission silent,
+  legacy untouched.
