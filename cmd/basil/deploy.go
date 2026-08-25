@@ -122,6 +122,55 @@ func shortRelease(sha string) string {
 	return sha
 }
 
+// branchShortName is the plain branch the release ref names, for display and
+// for the `basil deploy <branch>` hint. deploy.branch may be a bare name
+// ("live", "main") or a fully-qualified ref; a refs/heads/<name> ref reduces
+// to <name>, anything else (a bare name, or the rare refs/tags/<name>) is used
+// as Git already resolves it.
+func branchShortName(cfg *config.Config) string {
+	b := cfg.Deploy.Branch
+	if b == "" {
+		b = config.DefaultReleaseBranch
+	}
+	return strings.TrimPrefix(b, "refs/heads/")
+}
+
+// devReleaseDriftNote returns a one-line note when the release branch in the
+// site's bare repository is ahead of the live release, or "" when there is
+// nothing to say or drift cannot be computed. It never fails: a dev-mode
+// startup convenience must degrade to silence, not an error.
+func devReleaseDriftNote(cfg *config.Config) string {
+	if cfg.SiteRoot == "" {
+		return ""
+	}
+	repo := cfg.BareRepoPath()
+	if info, err := os.Stat(repo); err != nil || !info.IsDir() {
+		return ""
+	}
+	branch := branchShortName(cfg)
+	if _, err := gitOutput(repo, "rev-parse", "--verify", "--quiet", branch); err != nil {
+		return ""
+	}
+	current, err := deploy.CurrentRelease(cfg.SiteRoot)
+	if err != nil {
+		return ""
+	}
+	liveSHA := filepath.Base(current)
+	out, err := gitOutput(repo, "rev-list", "--count", liveSHA+".."+branch)
+	if err != nil {
+		return ""
+	}
+	n := strings.TrimSpace(out)
+	if n == "" || n == "0" {
+		return ""
+	}
+	plural := "commits"
+	if n == "1" {
+		plural = "commit"
+	}
+	return fmt.Sprintf("note: the release branch %q is %s %s ahead of the live release - deploy it with: basil deploy %s", branch, n, plural, branch)
+}
+
 // runDeployCommand handles `basil deploy <sha|branch|tag>`.
 func runDeployCommand(args []string, stdout, stderr io.Writer, getenv func(string) string) error {
 	flags := flag.NewFlagSet("basil deploy", flag.ContinueOnError)
@@ -391,7 +440,7 @@ func runStatusCommand(args []string, stdout, stderr io.Writer, getenv func(strin
 		return nil
 	}
 
-	branch := config.DefaultReleaseBranch
+	branch := branchShortName(cfg)
 	if _, err := gitOutput(repo, "rev-parse", "--verify", "--quiet", branch); err != nil {
 		fmt.Fprintf(stdout, "the release branch '%s' does not exist in %s yet\n", branch, repo)
 		return nil

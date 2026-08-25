@@ -67,6 +67,23 @@ func (f *deployFixture) commitAndPush(t *testing.T, name, content, msg string) s
 	return testGit(t, f.work, "rev-parse", "HEAD")
 }
 
+// commitAndPushBranch commits one file in the clone and pushes it to the named
+// branch on origin, for exercising a non-default release branch.
+func (f *deployFixture) commitAndPushBranch(t *testing.T, branch, name, content, msg string) string {
+	t.Helper()
+	path := filepath.Join(f.work, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testGit(t, f.work, "add", "-A")
+	testGit(t, f.work, "commit", "--quiet", "--no-verify", "-m", msg)
+	testGit(t, f.work, "push", "--quiet", "origin", branch)
+	return testGit(t, f.work, "rev-parse", "HEAD")
+}
+
 // currentSHA reads which release the site root's `current` link points at.
 func (f *deployFixture) currentSHA(t *testing.T) string {
 	t.Helper()
@@ -374,6 +391,68 @@ func TestStatusCommand_AheadCount(t *testing.T) {
 	}
 	if !strings.Contains(got, "basil deploy "+releaseBranch) {
 		t.Errorf("status does not say how to catch up:\n%s", got)
+	}
+}
+
+// Status must read deploy.branch from config, not the hardcoded default: with
+// deploy.branch: main set in the active release's basil.yaml, status compares
+// against `main`, proving the DefaultReleaseBranch hardcode is gone.
+func TestStatusCommand_ReadsConfiguredBranch(t *testing.T) {
+	f := newDeployFixture(t)
+
+	// Point the active release's config at a non-default release branch.
+	relCfg := filepath.Join(f.root, "current", "basil.yaml")
+	data, err := os.ReadFile(relCfg)
+	if err != nil {
+		t.Fatalf("reading release config: %v", err)
+	}
+	if err := os.WriteFile(relCfg, append(data, []byte("\ndeploy:\n  branch: main\n")...), 0o644); err != nil {
+		t.Fatalf("writing release config: %v", err)
+	}
+
+	// Create `main` one commit ahead of the live release in the bare repo, by
+	// branching from the live release tip in the clone and pushing main.
+	testGit(t, f.work, "checkout", "--quiet", "-b", "main")
+	f.commitAndPushBranch(t, "main", "site/index.pars", "<h1>\"m2\"</h1>\n", "on main")
+
+	var stdout, stderr bytes.Buffer
+	if err := runStatusCommand([]string{"--site", f.root}, &stdout, &stderr, emptyEnv); err != nil {
+		t.Fatalf("status failed: %v\n%s", err, stderr.String())
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "'main'") {
+		t.Errorf("status did not read the configured branch main:\n%s", got)
+	}
+	if strings.Contains(got, "'live'") {
+		t.Errorf("status still refers to the hardcoded default branch live:\n%s", got)
+	}
+	if !strings.Contains(got, "1 commit ahead") {
+		t.Errorf("status did not report the ahead count against main:\n%s", got)
+	}
+}
+
+// Status works without a network and without a repository: it reports the
+// local live state and notes it cannot compare, exiting 0.
+func TestStatusCommand_NoRepositoryStillReportsLive(t *testing.T) {
+	f := newDeployFixture(t)
+
+	// Remove the bare repository: nothing to compare against, but the live
+	// release is still known locally.
+	if err := os.RemoveAll(filepath.Join(f.root, "site.git")); err != nil {
+		t.Fatalf("removing repo: %v", err)
+	}
+	live := f.currentSHA(t)
+
+	var stdout, stderr bytes.Buffer
+	if err := runStatusCommand([]string{"--site", f.root}, &stdout, &stderr, emptyEnv); err != nil {
+		t.Fatalf("status must not fail without a repository: %v", err)
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "live: "+live[:12]) {
+		t.Errorf("status did not report the live release from local state:\n%s", got)
+	}
+	if !strings.Contains(got, "no repository") {
+		t.Errorf("status did not note the missing repository:\n%s", got)
 	}
 }
 

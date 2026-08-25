@@ -49,6 +49,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 			return runReleasesCommand(args[1:], stdout, stderr, getenv)
 		case "status":
 			return runStatusCommand(args[1:], stdout, stderr, getenv)
+		case "publish":
+			return runPublishCommand(args[1:], stdout, stderr, getenv)
 		case "check":
 			return runCheckCommand(args[1:], stdout, stderr, getenv)
 		case "fmt":
@@ -173,6 +175,15 @@ func runServer(ctx context.Context, args []string, stdout, stderr io.Writer, get
 		fmt.Fprintf(stderr, "warning: %s\n", warning)
 	}
 
+	// In dev mode, point out when the release branch is ahead of what is
+	// live, so an unpublished push is not a surprise. Silent if it cannot be
+	// computed (no repo, no branch, no active release).
+	if cfg.Server.Dev {
+		if note := devReleaseDriftNote(cfg); note != "" {
+			fmt.Fprintln(stderr, note)
+		}
+	}
+
 	// Build version string
 	version := fmt.Sprintf("version %s (%s)", Version, Commit)
 
@@ -239,6 +250,7 @@ Server Options:
   --help             Show this help
 
 Deployment:
+  basil publish [dir]            Push the current commit to the release branch (from a clone)
   basil deploy <sha|branch|tag>  Validate and activate a release
   basil rollback [id]            Re-activate the previous (or a named) release
   basil releases                 Show the deploy record; * marks the live release
@@ -280,6 +292,7 @@ Examples:
   basil --dev --port 3000     Dev mode on port 3000
   basil --dev -as sam         Dev mode with Sam's config overrides
   basil --site /srv/mysite    Serve the active release of a site root
+  basil publish               Publish the clone's current commit to the release branch
   basil --init mysite --host mysite.example.com --admin sam
   basil users create --name "Admin" --email admin@example.com --role admin
   basil users list            List all registered users
