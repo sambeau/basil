@@ -46,6 +46,7 @@ func TestSwapReleaseRaceUnpinnedPaths(t *testing.T) {
 	writeRoutesRelease(t, root, "B", "race release B")
 	must(os.MkdirAll(filepath.Join(root, config.DataDirName), 0755))
 	must(os.Symlink(filepath.Join(config.ReleasesDirName, "A"), filepath.Join(root, config.CurrentLinkName)))
+	writeSiteAuthDB(t, root)
 
 	s, _, _ := newSiteRootServer(t, root)
 
@@ -137,6 +138,7 @@ func TestSwapReleaseCacheRepoisonAcrossSwap(t *testing.T) {
 	writeCachedRelease(t, root, "B", "release B content")
 	must(os.MkdirAll(filepath.Join(root, config.DataDirName), 0755))
 	must(os.Symlink(filepath.Join(config.ReleasesDirName, "A"), filepath.Join(root, config.CurrentLinkName)))
+	writeSiteAuthDB(t, root)
 
 	s, _, _ := newSiteRootServer(t, root)
 

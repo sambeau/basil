@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/sambeau/basil/server/auth"
 	"github.com/sambeau/basil/server/config"
 	"github.com/sambeau/basil/server/deploy"
 )
@@ -41,7 +42,22 @@ func activationFixture(t *testing.T) (root string) {
 	writeRelease(t, root, "B", "release B content", "")
 	must(os.MkdirAll(filepath.Join(root, config.DataDirName), 0755))
 	must(os.Symlink(filepath.Join(config.ReleasesDirName, "A"), filepath.Join(root, config.CurrentLinkName)))
+	writeSiteAuthDB(t, root)
 	return root
+}
+
+// writeSiteAuthDB gives a fabricated site root the auth database every real
+// one has. `basil --init --server` creates it, and auth is operator-owned on
+// a site root (FEAT-156) — a release cannot switch it off, so the server
+// opens it on every start. A site root without one is not a layout the
+// product can produce.
+func writeSiteAuthDB(t *testing.T, root string) {
+	t.Helper()
+	db, err := auth.OpenOrCreateDB(filepath.Join(root, config.DataDirName))
+	if err != nil {
+		t.Fatalf("creating the site's auth database: %v", err)
+	}
+	db.Close()
 }
 
 // newSiteRootServer starts a server the way cmd/basil does for --site: the

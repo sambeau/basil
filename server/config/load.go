@@ -56,6 +56,11 @@ func LoadWithPath(configPath string, getenv func(string) string) (*Config, strin
 	ResolveAnchors(cfg, filepath.Dir(absPath))
 	ResolvePaths(cfg)
 
+	// Operator-owned settings are decided here, where the layout is already
+	// known: enforcement hangs off the same knowledge that picks DataDir, so
+	// the legacy layout is untouched by construction.
+	enforceOperatorOwned(cfg, data)
+
 	// Run non-HTTPS validation only - HTTPS validation deferred until Validate()
 	if err := validateBasic(cfg); err != nil {
 		return nil, "", err
@@ -78,6 +83,11 @@ func Validate(cfg *Config) error {
 // a misconfiguration.
 func Warnings(cfg *Config) []string {
 	var warnings []string
+
+	// An operator-owned setting the release tried to disable is reported
+	// every start: the config on disk and the running server disagree, and
+	// the operator should know which one won.
+	warnings = append(warnings, cfg.operatorOverrides...)
 
 	// Let's Encrypt does not require a contact address, and requiring one
 	// here would mean editing basil.yaml between `basil --init` and a

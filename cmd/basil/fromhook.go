@@ -159,7 +159,7 @@ func runPreReceive(cfg *config.Config, eng *deploy.Engine, updates []refUpdate, 
 				refusal = err
 				continue
 			}
-			if !ancestor {
+			if !ancestor && !acceptsStarterOverwrite(cfg, stdout) {
 				fmt.Fprintln(stdout, "force-pushing the release branch rewrites release history, which the deploy record and rollback rely on — it is refused for everyone")
 				refusal = errors.New("release branch force-push refused")
 				continue
@@ -190,8 +190,59 @@ func runPreReceive(cfg *config.Config, eng *deploy.Engine, updates []refUpdate, 
 		// errors are already out of the way), reports on a separate non-fatal
 		// channel, and never touches `refusal` — the push stands regardless.
 		warnUnformatted(stdout, releaseDir)
+		warnListenerChange(stdout, cfg.SiteRoot, releaseDir)
 	}
 	return refusal
+}
+
+// warnListenerChange relays the non-fatal listener notice for a release that
+// has already been accepted (FEAT-156). Listener settings stay deployable —
+// renaming a site over git is legitimate — so this is a gate, not a force: it
+// reports at push time, where the mistake is one commit deep, and NEVER
+// touches the push's exit status. Silence is correct whenever there is
+// nothing to compare against (no active release, an unloadable config on
+// either side) or the live site is not public.
+func warnListenerChange(stdout io.Writer, siteRoot, releaseDir string) {
+	active, err := deploy.CurrentRelease(siteRoot)
+	if err != nil {
+		return
+	}
+	changes := deploy.ListenerChanges(active, releaseDir)
+	if len(changes) == 0 {
+		return
+	}
+	fmt.Fprintln(stdout, "warning: this release changes how the live site is served:")
+	for _, c := range changes {
+		fmt.Fprintf(stdout, "warning:   %s\n", c)
+	}
+	fmt.Fprintln(stdout, "The change takes effect when the server restarts, not now. If it was not intended, revert it before then: git revert HEAD && git push.")
+}
+
+// acceptsStarterOverwrite decides the single exception to the release-branch
+// force-push refusal (FEAT-156, graduation). Server init seeds the release
+// branch with its own starter commit, so a developer's local history and the
+// hub's are unrelated and the FIRST publish from a graduated site is always a
+// non-fast-forward. Refusing it would make graduation impossible without shell
+// access on the box.
+//
+// The exception is decided from the deploy record, never from ancestry: only
+// the record can say that nothing but the init starter release has ever gone
+// live. Once one real deploy is recorded — successful or not — this returns
+// false and the refusal is byte-identical to the shipped one. A record that
+// cannot be read is not an exception either (OnlyInitDeployed is conservative);
+// the read error is reported so an operator can tell "refused because history
+// exists" from "refused because the record is unreadable".
+func acceptsStarterOverwrite(cfg *config.Config, stdout io.Writer) bool {
+	starter, err := deploy.OnlyInitDeployed(cfg.DeployDBPath())
+	if err != nil {
+		fmt.Fprintf(stdout, "cannot read the deploy record (%v) — treating this site as already deployed\n", err)
+		return false
+	}
+	if !starter {
+		return false
+	}
+	fmt.Fprintln(stdout, "replacing the starter site created by 'basil --init' with your first release — this is the one non-fast-forward the release branch allows, and it will not be allowed again")
+	return true
 }
 
 // warnUnformatted relays a non-fatal formatting notice for a release that has

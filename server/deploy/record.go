@@ -200,6 +200,48 @@ func (r *Record) lastDeployed() (*Entry, error) {
 	return &e, nil
 }
 
+// OnlyInitDeployed reports whether the deploy record at path — normally
+// cfg.DeployDBPath() — holds nothing but the init-triggered starter release
+// that `basil --init --server` seeded. It is the one question the graduation
+// exception asks (FEAT-156): a hub in this state has never published anything
+// a human wrote, so there is no release history to protect.
+//
+// It is deliberately conservative in every uncertain direction. A record that
+// cannot be found or read answers false, not "probably fresh": the caller
+// turns a true into permission to rewrite the release branch, and the shipped
+// refusal is the safe answer when the record cannot vouch for the site. An
+// empty record is false for the same reason — release 1 is always recorded,
+// so an empty table means the record is not the one this site deployed
+// through.
+//
+// The file is opened read-only in the sense that matters here: nothing is
+// written. (OpenRecord would create an empty record, so a missing file is
+// checked for first, not created and then found empty.)
+func OnlyInitDeployed(path string) (bool, error) {
+	if _, err := os.Stat(path); err != nil {
+		return false, fmt.Errorf("reading the deploy record: %w", err)
+	}
+	rec, err := OpenRecord(path)
+	if err != nil {
+		return false, err
+	}
+	defer rec.Close()
+
+	entries, err := rec.List(0)
+	if err != nil {
+		return false, err
+	}
+	if len(entries) == 0 {
+		return false, nil
+	}
+	for _, e := range entries {
+		if e.Trigger != TriggerInit {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // Close closes the record.
 func (r *Record) Close() error {
 	return r.db.Close()

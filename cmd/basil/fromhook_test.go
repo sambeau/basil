@@ -210,23 +210,18 @@ func TestFromHook_ReleaseBranchDeletionRefused(t *testing.T) {
 }
 
 // A real non-fast-forward: two commits that share history but where the old
-// tip is not an ancestor of the proposed new one.
+// tip is not an ancestor of the proposed new one. Refused once the site has
+// deployed anything of its own — the graduation exception below covers only a
+// hub still sitting on its init starter release.
 func TestFromHook_ForcePushRefused(t *testing.T) {
 	f := newDeployFixture(t)
+	before := f.currentSHA(t)
 	onLive := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	deployRelease(t, f, before, onLive)
 
-	// Rewrite history in the clone: step back one commit and commit
-	// something else, so `rewritten` and `onLive` are siblings.
-	testGit(t, f.work, "reset", "--hard", "HEAD~1")
-	if err := os.WriteFile(filepath.Join(f.work, "site", "index.pars"), []byte("<h1>\"rewritten\"</h1>\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	testGit(t, f.work, "add", "-A")
-	testGit(t, f.work, "commit", "--quiet", "--no-verify", "-m", "rewritten v2")
-	rewritten := testGit(t, f.work, "rev-parse", "HEAD")
-	// Store the rewritten commit in the bare repo on a side branch, the way
-	// it would already exist when pre-receive judges a real force-push.
-	testGit(t, f.work, "push", "--quiet", "origin", "HEAD:refs/heads/rewrite")
+	// Step back one commit and commit something else, so `rewritten` and
+	// `onLive` are siblings.
+	rewritten := rewriteHistory(t, f)
 
 	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(onLive, rewritten, "refs/heads/live"))
 	if err == nil {
@@ -235,8 +230,133 @@ func TestFromHook_ForcePushRefused(t *testing.T) {
 	if out := stdout.String(); !strings.Contains(out, "force-pushing the release branch rewrites release history") {
 		t.Errorf("output = %q, want the force-push refusal", out)
 	}
-	if entries := f.recordEntries(t); len(entries) != 1 {
-		t.Errorf("a refused force-push reached the engine: %d record entries", len(entries))
+	// init + the one real deploy; the refused force-push added nothing.
+	if entries := f.recordEntries(t); len(entries) != 2 {
+		t.Errorf("a refused force-push reached the engine: %d record entries, want 2", len(entries))
+	}
+}
+
+// deployRelease drives post-receive so the fixture has a real (non-init)
+// deploy in its record — the state in which the graduation exception is over.
+func deployRelease(t *testing.T, f *deployFixture, old, new string) {
+	t.Helper()
+	stdout, stderr, err := runHookLines(f, "post-receive", emptyEnv, refLine(old, new, "refs/heads/live"))
+	if err != nil {
+		t.Fatalf("deploying %s: %v\n%s%s", shortRelease(new), err, stdout.String(), stderr.String())
+	}
+}
+
+// rewriteHistory produces a sibling of the current tip in the clone and
+// stores it in the bare repo, the way a real force-push candidate would
+// already exist when pre-receive judges it.
+func rewriteHistory(t *testing.T, f *deployFixture) string {
+	t.Helper()
+	testGit(t, f.work, "reset", "--hard", "HEAD~1")
+	if err := os.WriteFile(filepath.Join(f.work, "site", "index.pars"), []byte("<h1>\"rewritten\"</h1>\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testGit(t, f.work, "add", "-A")
+	testGit(t, f.work, "commit", "--quiet", "--no-verify", "-m", "rewritten")
+	testGit(t, f.work, "push", "--quiet", "origin", "HEAD:refs/heads/rewrite")
+	return testGit(t, f.work, "rev-parse", "HEAD")
+}
+
+// Graduation (FEAT-156): server init seeds the release branch with its own
+// starter commit, so the first publish from a local site that grew up
+// elsewhere is a non-fast-forward. While the record shows nothing but that
+// init release, it is accepted — otherwise graduation needs shell access.
+func TestFromHook_StarterSiteNonFastForwardAccepted(t *testing.T) {
+	f := newDeployFixture(t)
+	onLive := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	rewritten := rewriteHistory(t, f)
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(onLive, rewritten, "refs/heads/live"))
+	if err != nil {
+		t.Fatalf("pre-receive refused the first publish onto a starter site: %v\n%s", err, stdout.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "starter site created by 'basil --init'") {
+		t.Errorf("output = %q, want the one-time starter-overwrite notice", out)
+	}
+	if !strings.Contains(out, "ok") {
+		t.Errorf("output = %q, want the release to have been checked", out)
+	}
+	if strings.Contains(out, "force-pushing the release branch") {
+		t.Errorf("output = %q, want no force-push refusal", out)
+	}
+}
+
+// The other side of the boundary: one real deploy and the exception is spent
+// for good, even though the record still contains the init release.
+func TestFromHook_StarterExceptionEndsAfterFirstRealDeploy(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	onLive := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	deployRelease(t, f, before, onLive)
+	rewritten := rewriteHistory(t, f)
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(onLive, rewritten, "refs/heads/live"))
+	if err == nil {
+		t.Fatal("pre-receive accepted a non-fast-forward after a real deploy")
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "force-pushing the release branch rewrites release history") {
+		t.Errorf("output = %q, want the shipped force-push refusal", out)
+	}
+	if strings.Contains(out, "starter site created by") {
+		t.Errorf("output = %q, want no starter-overwrite notice", out)
+	}
+}
+
+// A record that cannot be read is not evidence of a fresh hub: the shipped
+// refusal stands, and the reason is named so an operator can tell the two
+// refusals apart.
+func TestFromHook_MissingRecordRefusesNonFastForward(t *testing.T) {
+	f := newDeployFixture(t)
+	onLive := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+	rewritten := rewriteHistory(t, f)
+	if err := os.Remove(filepath.Join(f.root, "data", "deploy.db")); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(onLive, rewritten, "refs/heads/live"))
+	if err == nil {
+		t.Fatal("pre-receive accepted a non-fast-forward with no deploy record")
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "cannot read the deploy record") {
+		t.Errorf("output = %q, want the unreadable-record explanation", out)
+	}
+	if !strings.Contains(out, "force-pushing the release branch rewrites release history") {
+		t.Errorf("output = %q, want the shipped force-push refusal", out)
+	}
+}
+
+// Fast-forwards never consult the record and never mention the exception —
+// in both states of the hub.
+func TestFromHook_FastForwardUnaffectedByStarterException(t *testing.T) {
+	f := newDeployFixture(t)
+	before := f.currentSHA(t)
+	first := f.commitAndPush(t, "site/index.pars", "<h1>\"v2\"</h1>\n", "v2")
+
+	// Fresh hub: record holds the init release only.
+	stdout, _, err := runHookLines(f, "pre-receive", emptyEnv, refLine(before, first, "refs/heads/live"))
+	if err != nil {
+		t.Fatalf("pre-receive refused a fast-forward on a fresh hub: %v\n%s", err, stdout.String())
+	}
+	if out := stdout.String(); strings.Contains(out, "starter site created by") {
+		t.Errorf("a fast-forward invoked the starter exception: %q", out)
+	}
+
+	// After a real deploy: still accepted, still silent about the exception.
+	deployRelease(t, f, before, first)
+	second := f.commitAndPush(t, "site/index.pars", "<h1>\"v3\"</h1>\n", "v3")
+	stdout, _, err = runHookLines(f, "pre-receive", emptyEnv, refLine(first, second, "refs/heads/live"))
+	if err != nil {
+		t.Fatalf("pre-receive refused a fast-forward after a deploy: %v\n%s", err, stdout.String())
+	}
+	if out := stdout.String(); strings.Contains(out, "starter site created by") {
+		t.Errorf("a fast-forward invoked the starter exception: %q", out)
 	}
 }
 

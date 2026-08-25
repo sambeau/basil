@@ -50,6 +50,12 @@ type Config struct {
 	Developers  map[string]DeveloperConfig `yaml:"developers"` // Named developer profiles for per-developer overrides
 	Meta        map[string]any             `yaml:"meta"`       // Custom metadata accessible as meta.* in Parsley
 	Secrets     *SecretTracker             `yaml:"-"`          // Tracks which config paths contain secrets (for DevTools)
+
+	// operatorOverrides holds one message per operator-owned setting this
+	// config tried to disable (see operator.go). Unexported because it is
+	// not configuration: it is a record of what loading decided, reported
+	// through Warnings.
+	operatorOverrides []string
 }
 
 // DatabaseConfig holds database settings
@@ -277,6 +283,12 @@ func (p *ProtectedPath) UnmarshalYAML(unmarshal func(any) error) error {
 // `git.enabled: true`. The only key is the off-switch. There is deliberately
 // no way to disable authentication: pushes always require an API key, and
 // the sole relaxation — dev-mode localhost — is decided in code.
+//
+// On a site root the off-switch is not honoured: git.enabled is
+// operator-owned there (FEAT-156, operator.go), because the config ships
+// inside the release and a deployed `git.enabled: false` would disable the
+// endpoint the deploy arrived through. It remains a real off-switch in the
+// legacy layout.
 type GitConfig struct {
 	Enabled bool `yaml:"enabled"` // Off-switch for the Git endpoint at /.git/ (default: true; active only when site.git exists)
 }
