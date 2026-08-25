@@ -715,26 +715,15 @@ func checkManualCertificate(cfg *config.Config, pass, fail func(name, format str
 
 // pathContains reports whether p lives at or under root, after resolving
 // both through symlinks - `current` is one, so a naive prefix test lies.
+// config.RealPath resolves paths that do not exist yet as well, so a served
+// root the operator has not created cannot slip the repository past this.
 func pathContains(root, p string) bool {
-	root = resolvedPath(root)
-	p = resolvedPath(p)
+	root = config.RealPath(root)
+	p = config.RealPath(p)
 	if root == p {
 		return true
 	}
 	return strings.HasPrefix(p, root+string(filepath.Separator))
-}
-
-// resolvedPath is the strongest resolution available for a path that may
-// not fully exist: absolute, cleaned, and through symlinks when possible.
-func resolvedPath(p string) string {
-	abs, err := filepath.Abs(p)
-	if err != nil {
-		return filepath.Clean(p)
-	}
-	if r, err := filepath.EvalSymlinks(abs); err == nil {
-		return r
-	}
-	return filepath.Clean(abs)
 }
 
 // clip shortens a value to fit its table column, counting runes rather than

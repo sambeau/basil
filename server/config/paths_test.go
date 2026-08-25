@@ -557,3 +557,35 @@ func TestPathAnchors_DeveloperProfiles(t *testing.T) {
 		})
 	}
 }
+
+// RealPath must land a path that does not exist yet in the same namespace as
+// one that does, or containment checks built on it compare /var against
+// /private/var on macOS and silently report "outside". A bare repository
+// inside a served root is exactly the case that must never be missed.
+func TestRealPathResolvesNonExistentPaths(t *testing.T) {
+	dir := t.TempDir() // exists, so it resolves through any symlinked parent
+	real := RealPath(dir)
+
+	for _, rel := range []string{"site.git", filepath.Join("a", "b", "site.git")} {
+		got := RealPath(filepath.Join(dir, rel))
+		want := filepath.Join(real, rel)
+		if got != want {
+			t.Errorf("RealPath(%s/%s) = %q, want %q", dir, rel, got, want)
+		}
+		// The whole point: the resolved child is still inside the resolved
+		// parent, so a prefix or Rel test agrees they are related.
+		if !strings.HasPrefix(got, real+string(filepath.Separator)) {
+			t.Errorf("resolved child %q is not under resolved parent %q", got, real)
+		}
+	}
+
+	// An existing path resolves as EvalSymlinks would.
+	if want, err := filepath.EvalSymlinks(dir); err == nil && real != want {
+		t.Errorf("RealPath(%s) = %q, want %q", dir, real, want)
+	}
+
+	// A relative path becomes absolute rather than resolving against nothing.
+	if got := RealPath("some/relative/path"); !filepath.IsAbs(got) {
+		t.Errorf("RealPath returned a relative path: %q", got)
+	}
+}

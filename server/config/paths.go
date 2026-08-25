@@ -278,3 +278,34 @@ func (c *Config) BareRepoPath() string {
 	}
 	return filepath.Join(c.SiteRoot, BareRepoName)
 }
+
+// RealPath resolves p to its real location: absolute, cleaned, and through
+// symlinks as far as the filesystem allows. Paths that do not exist yet
+// resolve too — the deepest existing ancestor is resolved and the remaining
+// components are re-joined onto it.
+//
+// That last part is what makes it safe for containment checks. EvalSymlinks
+// fails outright on a path that does not exist, and a bare repository or a
+// served root legitimately may not exist yet on a fresh site. Falling back to
+// the unresolved path would then compare one side of the check against the
+// other in a different namespace — on macOS /var/… against /private/var/… —
+// and a repository sitting inside a served root would be reported as outside
+// it (BUG: TestCheckRepoOutsideServedRoots).
+func RealPath(p string) string {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return filepath.Clean(p)
+	}
+	rest := ""
+	for cur := abs; ; {
+		if real, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(real, rest)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return filepath.Clean(abs)
+		}
+		rest = filepath.Join(filepath.Base(cur), rest)
+		cur = parent
+	}
+}

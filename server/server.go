@@ -762,29 +762,16 @@ func checkRepoOutsideServedRoots(cfg *config.Config, repo string) error {
 		roots = append(roots, root{fmt.Sprintf("routes[%d].public_dir", i), rt.PublicDir})
 	}
 
-	repoReal := resolveRealPath(repo)
+	repoReal := config.RealPath(repo)
 	for _, rt := range roots {
 		if rt.path == "" {
 			continue
 		}
-		if pathContains(resolveRealPath(rt.path), repoReal) {
+		if pathContains(config.RealPath(rt.path), repoReal) {
 			return fmt.Errorf("refusing to serve Git: the repository %s is inside the served %s (%s) — every version of every file would be exposed; move the served directory or the site root", repo, rt.name, rt.path)
 		}
 	}
 	return nil
-}
-
-// resolveRealPath makes p absolute and resolves symlinks where possible, so
-// containment checks compare real locations rather than spellings.
-func resolveRealPath(p string) string {
-	abs, err := filepath.Abs(p)
-	if err != nil {
-		return p
-	}
-	if real, err := filepath.EvalSymlinks(abs); err == nil {
-		return real
-	}
-	return abs
 }
 
 // pathContains reports whether child is dir itself or inside it.
