@@ -217,8 +217,9 @@ Each entry stores **two identities**, because they routinely differ:
 
 - **Publisher** — who triggered the deploy. A CLI deploy has shell access and
   no Basil account in hand, so it records the operating system account
-  (`cli:sam`). When push-to-deploy arrives, a push will record the Basil
-  account behind the API key here instead.
+  (`cli:sam`). A `git push` (or `basil publish`) authenticated with an API key
+  records the Basil account behind that key. A push over a `--dev` localhost
+  server, where authentication is relaxed, records `push`.
 - **Author** — who wrote the commit, read from the commit itself
   (`user.name` / `user.email`).
 
@@ -237,8 +238,10 @@ the release branch 'live' matches the live release
 ```
 
 When the branch is ahead, status says by how many commits and prints the
-`basil deploy live` to run. Status reports rather than insists: a legacy
-layout or a missing repository is stated plainly and exits 0.
+`basil deploy` to run. It names the **configured** release branch throughout —
+`live` by default, or whatever `deploy.branch` is set to (a `deploy.branch: main`
+site reports `main`), not the literal word "live". Status reports rather than
+insists: a legacy layout or a missing repository is stated plainly and exits 0.
 
 ## `basil check`
 

@@ -49,10 +49,10 @@ git push                        # stored on the server, published to nobody
 **4. Publish:**
 
 ```bash
-git push origin live            # the release branch moves; the release is checked, then goes live
+basil publish                   # review the commits and files, confirm, then it deploys
 ```
 
-A push that moves the release branch runs the deploy on the server; its output reaches your terminal as `remote:` lines, and a release that fails validation is rejected with the live site left unchanged.
+`basil publish` runs in the clone: it shows what is about to go out, reports how far the live site has drifted, asks before pushing (`--yes` skips it, `--dry-run` stops at the plan), and streams the server's deploy output. Underneath it is a push of the release branch, so raw `git push origin live` still works; a release that fails validation is rejected with the live site left unchanged, and the server warns (never rejects) about unformatted `.pars` files, naming `basil fmt -w`.
 
 ## Authentication & Roles
 

@@ -21,9 +21,13 @@ roll back — is the subject of the [Deployment guide](deployment.md); this page
 about the Git side: cloning, authenticating, pushing, and the credential mechanics
 that trip people up.
 
-> A friendlier `basil publish` command — one that shows you what is about to go out
-> and asks before it does — is coming (FEAT-155). Until it lands, publishing is
-> `git push` of the release branch, exactly as below.
+Publishing has its own verb: **`basil publish`**. It shows you the commits and files
+about to go out, reports how far the live site has drifted, and asks before it moves
+anything. Underneath it is still a push of the release branch — so raw `git push`
+remains a working alternative (see [Publishing with raw Git](#publishing-with-raw-git))
+— but the verb is the one to reach for, and the daily loop below is built around it.
+None of this needs a single change to `basil.yaml`: a site `basil --init` created
+already has everything the two-verb workflow relies on.
 
 ## The endpoint
 
@@ -71,13 +75,176 @@ except a `--dev` server on localhost (see [Authentication](#authentication)).
 ```bash
 # ...edit...
 git add -A
-git commit -m "New homepage"
+git commit -m "New homepage"      # the pre-commit hook formats staged .pars files
 git push                          # shared with the team. Not public.
-git push origin live              # publish: the release branch moves, the site deploys
+basil publish                     # publish: review, confirm, and the site deploys
 ```
 
-A push that moves the release branch runs the deploy pipeline on the server, and its
-output reaches your terminal as `remote:` lines while the push is still running:
+`git push` is the command you run twenty times a day, and it is the harmless one: it
+stores your work on the server and shows it to nobody. `basil publish` is the
+deliberate one. It runs in your clone, reads the release branch from the site's
+`basil.yaml`, and shows you exactly what is about to go out — the commit range, the
+files, and the drift it closes — before it moves anything:
+
+```
+$ basil publish
+Publishing to "live" on origin (38daf0d13ed3..2da6d60b6277).
+
+1 commit:
+  2da6d60 New homepage + about page
+
+2 files changed:
+  site/about.pars
+  site/index.pars
+
+drift: the release branch "live" on origin is 1 commit behind HEAD (this publish closes it).
+
+Publish 1 commit to "live"? [y/N] y
+
+Pushing 2da6d60b6277 to "live"...
+remote: Checking release 2da6d60b6277… ok
+remote: deploying 2da6d60b6277
+remote: deployed 2da6d60b6277 in 4ms
+remote: Deployed 2da6d60b6277 (4ms)
+To https://mysite.example.com/.git
+   38daf0d..2da6d60  HEAD -> live
+Published 2da6d60b6277 to "live".
+```
+
+The `remote:` lines are the server's deploy pipeline — validate, activate, record —
+running while the push is still open and streamed to your terminal as it happens.
+Nothing is sent until you answer the prompt: an empty line, or anything but `y`,
+cancels and pushes nothing.
+
+- **`basil publish --dry-run`** prints the same plan — commits, files, drift — and
+  stops without pushing.
+- **`basil publish --yes`** skips the confirmation, for scripts.
+- It works from any clone with no prior setup: it reads the release branch from the
+  checked-out `basil.yaml` and configures the push refspec on first use. No
+  `basil.yaml` changes, no local Git config to remember.
+
+Sharing work *without* publishing it is just a push of a branch that isn't the release
+branch — stored on the server, published to nobody:
+
+```bash
+git checkout -b new-shop
+git push -u origin new-shop       # on the server, published to nobody
+# ...a colleague, or you on another machine:
+git fetch && git checkout new-shop
+# ...when everyone's happy:
+git checkout live && git merge new-shop
+basil publish                     # now it goes live
+```
+
+A release that fails its check is **rejected**: the release branch does not move, the
+live site is untouched, and `basil publish` exits non-zero. The reason streams into
+the terminal you typed into:
+
+```
+$ basil publish --yes
+Publishing to "live" on origin (27fbba4810e6..2e7e05cd8b00).
+
+1 commit:
+  2e7e05c Broken release
+...
+Pushing 2e7e05cd8b00 to "live"...
+remote: Checking release 2e7e05cd8b00…
+remote: site/broken.pars:1:5: unexpected character 'Unterminated string starting with "broken"'
+remote: Release rejected. The live site is unchanged (still 27fbba4810e6).
+remote: error: release 2e7e05cd8b00 refused
+To https://mysite.example.com/.git
+ ! [remote rejected] HEAD -> live (pre-receive hook declined)
+error: failed to push some refs to 'https://mysite.example.com/.git'
+error: publish failed: the push to "live" was rejected (see the messages above)
+```
+
+The [Deployment guide](deployment.md#validation) describes what validation catches
+(broken code, not unfinished work) and how to override it in an emergency.
+
+## Drift: what is live, and how far behind
+
+Splitting sharing from publishing means the live site can quietly fall behind the
+branch. `basil status` tells you when it has — what is live, what the release branch
+points at, and the gap:
+
+```
+$ basil status --site /srv/mysite
+live: 2da6d60b6277  (deploy #2, 2026-08-25 10:33, by push)
+the release branch 'live' matches the live release
+```
+
+When the branch is ahead, it says by how many commits and prints the command to close
+the gap:
+
+```
+$ basil status --site /srv/mysite
+live: 2da6d60b6277  (deploy #5, 2026-08-25 10:34, by cli:root)
+the release branch 'live' is 1 commit ahead of the live release - deploy it with: basil deploy live
+```
+
+`basil publish` reports the same drift in its summary before you confirm, so you
+rarely have to ask. Status reports rather than insists: a legacy layout or a missing
+repository is stated plainly and exits 0.
+
+## Formatting: `basil fmt` and the pre-commit hook
+
+`basil fmt` is the canonical Parsley formatter — the same engine as `pars fmt`, built
+into the `basil` binary you already have. It works on whole trees, not just named
+files:
+
+- **`basil fmt -w [path]`** rewrites files in place (a directory, or the whole tree
+  with no argument).
+- **`basil fmt -l`** lists the files whose formatting differs and exits non-zero — a
+  CI gate.
+- **`basil fmt -d <file>`** shows the diff without touching anything.
+
+```
+$ basil fmt -d site/about.pars
+diff site/about.pars
+-1: let    title="About"
++1: let title = "About"
+-2: let items=[1,2,3]
++2: let items = [1, 2, 3]
+...
+```
+
+You rarely run it by hand, because `basil --init` installs a **pre-commit hook** that
+formats staged `.pars` files for you (opt in on a fresh clone with
+`git config core.hooksPath .githooks`, which `--init` prints). A messy commit lands
+formatted:
+
+```
+$ git commit -m "New homepage"
+[live 2da6d60] New homepage
+$ git show HEAD:site/index.pars
+let title = "Home"
+<h1>title</h1>
+```
+
+The server **warns** about unformatted `.pars` files in a push and **never rejects**
+over them — formatting is style, not correctness, and a release is never blocked by
+whitespace. The warning names the fix and the push still deploys:
+
+```
+$ basil publish --yes
+...
+remote: Checking release 27fbba4810e6… ok
+remote: warning: 1 file(s) are not formatted:
+remote:   site/contact.pars
+remote: Run 'basil fmt -w' to format them. The push was accepted.
+remote: deploying 27fbba4810e6
+remote: deployed 27fbba4810e6 in 5ms
+```
+
+There is no setting to turn this into a gate: the hook keeps shared history clean, and
+nobody is ever refused by the server over formatting.
+
+## Publishing with raw Git
+
+`basil publish` is a convenience over a plain push, not a new protocol, so raw Git
+stays a first-class alternative — use your editor's Git panel or the command line if
+you prefer. Publishing is moving the release branch, so a push of it deploys exactly
+as `basil publish` does, minus the confirmation and the plan:
 
 ```
 $ git push origin live
@@ -98,35 +265,18 @@ To https://mysite.example.com/.git
  * [new branch]      new-shop -> new-shop
 ```
 
-So sharing work without publishing it is just a push of a branch that isn't the
-release branch:
+If you would rather a commit go live the moment it is pushed — no separate publish
+step — set the release branch to the one you work on:
 
-```bash
-git checkout -b new-shop
-git push -u origin new-shop       # on the server, published to nobody
-# ...a colleague, or you on another machine:
-git fetch && git checkout new-shop
-# ...when everyone's happy:
-git checkout live && git merge new-shop
-git push origin live              # now it goes live
+```yaml
+deploy:
+  branch: main
 ```
 
-A release that fails its check is **rejected**, the release branch does not move, and
-the live site is untouched — you see the reason in the terminal you typed into:
-
-```
-$ git push origin live
-remote: Checking release 3c2ffbf198b3…
-remote: site/index.pars:1:5: unexpected character 'Unterminated string starting with "broken"'
-remote: Release rejected. The live site is unchanged (still cd07c0b93bb4).
-remote: error: release 3c2ffbf198b3 refused
-To https://mysite.example.com/.git
- ! [remote rejected] live -> live (pre-receive hook declined)
-error: failed to push some refs to 'https://mysite.example.com/.git'
-```
-
-The [Deployment guide](deployment.md#validation) describes what validation catches
-(broken code, not unfinished work) and how to override it in an emergency.
+Now `git push` (of `main`) *is* publishing, restoring the older push-to-publish
+model for teams that want it. This is the one place the two-verb split is a choice
+rather than the default; everything else on this page works with the `basil.yaml`
+that `basil --init` writes, unchanged.
 
 ## Authentication
 
