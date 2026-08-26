@@ -1,0 +1,4 @@
+.gitignore
+README.md
+build.sh
+fly.toml

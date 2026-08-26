@@ -1,0 +1,85 @@
+# Basil on a Fly Machine. See README.md in this directory.
+#
+# Copy this to your own app and change `app` and `primary_region`. Everything
+# else is deliberate; the comments say why.
+
+app = "CHANGE-ME"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  BASIL_SITE = "/srv/mysite"
+
+# The site root, and the only thing that survives a `fly deploy`. A deploy
+# replaces the Machine's root filesystem, so site.git, the release
+# directories, the `current` symlink, data/deploy.db, the auth database and
+# the certificate cache all have to live here.
+#
+# One volume attaches to one Machine, which is why the counts below are 1.
+#
+# The volume is mounted at /srv, not at /srv/mysite, and the site root is a
+# directory inside it. A freshly formatted ext4 volume arrives carrying a
+# lost+found, and `basil --init` refuses a folder that is not empty - quite
+# right, since it is about to take ownership of the tree. Mounting one level
+# up leaves lost+found where the filesystem wants it and gives init the clean
+# directory it asks for, without deleting anything.
+[[mounts]]
+  source = "basil_site"
+  destination = "/srv"
+  initial_size = "3gb"
+
+# Raw TCP, both ports, no handlers: the Fly proxy passes bytes through and
+# Basil terminates TLS itself with its own Let's Encrypt certificate, exactly
+# as it would on a VPS. This is the topology `basil --init --server` writes a
+# config for, so nothing needs editing to match the platform.
+#
+# It needs a *dedicated* IPv4 — `fly ips allocate-v4` — because the shared
+# IPv4 only carries the http/tls handlers. That is a couple of dollars a
+# month, and there is no way around it: letting the Fly proxy terminate TLS
+# instead would mean Basil serving plain HTTP, and production mode refuses
+# `https.auto: false` without a cert and key. The README has the transcript.
+#
+# Port 80 is not optional here: it is where the ACME challenge is answered.
+
+[[services]]
+  internal_port = 443
+  protocol = "tcp"
+  # A stopped Machine renews no certificates and watches no `current` symlink.
+  # This is a web server, so it stays up.
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 443
+    handlers = []
+
+# Port 80 is the exception, and it has to be. With `handlers = []` the Fly
+# proxy accepts the TCP connection and then delivers nothing — verified: a raw
+# request to :80 through the edge returns zero bytes, while the same request
+# to 127.0.0.1:80 inside the Machine gets Basil's 301. Port 443 passthrough is
+# fine; port 80 is not. Giving it the `http` handler makes the proxy speak
+# plain HTTP to Basil's ACME-and-redirect listener, which is exactly what that
+# listener expects.
+#
+# Nothing is lost by letting the proxy parse this port: it carries only the
+# HTTP-01 challenge and a redirect to HTTPS. The site's own traffic is on 443,
+# where Basil still terminates TLS itself.
+[[services]]
+  internal_port = 80
+  protocol = "tcp"
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+# Basil itself is content with very little, but `git receive-pack` repacking a
+# push is the memory-hungry moment. 1GB is comfortable; 512MB is not.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
