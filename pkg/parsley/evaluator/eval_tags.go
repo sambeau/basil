@@ -2204,8 +2204,18 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 
 // evalCustomTag evaluates a custom (uppercase) tag as a function call
 func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Environment) Object {
-	// Special handling for CSS and Javascript bundle tags
-	if tagName == "CSS" {
+	// The asset-bundle tags.
+	//
+	// `Css` and `Script` are the documented names (docs/basil/manual/routing.md).
+	// `CSS` and `Javascript` were the original spellings and still work: a site
+	// that used them must not break. The manual's pair is the primary one — it
+	// matches the TitleCase every other component uses (<Page/>, <Select/>,
+	// <basil.auth.Login/>) and does not spell JavaScript "Javascript".
+	//
+	// The two were out of step for long enough that following the manual gave
+	// you "Undefined component: `Css`" (BUG-040).
+	switch tagName {
+	case "Css", "CSS":
 		if env.AssetBundle == nil {
 			return &String{Value: ""} // No bundle available
 		}
@@ -2214,8 +2224,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 			return &String{Value: ""} // No CSS files in bundle
 		}
 		return &String{Value: fmt.Sprintf(`<link rel="stylesheet" href="%s">`, url)}
-	}
-	if tagName == "Javascript" {
+	case "Script", "Javascript":
 		if env.AssetBundle == nil {
 			return &String{Value: ""} // No bundle available
 		}

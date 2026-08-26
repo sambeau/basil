@@ -216,3 +216,48 @@ func TestBasilJSTag_NoURL(t *testing.T) {
 		t.Errorf("Expected empty string when no BasilJSURL, got %q", str.Value)
 	}
 }
+
+// TestBundleTags_BothSpellings guards BUG-040.
+//
+// The manual documents <Css/> and <Script/>; the evaluator only knew <CSS/>
+// and <Javascript/>, so following the manual produced "Undefined component:
+// `Css`" — with the error pointing at the file that called the component
+// rather than the one containing it, which made it a genuinely hard afternoon.
+//
+// Both spellings now work. The documented pair is primary; the original pair
+// is kept because a site that used it must not break.
+func TestBundleTags_BothSpellings(t *testing.T) {
+	cases := []struct {
+		tag  string
+		want string
+	}{
+		// Documented (docs/basil/manual/routing.md).
+		{"<Css/>", `<link rel="stylesheet" href="/__site.css?v=abc12345">`},
+		{"<Script/>", `<script src="/__site.js?v=def67890"></script>`},
+		// Original spellings, still supported.
+		{"<CSS/>", `<link rel="stylesheet" href="/__site.css?v=abc12345">`},
+		{"<Javascript/>", `<script src="/__site.js?v=def67890"></script>`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.tag, func(t *testing.T) {
+			bundle := &mockAssetBundle{
+				cssURL: "/__site.css?v=abc12345",
+				jsURL:  "/__site.js?v=def67890",
+			}
+
+			result := evalWithAssetBundle(t, tc.tag, bundle)
+
+			if err, isErr := result.(*evaluator.Error); isErr {
+				t.Fatalf("%s is not a known tag: %s", tc.tag, err.Message)
+			}
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("Expected String, got %T", result)
+			}
+			if str.Value != tc.want {
+				t.Errorf("Expected %q, got %q", tc.want, str.Value)
+			}
+		})
+	}
+}

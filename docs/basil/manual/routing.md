@@ -116,6 +116,13 @@ Basil automatically bundles every `.css` and `.js` file from your handlers direc
 </head>
 ```
 
+Both tags render nothing at all when there is no bundle — no files of that
+type, or no bundler in this context — so they are safe to leave in a layout
+before you have written any CSS.
+
+`<CSS/>` and `<Javascript/>` are the original spellings and still work; `<Css/>`
+and `<Script/>` are the names to use.
+
 ## See Also
 
 - [Configuration](configuration.md) — `site`, `routes`, `static`, `public_dir`
