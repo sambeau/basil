@@ -31,13 +31,6 @@ const indexParsContent = `<h1>"🌿 Hello from Basil 👋"</h1>
 
 // gitignoreContent is short now: runtime state is no longer inside the
 // repository at all, it lives in the site's data root.
-const gitignoreContent = `# Editor and OS noise
-.DS_Store
-*.swp
-
-# Nothing else belongs here: Basil keeps databases, logs, certificates,
-# caches and uploads in the site's data directory, outside this repository.
-`
 
 // preCommitHook formats .pars files before they are committed. Formatting is
 // never allowed to block a release, so this warns and continues when the
@@ -80,14 +73,15 @@ site:
 # Public directory for static files (CSS, JS, images)
 public_dir: ./public
 
-# Authentication. Required to push to this site: an API key in the auth
-# database is what authorises a deploy.
-auth:
-  enabled: true
+# Authentication is on: a site root forces it, because an API key in the auth
+# database is what authorises a deploy. There is deliberately no auth: block
+# here saying so - the setting would be redundant on the server and actively
+# wrong in a clone, where it would demand a local .basil-auth.db that has no
+# business existing on a laptop.
 
 # The Git endpoint at /.git/ is live because this site has a repository
 # (site.git) - there is nothing here to switch it on or off. Pushing always
-# requires an API key from the auth database above. The endpoint, and the
+# requires an API key from the auth database. The endpoint, and the
 # branch that publishes, are facts about the server rather than the release:
 # they live in site.git, where no deploy can reach them.
 #   which branch publishes: git -C site.git symbolic-ref HEAD refs/heads/live
@@ -115,11 +109,19 @@ logging:
   format: text
 `
 
-// localGitignoreContent guards the future push path. In the legacy layout
-// DataDir IS the project directory, so every database, cache, certificate and
-// upload lands next to the code - deliberately unlike the server-mode file,
-// where state lives outside the repository entirely.
-const localGitignoreContent = `# Basil runtime state. In a local folder Basil writes its databases,
+// gitignoreContent is written by BOTH init modes, because in both of them the
+// only thing that ever reads this file is a working copy, and in a working
+// copy DataDir IS the project directory: every database, cache, certificate
+// and upload lands next to the code.
+//
+// Server mode used to ship a shorter file saying "nothing else belongs here:
+// Basil keeps databases, logs, certificates, caches and uploads in the site's
+// data directory, outside this repository". That is true of the release
+// directory on the server - and false of the clone, which is the only place
+// the file is ever read. A clone of a site is a legacy-layout folder, so
+// `basil --dev` in it writes dev_logs.db and .basil-auth.db straight into the
+// repository the file claimed would never hold them (BUG-039).
+const gitignoreContent = `# Basil runtime state. In a local folder Basil writes its databases,
 # caches, certificates and uploads next to your code; none of it belongs
 # in the repository you will one day push to a server.
 .basil-auth.db*
@@ -326,7 +328,7 @@ func writeFiles(dir string, files map[string]initFile) error {
 func writeLocalStarterSite(root, host string, useGit bool) error {
 	files := map[string]initFile{
 		config.ConfigFileName: {fmt.Sprintf(localBasilYAMLTemplate, host, 8080), 0644},
-		".gitignore":          {localGitignoreContent, 0644},
+		".gitignore":          {gitignoreContent, 0644},
 		"site/index.pars":     {indexParsContent, 0644},
 		"public/.keep":        {"", 0644},
 	}

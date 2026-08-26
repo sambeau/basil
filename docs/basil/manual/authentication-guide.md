@@ -54,7 +54,7 @@ Auth data is kept in its own SQLite database, `.basil-auth.db`, in the same fold
 
 Two things to know:
 
-- **The server won't start** with `auth.enabled: true` until this database exists. `basil users create` creates it — that's why the quick start makes a user first.
+- **A production server won't start** with `auth.enabled: true` until this database exists. `basil users create` creates it — that's why the quick start makes a user first. **`basil --dev` creates it for you**, empty, so a clone of a site runs on a laptop with no setup: the release's config comes from the server, where auth is always on, and a dev partner has no data directory to have been given one. Nobody is signed in until you make a user, which is the same answer production gives.
 - The CLI and the server share it safely (it runs in WAL mode, so you'll see `.basil-auth.db-wal` and `.basil-auth.db-shm` alongside). Keep all three out of git; do include them in backups.
 
 ## Sessions
@@ -373,7 +373,7 @@ Each component also takes a `class` attribute for adding your own.
 
 **Registration or login fails silently** — open the browser console. The usual suspects: not on `localhost` or HTTPS (WebAuthn needs a secure context), the visitor dismissed the passkey prompt, or the domain doesn't match `server.host` (passkeys made on one domain won't work on another).
 
-**"No authentication database found"** at startup — auth is enabled but `.basil-auth.db` doesn't exist yet. Run `basil users create` once.
+**"No authentication database found"** at startup — auth is enabled but `.basil-auth.db` doesn't exist yet. Run `basil users create` once. This is a production-mode error only: `basil --dev` creates the database rather than refusing, so seeing it means you are not in dev mode — and on a server it usually means the credentials are gone, which is worth investigating before you make a new empty one.
 
 **403 on a form post** — a CSRF token is missing; add `<input type="hidden" name="_csrf" value={basil.csrf.token}/>` to the form. Dev mode's error page shows which side was missing.
 

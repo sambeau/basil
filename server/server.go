@@ -631,8 +631,37 @@ func (s *Server) initAuth() error {
 		}
 	}
 
-	// Open auth database (separate from app database)
-	authDB, err := auth.OpenDB(s.config.AuthDBPath())
+	// Open auth database (separate from app database).
+	//
+	// --dev creates it if it is not there; production never does. A clone of a
+	// site is the case that forces this: the release's basil.yaml comes from
+	// the server, so auth is enabled, but a laptop has no data directory and
+	// no reason to have been given an auth database — and `git clone` is the
+	// documented way to set up a dev partner, so `basil --dev` in a fresh
+	// clone must simply work, with no config and no flags (BUG-039).
+	//
+	// It creates rather than degrading to auth-off, which is the other thing
+	// it could do. A site using auth.protected_paths that ran locally with
+	// authentication disabled would serve its protected pages open on the
+	// laptop and closed in production — you would build and test a members'
+	// area that was not one. An empty database gets the same answer as
+	// production for every request: nobody is signed in.
+	//
+	// And it creates a FILE rather than an ephemeral in-memory database,
+	// because the WebAuthn relying-party id is server.host: a passkey
+	// registered against the live site cannot be used against localhost, so a
+	// dev partner needs its own local credentials, and re-registering one on
+	// every restart is not a workflow. `basil users create` then finds the
+	// database already there.
+	//
+	// Production keeps auth.OpenDB: on a real server a missing auth database
+	// means the credentials are gone, which is an emergency to report, not a
+	// state to paper over by quietly making a new empty one.
+	openAuthDB := auth.OpenDB
+	if s.config.Server.Dev {
+		openAuthDB = auth.OpenOrCreateDB
+	}
+	authDB, err := openAuthDB(s.config.AuthDBPath())
 	if err != nil {
 		return fmt.Errorf("opening auth database: %w", err)
 	}

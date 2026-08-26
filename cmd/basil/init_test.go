@@ -280,6 +280,52 @@ func TestInitCommand_NoStateInsideTheRelease(t *testing.T) {
 	}
 }
 
+// TestInitCommand_StarterReleaseIsSafeToCloneAndDev guards BUG-039.
+//
+// The starter release's basil.yaml and .gitignore are the two files every
+// clone of this site inherits, and a clone is where they are read. A clone is
+// a legacy-layout folder, so DataDir is the working copy and `basil --dev`
+// writes its databases straight into the repository: the .gitignore has to
+// cover them, and the config must not demand an auth database a laptop has no
+// reason to own.
+func TestInitCommand_StarterReleaseIsSafeToCloneAndDev(t *testing.T) {
+	requireGit(t)
+	root := filepath.Join(t.TempDir(), "mysite")
+
+	var stdout, stderr bytes.Buffer
+	if err := runInitCommand(initOpts(root, &stdout, &stderr)); err != nil {
+		t.Fatalf("runInitCommand failed: %v", err)
+	}
+	release, err := filepath.EvalSymlinks(filepath.Join(root, "current"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The release ships no auth: block. A site root forces auth.enabled on
+	// whatever the release says (config.enforceOperatorOwned), so the setting
+	// buys nothing on the server — and in a clone it used to send
+	// `basil --dev` looking for a .basil-auth.db that was never going to be
+	// there.
+	yaml := readFile(t, filepath.Join(release, "basil.yaml"))
+	if strings.Contains(yaml, "auth:\n") {
+		t.Errorf("the starter release carries an auth: block; a site root forces auth on and a clone cannot satisfy it:\n%s", yaml)
+	}
+
+	// What `basil --dev` writes into a clone must be ignored, including the
+	// auth database it now creates for itself.
+	ignore := readFile(t, filepath.Join(release, ".gitignore"))
+	for _, pattern := range []string{
+		".basil-auth.db*", "dev_logs.db*", "*.db", "*.db-wal", "*.db-shm",
+		"certs/", "cache/", "search/", "uploads/",
+		"*.pem", "*.key", "*.crt", "*.log", ".env",
+		".DS_Store", "*.swp",
+	} {
+		if !strings.Contains(ignore, pattern) {
+			t.Errorf("the starter release's .gitignore does not cover %q, so a clone would offer it for commit:\n%s", pattern, ignore)
+		}
+	}
+}
+
 func TestInitCommand_RequiresHost(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "mysite")
 	var stdout, stderr bytes.Buffer
