@@ -233,8 +233,7 @@ Replace the starter site and publish 1 commit to "live"? [y/N] y
 
 remote: replacing the starter site created by 'basil --init' with your first release …
 remote: Checking release 36f38ce44dc4… ok
-remote: Deployed 36f38ce44dc4 (16ms)
-Published 36f38ce44dc4 to "live".
+remote: Deploying… done (16ms)
 ```
 
 Reload `https://mysite.example.com` — your site is live.
@@ -272,8 +271,7 @@ Publishing 2 commits to "live" (a1b2c3d..4f2a1c9):
   public/style.css
 Continue? [y/N] y
 remote: Checking release 4f2a1c9… ok
-remote: Deployed 4f2a1c9 (0.4s)
-Published 4f2a1c9 to "live".
+remote: Deploying… done (0.4s)
 ```
 
 If a release has a broken `.pars` file or an invalid config, the check **rejects

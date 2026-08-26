@@ -82,8 +82,16 @@ func TestFromHook_ReleasePushDeploysAndRecordsPublisher(t *testing.T) {
 	if err != nil {
 		t.Fatalf("post-receive: %v\noutput: %s", err, stdout.String())
 	}
-	if out := stdout.String(); !strings.Contains(out, "Deployed "+shortRelease(sha)) {
-		t.Errorf("post-receive output = %q, want a Deployed line", out)
+	out := stdout.String()
+	if !strings.Contains(out, "Deploying… done (") {
+		t.Errorf("post-receive output = %q, want a \"Deploying… done\" line", out)
+	}
+	// The engine's own progress must not come through as well: the hook streams
+	// its writer straight to the pusher, and leaving it on reported every
+	// deploy twice — "deploying <sha>" and "deployed <sha> in <d>" from the
+	// engine, then "Deployed <sha> (<d>)" from the hook (BUG-042).
+	if strings.Contains(out, "deploying ") || strings.Contains(out, " in ") {
+		t.Errorf("the engine's progress lines reached the pusher as well:\n%s", out)
 	}
 	if got := f.currentSHA(t); got != sha {
 		t.Errorf("current points at %s, want %s", got, sha)

@@ -148,12 +148,9 @@ Publish 1 commit to "live"? [y/N] y
 
 Pushing 2da6d60b6277 to "live"...
 remote: Checking release 2da6d60b6277… ok
-remote: deploying 2da6d60b6277
-remote: deployed 2da6d60b6277 in 4ms
-remote: Deployed 2da6d60b6277 (4ms)
+remote: Deploying… done (4ms)
 To https://mysite.example.com/.git
    38daf0d..2da6d60  HEAD -> live
-Published 2da6d60b6277 to "live".
 ```
 
 The `remote:` lines are the server's deploy pipeline — validate, activate, record —
@@ -278,8 +275,7 @@ remote: Checking release 27fbba4810e6… ok
 remote: warning: 1 file(s) are not formatted:
 remote:   site/contact.pars
 remote: Run 'basil fmt -w' to format them. The push was accepted.
-remote: deploying 27fbba4810e6
-remote: deployed 27fbba4810e6 in 5ms
+remote: Deploying… done (5ms)
 ```
 
 There is no setting to turn this into a gate: the hook keeps shared history clean, and
@@ -295,9 +291,7 @@ as `basil publish` does, minus the confirmation and the plan:
 ```
 $ git push origin live
 remote: Checking release cd07c0b93bb4… ok
-remote: deploying cd07c0b93bb4
-remote: deployed cd07c0b93bb4 in 5ms
-remote: Deployed cd07c0b93bb4 (5ms)
+remote: Deploying… done (5ms)
 To https://mysite.example.com/.git
    c58530e..cd07c0b  live -> live
 ```

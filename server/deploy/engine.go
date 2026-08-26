@@ -72,6 +72,20 @@ type Engine struct {
 	// Out receives progress and warnings (prune failures, hook failures).
 	// Defaults to os.Stderr when nil.
 	Out io.Writer
+
+	// Quiet suppresses the two routine progress lines — "deploying <sha>" and
+	// "deployed <sha> in <d>" — and nothing else. Warnings, refusals and
+	// notable outcomes ("already live — nothing to do", a skipped validation,
+	// a failed post-deploy hook, a prune that did not work) still go to Out,
+	// because a caller that suppressed those would be hiding the things the
+	// operator most needs.
+	//
+	// Set it when the caller reports the outcome itself. The receive hook does:
+	// it streams Out straight to the pusher's terminal, so leaving progress on
+	// reported every deploy twice, once from the engine in lower case and once
+	// from the hook in upper — the same event, and no way to tell that from
+	// reading it (BUG-042).
+	Quiet bool
 }
 
 // NewEngine builds an engine from a loaded config. Cross-check any override
@@ -176,7 +190,7 @@ func (e *Engine) Deploy(refOrSHA string) (*Result, error) {
 	defer lock.Release()
 
 	releasesDir := filepath.Join(e.SiteRoot, config.ReleasesDirName)
-	fmt.Fprintf(e.out(), "deploying %s\n", shortSHA(sha))
+	fmt.Fprintf(e.progress(), "deploying %s\n", shortSHA(sha))
 
 	// Idempotency: deploying the active commit is a recorded no-op — but
 	// only while the release directory actually exists. A dangling
@@ -281,7 +295,7 @@ func (e *Engine) Deploy(refOrSHA string) (*Result, error) {
 	}
 	res.Pruned = pruned
 
-	fmt.Fprintf(e.out(), "deployed %s in %s\n", shortSHA(sha), res.Duration.Round(time.Millisecond))
+	fmt.Fprintf(e.progress(), "deployed %s in %s\n", shortSHA(sha), res.Duration.Round(time.Millisecond))
 	return res, nil
 }
 
@@ -712,6 +726,15 @@ func (e *Engine) out() io.Writer {
 		return e.Out
 	}
 	return os.Stderr
+}
+
+// progress is the writer for routine progress: out() normally, and nothing at
+// all when the caller has said it reports the outcome itself. See Quiet.
+func (e *Engine) progress() io.Writer {
+	if e.Quiet {
+		return io.Discard
+	}
+	return e.out()
 }
 
 func (e *Engine) trigger() string {

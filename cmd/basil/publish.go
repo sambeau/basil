@@ -265,7 +265,10 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 		fmt.Fprintf(stdout, "Re-pointed this clone's `git push` default from %q to %q (origin's release branch changed).\n", stale, branch)
 	}
 
-	fmt.Fprintf(stdout, "Published %s to %q.\n", shortRelease(headSHA), branch)
+	// No closing "Published …" line. The announcement above names the release
+	// and the branch, the hub's own "Deploying… done" says it went live, and
+	// Git prints "e4cdf16..981d02d HEAD -> live" in between. A fourth
+	// statement of the same fact is noise (BUG-042).
 	return nil
 }
 
@@ -374,7 +377,7 @@ func firstPublish(dir, ref, branch, head string, stdin io.Reader, stdout, stderr
 	if stale := configureReleasePush(dir, ref); stale != "" {
 		fmt.Fprintf(stdout, "Re-pointed this clone's `git push` default from %q to %q (origin's release branch changed).\n", stale, branch)
 	}
-	fmt.Fprintf(stdout, "Published %s to %q.\n", shortRelease(head), branch)
+	// See the ordinary path: the hub and Git have both already said this.
 	return nil
 }
 

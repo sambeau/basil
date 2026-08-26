@@ -121,6 +121,10 @@ func runFromHook(which, site, configPath string, stdin io.Reader, stdout, stderr
 	eng.Trigger = deploy.TriggerPush
 	eng.Publisher = hookPublisher(getenv)
 	eng.Out = stdout
+	// The hook reports the outcome itself, in the shape a pusher reads at the
+	// end of a push. Without this the engine's own progress lines went out
+	// too, reporting each deploy twice (BUG-042).
+	eng.Quiet = true
 	// A push runs deploy.pars on behalf of a remote pusher, so the hook is
 	// sandboxed: no @shell/@exec, writes scoped to the data dir. Full shell
 	// power stays with `basil deploy` at the server shell (HookSandbox false).
@@ -310,8 +314,15 @@ func runPostReceive(cfg *config.Config, eng *deploy.Engine, updates []refUpdate,
 		// Validation already ran in pre-receive; Deploy still takes its
 		// normal path (including re-validation) rather than a trusting
 		// fast lane.
+		// Same partial-line shape as pre-receive's "Checking release …": the
+		// pusher sees "Deploying…" while it happens and the outcome lands on
+		// the end of that line. The release id is on the "Checking" line
+		// immediately above and in Git's own "e4cdf16..981d02d HEAD -> live",
+		// so repeating it a third time bought nothing.
+		fmt.Fprintf(stdout, "Deploying… ")
 		res, err := eng.Deploy(u.new)
 		if err != nil {
+			fmt.Fprintln(stdout) // finish the "Deploying" line before the errors
 			if rfErr := reportRecordFailure(stdout, stderr, err); rfErr != nil {
 				failure = rfErr
 				continue
@@ -321,7 +332,7 @@ func runPostReceive(cfg *config.Config, eng *deploy.Engine, updates []refUpdate,
 			failure = err
 			continue
 		}
-		fmt.Fprintf(stdout, "Deployed %s (%s)\n", shortRelease(res.CommitSHA), res.Duration.Round(time.Millisecond))
+		fmt.Fprintf(stdout, "done (%s)\n", res.Duration.Round(time.Millisecond))
 		if res.Reason != "" {
 			// The engine already shouted about the post-deploy hook failure;
 			// the non-zero exit keeps it visible to the developer's push.

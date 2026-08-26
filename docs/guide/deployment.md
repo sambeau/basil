@@ -161,8 +161,7 @@ Replace the starter site and publish 1 commit to "live"? [y/N] y
 Publishing 36f38ce44dc4 to "live" (replacing the starter site)...
 remote: replacing the starter site created by 'basil --init' with your first release — this is the one non-fast-forward the release branch allows, and it will not be allowed again
 remote: Checking release 36f38ce44dc4… ok
-remote: Deployed 36f38ce44dc4 (16ms)
-Published 36f38ce44dc4 to "live".
+remote: Deploying… done (16ms)
 ```
 
 The hub accepts that non-fast-forward **exactly once**: while the deploy record

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -148,9 +149,15 @@ func TestPublish_SuccessPushesAndStreams(t *testing.T) {
 	if !strings.Contains(got, "remote: Deployed the release") {
 		t.Errorf("streamed remote: output not seen:\n%s", got)
 	}
-	// The deployed commit is reported.
-	if !strings.Contains(got, "Published "+head[:12]) {
-		t.Errorf("deployed sha not reported:\n%s", got)
+	// The release and branch are named once, before the push. There is
+	// deliberately no closing "Published …" line: the hub says the release went
+	// live and Git prints the ref move, so a third statement of it was noise
+	// (BUG-042).
+	if !strings.Contains(got, "Pushing "+head[:12]+" to "+strconv.Quote(f.branch)) {
+		t.Errorf("the push was not announced with its release and branch:\n%s", got)
+	}
+	if strings.Contains(got, "Published ") {
+		t.Errorf("the redundant closing line is back:\n%s", got)
 	}
 	// The ref actually moved on origin.
 	if tip := f.originTip(t); tip != head {
