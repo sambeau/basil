@@ -5,6 +5,7 @@ Topic-by-topic guides for building with Basil. For the structured manuals, see t
 | I want to... | Go to... |
 |--------------|----------|
 | Get started quickly | [Basil Quick Start](basil-quick-start.md) |
+| Put a site on a server, with a local dev copy | [Getting Started: A Remote Site and Its Local Dev Partner](remote-site-getting-started.md) |
 | Configure the server | [Configuration](configuration.md) (+ [annotated example](configuration-example.yaml)) |
 | Add authentication | [Authentication](authentication.md) |
 | Verify user emails | [Email Verification](email-verification.md) |
