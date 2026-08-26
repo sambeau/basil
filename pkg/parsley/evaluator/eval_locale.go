@@ -249,12 +249,28 @@ func formatPercentWithLocale(value float64, localeStr string) Object {
 
 // formatDateWithStyleAndLocale formats a datetime dictionary with the given style and locale
 func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr string, env *Environment) Object {
-	// Extract time from datetime dictionary
+	// Build the time from the dictionary's own fields, the way every other
+	// datetime accessor does.
+	//
+	// This used to go via the unix timestamp — time.Unix(u, 0).UTC() — which
+	// re-derived the calendar fields in UTC and so printed a different day from
+	// the one the value reports. At 00:32 BST a value whose .day was 27, whose
+	// .weekday was "Thursday" and whose .iso was 2026-08-27T00:32:17+01:00
+	// formatted as "Wednesday, August 26, 2026". One hour a night in Britain,
+	// and up to thirteen hours a day in New Zealand (BUG-044).
+	//
+	// dictToTime reads the stored year/month/day/hour/minute/second, which ARE
+	// the value's wall clock. It labels them UTC, which does not matter here:
+	// formatting reads only those fields, never the zone.
 	var t time.Time
-	if unixExpr, ok := dict.Pairs["unix"]; ok {
+	if built, err := dictToTime(dict, env); err == nil {
+		t = built
+	} else if unixExpr, ok := dict.Pairs["unix"]; ok {
+		// A dictionary without the calendar fields is not one this evaluator
+		// built. Local, not UTC: it is the better guess of the two.
 		unixObj := Eval(unixExpr, NewEnvironment())
 		if unixInt, ok := unixObj.(*Integer); ok {
-			t = time.Unix(unixInt.Value, 0).UTC()
+			t = time.Unix(unixInt.Value, 0).Local()
 		}
 	}
 

@@ -1328,9 +1328,17 @@ func evalDatetimeLiteral(node *ast.DatetimeLiteral, env *Environment) Object {
 	}
 
 	if kind == "time" || kind == "time_seconds" {
-		// Time-only literal: HH:MM or HH:MM:SS
-		// Use current UTC date as the base
-		now := time.Now().UTC()
+		// Time-only literal: HH:MM or HH:MM:SS, dated to today.
+		//
+		// "Today" is the local one, the same day @now and @today report. It
+		// used to be the UTC one, so between local midnight and UTC midnight a
+		// time literal was dated to yesterday while @now was dated to today —
+		// one hour a night in Britain, thirteen in New Zealand (BUG-044).
+		//
+		// The written-down literals below stay UTC on purpose: @2024-12-25 has
+		// no zone in it and should not acquire one from the machine that runs
+		// it. Only "today" is a question about where you are.
+		now := time.Now()
 
 		// Try parsing with seconds first
 		t, err = time.Parse("15:04:05", node.Value)
@@ -1342,7 +1350,8 @@ func evalDatetimeLiteral(node *ast.DatetimeLiteral, env *Environment) Object {
 			}
 		}
 
-		// Combine with current UTC date
+		// Combine with today's date. The result is UTC-labelled like the
+		// written-down literals; only the calendar fields matter downstream.
 		t = time.Date(now.Year(), now.Month(), now.Day(),
 			t.Hour(), t.Minute(), t.Second(), 0, time.UTC)
 	} else {
