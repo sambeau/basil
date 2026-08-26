@@ -196,11 +196,33 @@ func (w *Watcher) shouldTriggerReload(path string) bool {
 	// Check file extension
 	ext := strings.ToLower(filepath.Ext(path))
 
+	if isModuleExtension(ext) {
+		return true
+	}
 	switch ext {
-	case ".pars", ".parsley", ".css", ".js", ".html", ".htm":
+	case ".css", ".js", ".html", ".htm":
 		return true
 	default:
 		// Ignore database files, log files, etc.
+		return false
+	}
+}
+
+// isModuleExtension reports whether an edit to a file of this type must
+// invalidate the module cache. It is the single list both switches in this
+// file consult, because a type that reloads the browser but does not clear the
+// cache — or the reverse — is the shape BUG-043 took.
+//
+// .part is here because a Part is imported like any other module:
+// <Part src={@./shows.part}/> calls importModule. Leaving it out did not stop
+// Parts working, which is why it survived unnoticed — a Part's own endpoint
+// re-reads the file, so polling showed the new version while the copy rendered
+// into the page stayed on the old one.
+func isModuleExtension(ext string) bool {
+	switch ext {
+	case ".pars", ".parsley", ".part":
+		return true
+	default:
 		return false
 	}
 }
@@ -216,12 +238,14 @@ func (w *Watcher) handleFileChange(path string) {
 	// Check file extension
 	ext := strings.ToLower(filepath.Ext(path))
 
-	switch ext {
-	case ".pars", ".parsley":
+	if isModuleExtension(ext) {
 		w.logInfo("handler changed: %s", path)
 		// Invalidate module cache so the changed module is reloaded
 		evaluator.InvalidateModule(path)
+		return
+	}
 
+	switch ext {
 	case ".css", ".js":
 		w.logInfo("asset changed: %s", path)
 		// Rebuild asset bundle if this is under handlers directory
