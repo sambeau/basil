@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -395,5 +396,59 @@ func TestGitHandler_BoundedGzip(t *testing.T) {
 	_, err = io.ReadAll(&limitReader{r: gz, limit: 64 << 10}) // 64 KiB cap
 	if !errors.Is(err, errPushTooLarge) {
 		t.Errorf("over-limit decompressed body: err = %v, want errPushTooLarge", err)
+	}
+}
+
+// The warning initGit prints when the removed /.git endpoint is gone must
+// reach the operator who used it and nobody else. It used to key on "the
+// project directory is a git repository", which was a fair proxy until
+// FEAT-156: a plain `basil --init` now writes exactly that shape, so every
+// new local project was told, on every start, that an endpoint it had never
+// switched on was gone — and told to run the command it had just run.
+func TestInitGitLegacyWarningOnlyForOperatorsWhoUsedIt(t *testing.T) {
+	const base = "server:\n  host: localhost\n  port: 8080\nsite:\n  path: ./site\n"
+
+	cases := []struct {
+		name string
+		yaml string
+		want bool
+	}{
+		{"the folder `basil --init` writes", base, false},
+		{"git.enabled: false", base + "git:\n  enabled: false\n", false},
+		{"git.enabled: true — this operator lost something", base + "git:\n  enabled: true\n", true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// The shape `basil --init` produces: a config, a site directory,
+			// and a git repository around both.
+			root := t.TempDir()
+			must(os.MkdirAll(filepath.Join(root, "site"), 0755))
+			must(os.MkdirAll(filepath.Join(root, ".git"), 0755))
+			must(os.WriteFile(filepath.Join(root, config.ConfigFileName), []byte(tc.yaml), 0644))
+			must(os.WriteFile(filepath.Join(root, "site", "index.pars"), []byte(`"hi"`), 0644))
+
+			cfg, path, err := config.LoadWithPath(filepath.Join(root, config.ConfigFileName), func(string) string { return "" })
+			if err != nil {
+				t.Fatalf("LoadWithPath: %v", err)
+			}
+			cfg.Server.Dev = true
+
+			var stdout, stderr bytes.Buffer
+			s, err := New(cfg, path, "test", "test-commit", &stdout, &stderr)
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			t.Cleanup(s.Close)
+
+			got := strings.Contains(stderr.String(), "/.git was removed")
+			if got != tc.want {
+				t.Errorf("warned = %v, want %v; stderr: %s", got, tc.want, stderr.String())
+			}
+			// The advice must never be the command that produced this folder.
+			if strings.Contains(stderr.String(), "run `basil --init` to") {
+				t.Errorf("the warning tells the user to run the command they just ran: %s", stderr.String())
+			}
+		})
 	}
 }

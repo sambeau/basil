@@ -60,6 +60,12 @@ type Config struct {
 	// same channel plus ReleaseWarnings, which `basil publish` prints so
 	// a stale key in the repository everyone pulls from cannot linger unseen.
 	retiredKeys []string
+
+	// requestedGitEndpoint records that this config said git.enabled: true —
+	// the only way the removed /.git endpoint was ever switched on. Read by
+	// initGit, which needs to tell an operator who actually used that
+	// endpoint from an ordinary local project (see operator.go).
+	requestedGitEndpoint bool
 }
 
 // DatabaseConfig holds database settings

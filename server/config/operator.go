@@ -98,8 +98,26 @@ func noteRetiredKeys(cfg *Config, probe *operatorProbe) {
 		cfg.retiredKeys = append(cfg.retiredKeys, fmt.Sprintf(
 			"git.enabled is no longer read — the git endpoint is controlled on the server with: git -C %s config basil.gitEnabled false",
 			repo))
+		cfg.requestedGitEndpoint = *probe.Git.Enabled
 	}
 }
+
+// RequestedGitEndpoint reports whether this config asked for the /.git
+// endpoint that FEAT-154 removed, by saying git.enabled: true.
+//
+// It exists because "is the project directory a git repository?" stopped
+// being an answer to that question. It was one when the warning was written:
+// `basil --init` produced a site root, so reaching the legacy branch of
+// initGit at all meant a hand-made project, and a hand-made project that was
+// a repository was almost certainly pushing to /.git. FEAT-156 made a plain
+// `basil --init` write an ordinary local folder and run `git init` in it, so
+// that shape is now what every new project looks like — and every one of them
+// was warned, on every start, about an endpoint it never used, by a message
+// telling it to run the command it had just run.
+//
+// The config is the durable evidence: the endpoint did nothing until it was
+// switched on, and this is the key that switched it on.
+func RequestedGitEndpoint(cfg *Config) bool { return cfg.requestedGitEndpoint }
 
 // ReleaseWarnings returns everything loading this config decided to ignore:
 // the operator-owned settings a site root overrode, and the removed keys the

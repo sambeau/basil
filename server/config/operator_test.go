@@ -198,6 +198,39 @@ func TestRetiredKeyWarningsNameTheFix(t *testing.T) {
 	}
 }
 
+// The question initGit asks before it tells anyone the /.git endpoint is
+// gone. It used to ask the filesystem — "is the project directory a git
+// repository?" — which stopped meaning anything once FEAT-156 made a plain
+// `basil --init` write exactly that shape. The first case here is the
+// regression: the folder every new local project starts life as, which must
+// be silent.
+func TestRequestedGitEndpoint(t *testing.T) {
+	const base = "server:\n  host: example.com\n  port: 8080\nsite:\n  path: ./site\n"
+
+	cases := []struct {
+		name string
+		yaml string
+		want bool
+	}{
+		{"local init: no git block at all", base, false},
+		{"switched off on purpose", base + "git:\n  enabled: false\n", false},
+		{"switched on: this operator used the endpoint", base + "git:\n  enabled: true\n", true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := writeLegacyProject(t, tc.yaml)
+			cfg, err := Load(filepath.Join(root, ConfigFileName), func(string) string { return "" })
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if got := RequestedGitEndpoint(cfg); got != tc.want {
+				t.Errorf("RequestedGitEndpoint = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 // operatorWarnings picks the operator-owned override warnings out of the full
 // warning list, so unrelated warnings (routes, HTTPS) cannot mask a missing
 // one or fake a present one.

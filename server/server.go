@@ -705,10 +705,12 @@ func (s *Server) initAuth() error {
 func (s *Server) initGit() error {
 	repo := s.config.BareRepoPath()
 	if repo == "" {
-		// Legacy layout. If the project directory is itself a Git repository
-		// the operator may have relied on the removed endpoint, so say so.
-		if _, err := os.Stat(filepath.Join(s.config.ReleaseDir, ".git")); err == nil {
-			s.logWarn("git: the legacy endpoint serving the project directory at /.git was removed (it required pushes into a checked-out branch, BUG-033); run `basil --init` to create a site with Git deploy")
+		// Legacy layout. Only an operator who switched the removed endpoint
+		// on has lost anything, and the config is what says so — a project
+		// directory that merely is a repository is what `basil --init` now
+		// writes every time (config.RequestedGitEndpoint).
+		if config.RequestedGitEndpoint(s.config) {
+			s.logWarn("git: the endpoint serving the project directory at /.git was removed (it required pushes into a checked-out branch, BUG-033); to get Git deploy, run `basil --init <dir> --server` on the server and connect this folder to it")
 		}
 		return nil
 	}

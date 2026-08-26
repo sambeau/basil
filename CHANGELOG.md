@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Every new local project was warned about a Git endpoint it had never used** — `basil --dev` in a folder made by `basil --init` printed, on every start, that the removed `/.git` endpoint was gone and that the fix was to run `basil --init` — the command that had just produced the folder. The warning's condition was "the project directory is a git repository", which was a fair proxy for "this operator pushed to `/.git`" when it was written (FEAT-154): back then `--init` always built a site root, so reaching that branch at all meant a hand-made project. FEAT-156 made a plain `--init` write an ordinary local folder and run `git init` in it, and the proxy started matching every new project instead of no new projects. The condition is now the config that actually switched the endpoint on — `git.enabled: true`, the only way it was ever served — so the warning reaches the operator who lost something and nobody else, and it names `basil --init <dir> --server` as the way to get Git deploy.
+
 ## [1.0.0-alpha.5] - 2026-08-26
 
 ### Breaking Changes
