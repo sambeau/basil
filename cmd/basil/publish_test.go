@@ -867,3 +867,36 @@ func TestPublish_DetachedOriginHEADNamesTheFix(t *testing.T) {
 		t.Errorf("live moved to %s; nothing should have been pushed", tip)
 	}
 }
+
+// TestClientGitEnv_ReadsTheOperatorsSystemGitconfig guards BUG-038.
+//
+// publish's git subprocesses must not set GIT_CONFIG_NOSYSTEM. The rest of the
+// CLI does, and is right to: those calls only touch a local repository. But
+// publish contacts the remote, and credential helpers live in the system
+// gitconfig on a stock Mac (Xcode ships one configuring osxkeychain), so
+// suppressing that file took the operator's stored API key away and every
+// publish died with "could not read Password ... terminal prompts disabled" —
+// while their own `git push` to the same remote worked fine.
+//
+// If someone re-adds the variable for consistency with runGit/gitOutput, this
+// test is the thing that says why not.
+func TestClientGitEnv_ReadsTheOperatorsSystemGitconfig(t *testing.T) {
+	env := clientGitEnv()
+
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "GIT_CONFIG_NOSYSTEM=") {
+			t.Errorf("clientGitEnv sets %q: publish must read the operator's system gitconfig, "+
+				"which is where credential helpers are configured (BUG-038)", kv)
+		}
+	}
+
+	var prompt bool
+	for _, kv := range env {
+		if kv == "GIT_TERMINAL_PROMPT=0" {
+			prompt = true
+		}
+	}
+	if !prompt {
+		t.Error("clientGitEnv must set GIT_TERMINAL_PROMPT=0 so a missing credential fails fast rather than hanging on a prompt")
+	}
+}

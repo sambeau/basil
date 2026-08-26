@@ -52,13 +52,13 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 	}
 
 	// --- the clone: a git repository with an origin remote ----------------
-	top, err := gitOutput(dir, "rev-parse", "--show-toplevel")
+	top, err := clientGitOutput(dir, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return fmt.Errorf("%s is not a git repository: run basil publish inside a clone of your site (git clone https://<host>/.git)", dir)
 	}
 	top = strings.TrimSpace(top)
 
-	if _, err := gitOutput(top, "remote", "get-url", "origin"); err != nil {
+	if _, err := clientGitOutput(top, "remote", "get-url", "origin"); err != nil {
 		return fmt.Errorf("no 'origin' remote in %s: publish pushes to origin, so clone your site from the server first", top)
 	}
 
@@ -78,7 +78,7 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
-	headSHA, err := gitOutput(top, "rev-parse", "HEAD")
+	headSHA, err := clientGitOutput(top, "rev-parse", "HEAD")
 	if err != nil {
 		return fmt.Errorf("cannot read HEAD in %s: %w (is there any commit to publish?)", top, err)
 	}
@@ -86,7 +86,7 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 
 	// Open Question resolution: a dirty tree warns and proceeds - publish
 	// pushes the committed state, never the uncommitted edits.
-	if st, err := gitOutput(top, "status", "--porcelain"); err == nil && strings.TrimSpace(st) != "" {
+	if st, err := clientGitOutput(top, "status", "--porcelain"); err == nil && strings.TrimSpace(st) != "" {
 		fmt.Fprintf(stderr, "warning: you have uncommitted changes; publishing the committed state %s\n", shortRelease(headSHA))
 	}
 
@@ -102,14 +102,14 @@ func runPublish(args []string, stdin io.Reader, stdout, stderr io.Writer, getenv
 	base := ""
 	branch := ""
 	reachable := true
-	if out, err := gitOutput(top, "ls-remote", "--symref", "origin", "HEAD"); err != nil {
+	if out, err := clientGitOutput(top, "ls-remote", "--symref", "origin", "HEAD"); err != nil {
 		reachable = false
 		fmt.Fprintf(stderr, "warning: could not reach origin to check drift (%v); using the last known state from this clone\n", err)
 		branch = cachedReleaseBranch(top)
 		if branch == "" {
 			return fmt.Errorf("cannot publish: origin is unreachable and this clone does not know which branch releases (no refs/remotes/origin/HEAD) - retry when the server answers")
 		}
-		if cached, cerr := gitOutput(top, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/"+branch); cerr == nil {
+		if cached, cerr := clientGitOutput(top, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/"+branch); cerr == nil {
 			base = strings.TrimSpace(cached)
 		}
 	} else {
@@ -291,13 +291,13 @@ func unrelatedHistories(dir, branch, serverTip, head string) bool {
 	// its source (validateReleaseBranch), but pinning the positional here means a
 	// leading-dash value could never be read as a git option even if a future
 	// caller reached this without validating first.
-	_ = runGit(dir, "fetch", "--quiet", "origin", "--end-of-options", branch)
-	if runGit(dir, "cat-file", "-e", serverTip+"^{commit}") != nil {
+	_ = clientGit(dir, "fetch", "--quiet", "origin", "--end-of-options", branch)
+	if clientGit(dir, "cat-file", "-e", serverTip+"^{commit}") != nil {
 		return false // tip not local: cannot judge, so never force
 	}
 	// Both commits are local; merge-base is authoritative. Exit 0 => a shared
 	// ancestor (ordinary, possibly behind); non-zero => none in common.
-	return runGit(dir, "merge-base", serverTip, head) != nil
+	return clientGit(dir, "merge-base", serverTip, head) != nil
 }
 
 // firstPublish handles the one non-fast-forward the server allows: replacing
@@ -383,21 +383,21 @@ func firstPublish(dir, ref, branch, head string, stdin io.Reader, stdout, stderr
 // reachable from HEAD is new, so the whole tree is the change set.
 func publishPlan(dir, base, head string) (int, []string, error) {
 	if base == "" {
-		countOut, err := gitOutput(dir, "rev-list", "--count", head)
+		countOut, err := clientGitOutput(dir, "rev-list", "--count", head)
 		if err != nil {
 			return 0, nil, err
 		}
-		filesOut, err := gitOutput(dir, "ls-tree", "-r", "--name-only", head)
+		filesOut, err := clientGitOutput(dir, "ls-tree", "-r", "--name-only", head)
 		if err != nil {
 			return 0, nil, err
 		}
 		return atoiTrim(countOut), splitLines(filesOut), nil
 	}
-	countOut, err := gitOutput(dir, "rev-list", "--count", base+".."+head)
+	countOut, err := clientGitOutput(dir, "rev-list", "--count", base+".."+head)
 	if err != nil {
 		return 0, nil, err
 	}
-	filesOut, err := gitOutput(dir, "diff", "--name-only", base, head)
+	filesOut, err := clientGitOutput(dir, "diff", "--name-only", base, head)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -410,7 +410,7 @@ func publishLog(dir, base, head string) (string, error) {
 	if base != "" {
 		rangeArg = base + ".." + head
 	}
-	return gitOutput(dir, "log", "--oneline", "--no-decorate", rangeArg)
+	return clientGitOutput(dir, "log", "--oneline", "--no-decorate", rangeArg)
 }
 
 // configureReleasePush stores remote.origin.push so a bare `git push` from
@@ -431,9 +431,9 @@ func publishLog(dir, base, head string) (string, error) {
 // Returns the previous branch when it re-pointed one, "" otherwise.
 func configureReleasePush(dir, ref string) string {
 	want := "HEAD:" + ref
-	existing, err := gitOutput(dir, "config", "--get", "remote.origin.push")
+	existing, err := clientGitOutput(dir, "config", "--get", "remote.origin.push")
 	if err != nil || strings.TrimSpace(existing) == "" {
-		_ = runGit(dir, "config", "remote.origin.push", want)
+		_ = clientGit(dir, "config", "remote.origin.push", want)
 		return ""
 	}
 	current := strings.TrimSpace(existing)
@@ -444,18 +444,67 @@ func configureReleasePush(dir, ref string) string {
 	if !ok || stale == "" {
 		return "" // not ours to touch
 	}
-	_ = runGit(dir, "config", "remote.origin.push", want)
+	_ = clientGit(dir, "config", "remote.origin.push", want)
 	return stale
 }
 
-// streamGit runs git with stdout/stderr wired straight to the caller's
-// writers, so a push's remote: lines appear as the server emits them. It keeps
+// clientGitEnv is the environment for every git subprocess publish starts.
+//
 // GIT_TERMINAL_PROMPT=0 so a missing credential fails fast (the OS keychain or
-// a configured helper must supply the API key) rather than hanging on a prompt.
+// a configured helper must supply the API key) rather than hanging a script on
+// a prompt that nothing will answer.
+//
+// It deliberately does NOT set GIT_CONFIG_NOSYSTEM, which the rest of the CLI
+// does (see runGit and gitOutput in init.go). Those calls only ever touch a
+// local repository, where keeping a machine's system gitconfig out of Basil's
+// own bookkeeping is worth something. Publish is different: it talks to the
+// remote, and credential helpers are routinely configured in exactly the file
+// that variable suppresses. On a stock Mac the osxkeychain helper comes from
+// the gitconfig Xcode ships:
+//
+//	file:/Applications/…/usr/share/git-core/gitconfig	osxkeychain
+//
+// so setting GIT_CONFIG_NOSYSTEM took the operator's stored API key away and
+// every publish died with "could not read Password … terminal prompts
+// disabled" — while their own `git push` to the same remote worked (BUG-038).
+//
+// The rule this encodes: publish is a wrapper around the operator's git, so it
+// reads the operator's git configuration, all of it.
+func clientGitEnv() []string {
+	return append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+}
+
+// clientGit runs a git command in dir, discarding its output. It is publish's
+// counterpart to runGit; see clientGitEnv for why publish needs its own.
+func clientGit(dir string, args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = clientGitEnv()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git %s: %v: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// clientGitOutput runs a git command in dir and returns its stdout. It is
+// publish's counterpart to gitOutput.
+func clientGitOutput(dir string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = clientGitEnv()
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+	}
+	return string(out), nil
+}
+
+// streamGit runs git with stdout/stderr wired straight to the caller's
+// writers, so a push's remote: lines appear as the server emits them.
 func streamGit(dir string, stdout, stderr io.Writer, args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0")
+	cmd.Env = clientGitEnv()
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	return cmd.Run()
@@ -562,7 +611,7 @@ func symrefTip(out string) string {
 // unless the operator retargeted since the last fetch - and an unreachable
 // origin cannot be asked.
 func cachedReleaseBranch(dir string) string {
-	out, err := gitOutput(dir, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
+	out, err := clientGitOutput(dir, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
 	if err != nil {
 		return ""
 	}
