@@ -32,8 +32,17 @@ REPO=$(cd ../.. && pwd)
 : "${GOARCH:=amd64}"
 export CGO_ENABLED=0 GOOS=linux GOARCH
 
-echo "building basil for linux/$GOARCH..."
-(cd "$REPO" && go build -tags nodynamic -o contrib/fly/basil ./cmd/basil)
+# Stamp the version the same way the Makefile does. Without this the Machine
+# reports "basil version dev (unknown)", and when a site breaks on a fix you
+# know you have made, there is no way to tell from the box whether the fix is
+# on it.
+VERSION=$(cd "$REPO" && git describe --tags --always 2>/dev/null || echo "dev")
+COMMIT=$(cd "$REPO" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+echo "building basil $VERSION ($COMMIT) for linux/$GOARCH..."
+(cd "$REPO" && go build -tags nodynamic \
+	-ldflags "-X main.Version=$VERSION -X main.Commit=$COMMIT" \
+	-o contrib/fly/basil ./cmd/basil)
 
 # A dynamically linked binary here means the nodynamic tag stopped working —
 # see above. It will not run on Alpine.

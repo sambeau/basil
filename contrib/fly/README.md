@@ -177,6 +177,19 @@ so the repository, the releases, the accounts and the deploy record all
 survive. At startup Basil rewrites the receive hooks if the binary path has
 drifted, so an upgrade does not silently stop deploying.
 
+**A site that works under `basil --dev` but 500s in production usually means
+the two Basils are different versions.** The laptop gets a new binary every
+time you rebuild; the Machine only gets one when you `fly deploy`. Ask it what
+it is running:
+
+```sh
+fly ssh console --app my-basil-site -C "basil --version"
+```
+
+`build.sh` stamps the version and commit into the binary so that answer is
+worth something — without it the Machine reports `dev (unknown)`, and a fix you
+know you wrote is impossible to account for from the box.
+
 ## Things that will bite
 
 - **Do not let the Machine auto-stop.** A stopped Basil renews no certificate
