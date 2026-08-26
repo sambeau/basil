@@ -159,7 +159,7 @@ func evalCacheTag(node *ast.TagPairExpression, env *Environment) Object {
 			Code:    "CACHE-0005",
 			Message: fmt.Sprintf("Invalid duration: %v", err),
 			Line:    node.Token.Line,
-			Column:  node.Token.Column,
+			Column:  node.Token.Column, File: env.Filename,
 		}
 	}
 	maxAgeDuration := time.Duration(seconds) * time.Second
@@ -282,7 +282,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 			Code:    "PART-0003",
 			Message: fmt.Sprintf("Part src must be a path or string, got %s", src.Type()),
 			Line:    token.Line,
-			Column:  token.Column,
+			Column:  token.Column, File: env.Filename,
 		}
 	}
 
@@ -321,7 +321,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 			Code:    "PART-0005",
 			Message: "Part module did not return a dictionary",
 			Line:    token.Line,
-			Column:  token.Column,
+			Column:  token.Column, File: env.Filename,
 		}
 	}
 
@@ -444,7 +444,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 			Code:    "PART-0008",
 			Message: fmt.Sprintf("Part view '%s' must be a function, got %s", viewName, viewFn.Type()),
 			Line:    token.Line,
-			Column:  token.Column,
+			Column:  token.Column, File: env.Filename,
 		}
 	}
 
@@ -485,7 +485,7 @@ func evalPartTag(token lexer.Token, propsStr string, env *Environment) Object {
 			Code:    "PART-0009",
 			Message: fmt.Sprintf("Failed to resolve Part path: %v", err),
 			Line:    token.Line,
-			Column:  token.Column,
+			Column:  token.Column, File: env.Filename,
 		}
 	}
 
@@ -993,7 +993,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	// Look up the component variable/function
 	val, ok := env.Get(node.Name)
 	if !ok {
-		return newUndefinedComponentError(node.Name, node.Token)
+		return newUndefinedComponentError(node.Name, node.Token, env.Filename)
 	}
 
 	// If the value is a String (e.g., loaded SVG), return it directly
@@ -1037,7 +1037,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	// Check if component is null (common when import destructuring gets wrong name)
 	if val == NULL || val == nil {
 		perr := perrors.New("COMP-0001", map[string]any{"Name": node.Name})
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column, File: env.Filename}
 	}
 
 	// A module dictionary containing an export with the same name as the tag
@@ -1046,7 +1046,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	if moduleDict, isDict := val.(*Dictionary); isDict {
 		if _, has := moduleDict.Pairs[node.Name]; has {
 			perr := perrors.New("COMP-0003", map[string]any{"Name": node.Name})
-			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column, File: env.Filename}
 		}
 	}
 
@@ -1063,7 +1063,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && (err.Code == "CALL-0002" || strings.Contains(err.Message, "cannot call")) {
 		perr := perrors.New("COMP-0002", map[string]any{"Name": node.Name, "Got": string(val.Type())})
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column, File: env.Filename}
 	}
 
 	return result
@@ -1122,7 +1122,7 @@ func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
 	sqlStr, ok := sqlContent.(*String)
 	if !ok {
 		perr := perrors.New("SQL-0001", nil)
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: node.Token.Line, Column: node.Token.Column, File: env.Filename}
 	}
 
 	// Trim leading and trailing whitespace from SQL content
@@ -1632,7 +1632,7 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 					Code:    "FORM-0003",
 					Message: "Form context has no valid record or schema",
 					Line:    node.Token.Line,
-					Column:  node.Token.Column,
+					Column:  node.Token.Column, File: env.Filename,
 				}
 			}
 
@@ -1703,7 +1703,7 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 					Code:    "FORM-0003",
 					Message: "Form context has no valid record or schema",
 					Line:    node.Token.Line,
-					Column:  node.Token.Column,
+					Column:  node.Token.Column, File: env.Filename,
 				}
 			}
 
@@ -2252,14 +2252,14 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 		if builtin, ok := getBuiltins()[tagName]; ok {
 			val = builtin
 		} else {
-			return newUndefinedComponentError(tagName, tok)
+			return newUndefinedComponentError(tagName, tok, env.Filename)
 		}
 	}
 
 	// Check if component is null (common when import destructuring gets wrong name)
 	if val == NULL || val == nil {
 		perr := perrors.New("COMP-0001", map[string]any{"Name": tagName})
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column, File: env.Filename}
 	}
 
 	// If the value is a String (e.g., loaded SVG), return it directly
@@ -2273,7 +2273,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 	if moduleDict, isDict := val.(*Dictionary); isDict {
 		if _, has := moduleDict.Pairs[tagName]; has {
 			perr := perrors.New("COMP-0003", map[string]any{"Name": tagName})
-			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column}
+			return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column, File: env.Filename}
 		}
 	}
 
@@ -2298,7 +2298,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 	// Improve error message if function call failed
 	if err, isErr := result.(*Error); isErr && (err.Code == "CALL-0002" || strings.Contains(err.Message, "cannot call")) {
 		perr := perrors.New("COMP-0002", map[string]any{"Name": tagName, "Got": string(val.Type())})
-		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column}
+		return &Error{Class: ErrorClass(perr.Class), Code: perr.Code, Message: perr.Message, Hints: perr.Hints, Data: perr.Data, Line: tok.Line, Column: tok.Column, File: env.Filename}
 	}
 
 	return result

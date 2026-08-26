@@ -342,7 +342,14 @@ func newStateError(code string) *Error {
 
 // newUndefinedComponentError creates a structured error for undefined
 // components, positioned at the component tag itself (BUG-010).
-func newUndefinedComponentError(name string, tok lexer.Token) *Error {
+// newUndefinedComponentError reports a tag that names nothing. file is the
+// source the tag was written in — env.Filename at the point of the failure —
+// and carrying it is what makes the error findable: without it the server
+// falls back to the handler it was serving, so a bad tag inside an imported
+// component was reported against the page that used the component, at the
+// component's line number. A precise position in the wrong file is worse than
+// no position at all (BUG-041).
+func newUndefinedComponentError(name string, tok lexer.Token, file string) *Error {
 	perr := perrors.New("UNDEF-0003", map[string]any{
 		"Name": name,
 	})
@@ -354,6 +361,7 @@ func newUndefinedComponentError(name string, tok lexer.Token) *Error {
 		Data:    perr.Data,
 		Line:    tok.Line,
 		Column:  tok.Column,
+		File:    file,
 	}
 }
 
