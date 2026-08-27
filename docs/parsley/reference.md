@@ -2189,7 +2189,7 @@ datetime("May 8, 2009 5:57 PM") // Natural language datetime
 | `.week` | `integer` | ISO week number (1-53) |
 | `.unix` | `integer` | Unix timestamp (seconds since 1970-01-01) |
 | `.iso` | `string` | ISO 8601 datetime string |
-| `.kind` | `string` | Type: `"date"`, `"datetime"`, `"time"`, or `"time_seconds"` |
+| `.kind` | `string` | Type: `"date"`, `"datetime"`, `"time"`, or `"time_seconds"` — see [Time precision](#time-precision) |
 | `.date` | `string` | Date portion (`"YYYY-MM-DD"`) |
 | `.time` | `string` | Time portion (`"HH:MM"` or `"HH:MM:SS"`) |
 
@@ -2234,6 +2234,25 @@ time regardless of style — `"14:30"` for `time`, `"14:30:45"` for
 
 A `datetime` formats as its date portion, which is deliberate: these styles are
 for human-facing output, and `.iso` or `.time` give you the rest.
+
+#### Time precision
+
+`time` and `time_seconds` differ only in whether a second is part of the value,
+and that difference is visible: a `time` renders as `"14:30"`, a `time_seconds`
+as `"14:30:45"`.
+
+Which one you get follows what you wrote. `@14:30` and `time("14:30")` are
+`time`; `@14:30:45` and `time("15:45:30")` are `time_seconds`. `@timeNow` is
+`time_seconds`, because the current moment has a second in it — a clock built on
+it ticks once a second rather than once a minute.
+
+Convert either way with `time()`:
+
+```parsley
+time(@14:30, {seconds: true})     // "14:30:00" — kind "time_seconds"
+time(@timeNow, {seconds: false})  // "09:05"    — kind "time"
+time(@now)                        // the time portion, seconds kept
+```
 
 ```parsley
 let dt = @2024-12-25T14:30:00
@@ -3483,10 +3502,13 @@ date("01/02/2005")                       // January 2nd (US default)
 date("01/02/2005", {locale: "en-GB"})    // February 1st (UK)
 date("22 avril 2005", {locale: "fr-FR"}) // French month names
 
-// time() - time-only parsing
-time("3:45 PM")                          // 12-hour format
-time("15:45")                            // 24-hour format
-time("15:45:30")                         // With seconds
+// time() - time-only values
+time("3:45 PM")                          // 12-hour format      → kind "time"
+time("15:45")                            // 24-hour format      → kind "time"
+time("15:45:30")                         // With seconds        → kind "time_seconds"
+time(@now)                               // The time portion of any datetime
+time(@14:30, {seconds: true})            // Widen  → "14:30:00", kind "time_seconds"
+time(@14:30:45, {seconds: false})        // Narrow → "14:30",    kind "time"
 
 // datetime() - full datetime parsing
 datetime("April 22, 2005 3:45 PM")       // Natural language

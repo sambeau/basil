@@ -397,6 +397,18 @@ func evalDatetimeIntersection(tok lexer.Token, left, right *Dictionary, env *Env
 	leftKind := getDatetimeKind(left, env)
 	rightKind := getDatetimeKind(right, env)
 
+	// time_seconds is a time. The cases below were written against "time"
+	// alone, so `@2026-01-01 && @14:30:45` failed with "Unknown operator:
+	// date && time_seconds" while the identical expression with @14:30 worked.
+	// Seconds are carried through either way — the combining code already
+	// copies Second() (BUG-046).
+	if leftKind == "time_seconds" {
+		leftKind = "time"
+	}
+	if rightKind == "time_seconds" {
+		rightKind = "time"
+	}
+
 	// Get components from both sides
 	leftTime, err := dictToTime(left, env)
 	if err != nil {

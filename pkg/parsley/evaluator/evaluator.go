@@ -2549,33 +2549,89 @@ func getBuiltins() map[string]*Builtin {
 				return timeToDictWithKind(dateOnly, "date", env)
 			},
 		},
-		// time() - Parse a time-only string
+		// time() - a time-only value
 		// time("3:45 PM") - 12-hour format
 		// time("15:45") - 24-hour format
 		// time("15:45:30.123") - With seconds and milliseconds
+		// time(@now) - the time portion of any datetime value
+		// time(t, {seconds: true}) - force the precision either way
 		"time": {
 			Fn: func(args ...Object) Object {
-				if len(args) != 1 {
-					return newArityError("time", len(args), 1)
+				if len(args) < 1 || len(args) > 2 {
+					return newArityErrorRange("time", len(args), 1, 2)
 				}
 
 				env := NewEnvironment()
 
-				input, ok := args[0].(*String)
-				if !ok {
-					return newTypeError("TYPE-0012", "time", "a string", args[0].Type())
+				// Precision: inferred from the input, or stated outright.
+				//
+				// time and time_seconds differ only in whether seconds are
+				// part of the value, and until now nothing could move between
+				// them: the kind was hardcoded here, so time_seconds was
+				// reachable only by writing a literal. {seconds: …} converts in
+				// both directions (BUG-046).
+				forced, forcedSet := false, false
+				if len(args) == 2 {
+					opts, ok := args[1].(*Dictionary)
+					if !ok {
+						return newTypeError("TYPE-0006", "time", "a dictionary", args[1].Type())
+					}
+					if expr, has := opts.Pairs["seconds"]; has {
+						want := Eval(expr, opts.Env)
+						b, ok := want.(*Boolean)
+						if !ok {
+							return newTypeError("TYPE-0006", "time", "a boolean for seconds", want.Type())
+						}
+						forced, forcedSet = b.Value, true
+					}
 				}
 
-				// Parse time-only
-				t, err := parseTimeOnly(input.Value)
-				if err != nil {
-					return newStructuredError("FMT-0011", map[string]any{
-						"Input":   input.Value,
-						"GoError": err.Error(),
-					})
+				var t time.Time
+				hasSeconds := false
+
+				switch arg := args[0].(type) {
+				case *String:
+					parsed, err := parseTimeOnly(arg.Value)
+					if err != nil {
+						return newStructuredError("FMT-0011", map[string]any{
+							"Input":   arg.Value,
+							"GoError": err.Error(),
+						})
+					}
+					t = parsed
+					// Two colons means the caller wrote seconds down.
+					hasSeconds = strings.Count(arg.Value, ":") >= 2
+
+				case *Dictionary:
+					// Any datetime value: take its time portion, keeping the
+					// precision it already had unless told otherwise.
+					parsed, err := dictToTime(arg, env)
+					if err != nil {
+						return newTypeError("TYPE-0012", "time", "a string or a datetime", args[0].Type())
+					}
+					t = parsed
+					// A datetime and a time_seconds both carry a second; a
+					// time and a date do not. Keeping it is the default
+					// because silently dropping precision is the thing this
+					// change exists to stop — {seconds: false} narrows.
+					switch getDictString(arg, "kind", env) {
+					case "time_seconds", "datetime":
+						hasSeconds = true
+					}
+
+				default:
+					return newTypeError("TYPE-0012", "time", "a string or a datetime", args[0].Type())
 				}
 
-				return timeToDictWithKind(t, "time", env)
+				if forcedSet {
+					hasSeconds = forced
+				}
+
+				timeKind := "time"
+				if hasSeconds {
+					timeKind = "time_seconds"
+				}
+				return timeToDictWithKind(t, timeKind, env)
 			},
 		},
 		// datetime() - Parse a full datetime with flexible format support

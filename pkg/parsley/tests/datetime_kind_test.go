@@ -443,3 +443,53 @@ func TestFormatRespectsKind(t *testing.T) {
 		})
 	}
 }
+
+// TestTimeSecondsIsAFirstClassKind guards BUG-046.
+//
+// time_seconds could be written as a literal and nothing else. time() hardcoded
+// kind "time", so time("14:30:45") silently discarded the precision it was
+// handed; the && intersection matched "time" alone, so `@2026-01-01 && @14:30:45`
+// failed with "Unknown operator: date && time_seconds" while the identical
+// expression with @14:30 worked; and there was no conversion in either
+// direction.
+func TestTimeSecondsIsAFirstClassKind(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		// @timeNow is the current moment, and a moment has a second in it.
+		{"timeNow carries seconds", `@timeNow.kind`, "time_seconds"},
+
+		// time() keeps the precision it is given rather than flattening it.
+		{"parsed seconds are kept", `time("14:30:45").kind`, "time_seconds"},
+		{"parsed minutes stay minutes", `time("14:30").kind`, "time"},
+		{"12-hour with seconds", `time("3:45:20 PM").kind`, "time_seconds"},
+
+		// Conversion, both ways.
+		{"widen", `time(@14:30, {seconds: true}).kind`, "time_seconds"},
+		{"widen renders", `time(@14:30, {seconds: true}) + ""`, "14:30:00"},
+		{"narrow", `time(@14:30:45, {seconds: false}).kind`, "time"},
+		{"narrow renders", `time(@14:30:45, {seconds: false}) + ""`, "14:30"},
+
+		// A datetime carries a second, so its time portion keeps it.
+		{"time of a datetime", `time(@2025-06-15T14:30:45Z).kind`, "time_seconds"},
+		{"time of a datetime renders", `time(@2025-06-15T14:30:45Z) + ""`, "14:30:45"},
+
+		// The intersection treats time_seconds as the time it is.
+		{"date && time_seconds", `(@2026-01-01 && @14:30:45).kind`, "datetime"},
+		{"date && time_seconds keeps the second", `(@2026-01-01 && @14:30:45).second`, "45"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			evaluated := testEvalKind(tc.input)
+			if err, ok := evaluated.(*evaluator.Error); ok {
+				t.Fatalf("%s: %s", tc.input, err.Message)
+			}
+			if got := evaluated.Inspect(); got != tc.want {
+				t.Errorf("%s = %s, want %s", tc.input, got, tc.want)
+			}
+		})
+	}
+}

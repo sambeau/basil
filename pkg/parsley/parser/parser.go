@@ -1179,7 +1179,11 @@ func (p *Parser) parseDatetimeNow() ast.Expression {
 }
 
 func (p *Parser) parseTimeNow() ast.Expression {
-	return p.parseDatetimeNowLiteral("time")
+	// time_seconds, not time: @timeNow is the current moment, which has a
+	// second in it, and its .time property has always returned "01:01:42".
+	// Declaring it "time" made it render as "01:01" — a clock that ticks once
+	// a minute (BUG-046).
+	return p.parseDatetimeNowLiteral("time_seconds")
 }
 
 func (p *Parser) parseDateNow() ast.Expression {

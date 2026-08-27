@@ -195,7 +195,11 @@ func TestDatetimeNowLiterals(t *testing.T) {
 	}{
 		{"@now.kind", "datetime"},
 		{"@now.__type", "datetime"},
-		{"@timeNow.kind", "time"},
+		// time_seconds, not time: @timeNow is the current moment, which has a
+		// second in it. Declaring it "time" made it render as "01:01" — a
+		// clock that ticks once a minute — while its .time property returned
+		// "01:01:42" all along (BUG-046).
+		{"@timeNow.kind", "time_seconds"},
 		{"@timeNow.__type", "datetime"},
 		{"@dateNow.kind", "date"},
 		{"@dateNow.__type", "datetime"},
