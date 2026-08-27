@@ -2,11 +2,10 @@
 
 Basil's server holds a **bare Git repository** that your team pushes to. You clone
 it, edit locally, `git push` — and none of it reaches the public until you
-deliberately release it. The clone URL is `https://user@host/.git`, unchanged from
-earlier versions of Basil, but what sits behind it is different: a proper shared Git
-host, not the live site directory.
+deliberately release it. The clone URL is `https://user@host/.git`; behind it is a
+shared Git host, not the live site directory.
 
-Two verbs do two different things, and keeping them apart is the whole point:
+Two verbs do two different things, and they are deliberately kept apart:
 
 ```
 git push            →  shared with the team. Stored, published to nobody.
@@ -35,8 +34,8 @@ None of this needs a single change to `basil.yaml`: a site created by
 `<site root>/site.git`, and the server serves it at `/.git` whenever that repository
 exists. There is nothing to turn on: the Git endpoint is live because the repository
 is there. A push into a bare repository never contends with a checked-out working
-tree, so the first push to a fresh site just works — no `receive.denyCurrentBranch`,
-no manual repository setup, none of the ceremony older versions of Basil required.
+tree, so the first push to a fresh site just works — no `receive.denyCurrentBranch`
+errors and no manual repository setup.
 
 The repository ships with the starter site already committed on the release branch,
 so a clone of a freshly initialised server yields working files rather than *"you
@@ -78,7 +77,7 @@ git -C /srv/mysite/site.git symbolic-ref HEAD refs/heads/main
 
 That one command is the whole interface. No client changes: `basil publish` asks
 the server which branch releases, and a plain `git clone` follows the same `HEAD`.
-Nothing in a release can rewrite it — which is the point. When the config named
+Nothing in a release can rewrite it, and that is deliberate: if the config named
 the branch, a deployed `basil.yaml` could point the protections at some other
 branch and leave the real one freely force-pushable.
 

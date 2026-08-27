@@ -1,6 +1,6 @@
 # Basil API + Table Binding
 
-This document explains the new API surface for Parsley-based JSON APIs: `std/api` route helpers plus schema-aware table bindings via `schema.table`. It includes examples (minimal and advanced) that you can copy into `*.pars` files.
+This document explains the API surface for Parsley-based JSON APIs: `std/api` route helpers plus schema-aware table bindings via `schema.table`. It includes examples (minimal and advanced) that you can copy into `*.pars` files.
 
 ## What the feature is
 

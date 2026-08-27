@@ -47,7 +47,7 @@ If `git` is on your PATH, `--init` also makes the folder a repository on `main`
 with the starter site committed and the pre-commit formatting hook wired up.
 That costs you nothing today and saves a restructure the day you deploy. Pass
 `--no-git` to skip it; on a machine with no `git` at all you simply get the
-plain folder, with no warning and no fuss.
+plain folder, with no warning.
 
 `--host` is the only other thing worth setting here, and it defaults to
 `localhost`:

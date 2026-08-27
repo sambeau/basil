@@ -1,6 +1,6 @@
 # Resend Setup Guide
 
-Resend is a modern email API built for developers, with a focus on simplicity and great developer experience.
+Resend is a transactional email service with a simple API.
 
 ## Prerequisites
 
@@ -152,11 +152,11 @@ Test immediately with onboarding email:
 
 ```yaml
 resend:
-  api_key: "re_CTmuvKDZ_Hs8QFRGe2hnRQWmPt3uq9nxJ"
+  api_key: "re_YOUR_API_KEY_HERE"
   from: "onboarding@resend.dev"
 ```
 
-Send test to: `sambeau@mac.com`
+Send the test to your own address.
 
 ### Test with Your Domain
 
@@ -233,7 +233,7 @@ Special addresses:
 
 ### React Email Integration
 
-Resend integrates with React Email for beautiful templates:
+Resend integrates with React Email for HTML templates:
 
 ```bash
 npm install react-email @react-email/components

@@ -17,7 +17,7 @@ search = @SEARCH({
 })
 ```
 
-That's it! The search engine will automatically:
+That's all the setup. The search engine automatically:
 - Scan your `docs` folder for markdown files
 - Parse YAML frontmatter (title, tags, date)
 - Extract headings for better ranking
@@ -47,7 +47,7 @@ results = search.query("hello world", {
 ./basil
 ```
 
-Visit your handler and search! The index builds automatically on the first query.
+Visit your handler and run a search. The index builds automatically on the first query.
 
 ## When to Use @SEARCH
 
@@ -464,7 +464,7 @@ if (request.path.startsWith("/docs")) {
 
 ### Search Results Page Template
 
-**Scenario:** Full-featured search UI.
+**Scenario:** A complete search UI.
 
 ```parsley
 let {query: urlQuery} = import @basil/http
@@ -877,7 +877,7 @@ A: Create separate indexes per site, then merge results in your handler.
 A: SQLite limits strings to 1MB. Practically, queries should be <1000 characters.
 
 **Q: Can I use this for production?**  
-A: Yes! Suitable for sites with <100K documents. Tested with thousands of files, <10ms query times.
+A: Yes — suitable for sites with <100K documents. Tested with thousands of files, <10ms query times.
 
 ## Examples
 

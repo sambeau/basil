@@ -1,6 +1,6 @@
 # Authentication
 
-Basil includes built-in passkey authentication. No passwords, no OAuth complexity—just modern, secure authentication.
+Basil includes built-in passkey authentication: no passwords to store, and no OAuth to configure.
 
 ## Quick Start
 

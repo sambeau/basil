@@ -278,7 +278,7 @@ If a release has a broken `.pars` file or an invalid config, the check **rejects
 it and the live site does not change** — you fix it, commit, and publish again.
 Production never wobbles.
 
-### Handy commands
+### Useful commands
 
 All of these run on the server (or with `--site /srv/mysite` from anywhere on
 the box):

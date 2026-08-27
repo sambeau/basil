@@ -277,7 +277,7 @@ mailgun:
 **Resend:**
 ```yaml
 resend:
-  api_key: "re_CTmuvKDZ_Hs8QFRGe2hnRQWmPt3uq9nxJ"
+  api_key: "re_YOUR_API_KEY_HERE"
   from: "onboarding@resend.dev"
 ```
 

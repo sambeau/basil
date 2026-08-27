@@ -207,9 +207,9 @@ your clone has merely fallen behind a shared release branch, that is an ordinary
 divergence, not a first publish: publish refuses it and tells you to fetch and
 rebase, exactly as before.
 
-Under the hood the first publish is `git push --force origin HEAD:live`, and
-that still works if you prefer to type it — `basil publish` just recognises the
-state and runs it for you.
+Underneath, the first publish is `git push --force origin HEAD:live`, and
+typing that yourself still works — `basil publish` recognises the state and
+runs it for you.
 
 ## `basil deploy <sha|branch|tag>`
 

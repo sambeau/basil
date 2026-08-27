@@ -1,6 +1,6 @@
 # Mailgun Setup Guide
 
-Mailgun is a transactional email service with excellent deliverability and a generous free tier.
+Mailgun is a transactional email service with a free tier.
 
 ## Prerequisites
 
@@ -109,7 +109,7 @@ dig TXT k1._domainkey.mg.example.com
 2. Copy your **Private API Key** (starts with `key-`)
 3. Store securely (do not commit to git)
 
-**Security:** API keys grant full account access. Keep them secret!
+**Security:** API keys grant full account access. Keep them secret.
 
 ## Step 5: Configure Basil
 
