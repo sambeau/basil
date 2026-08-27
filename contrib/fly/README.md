@@ -8,8 +8,8 @@ This directory is a working recipe: a `Dockerfile`, an `entrypoint.sh`, a
 names in `fly.toml`, and follow the walkthrough below. It has been run for real
 against a live domain.
 
-It is a starting point rather than a product — the files are commented, and the
-comments try to explain the choices rather than just make them.
+It is a starting point rather than a product. The files are commented, and the
+comments explain each choice.
 
 ---
 
@@ -24,9 +24,8 @@ You need:
   cross-compiles the binary on your machine; there is no build stage in the
   image.
 - **About $5/month.** A `shared-cpu-1x` Machine with 1GB of RAM, a 3GB volume,
-  and — the one that is not optional — a **dedicated IPv4 address**. See
-  [Why the dedicated address](#why-the-dedicated-address) for why the free
-  shared one will not do.
+  and a **dedicated IPv4 address**. The free shared address will not work here
+  — see [Why the dedicated address](#why-the-dedicated-address).
 
 Everything below assumes you are in `contrib/fly/` (or your own copy of it).
 
@@ -52,9 +51,8 @@ fly apps create my-basil-site
 fly ips allocate-v4
 ```
 
-The second command prints the address. Write it down — the next step needs it.
-It also costs a couple of dollars a month, and it is the one part of this that
-cannot be skipped.
+The second command prints the address; the next step needs it. The dedicated
+address costs a couple of dollars a month and cannot be skipped.
 
 ### 3. Point your domain at it
 
@@ -83,7 +81,7 @@ statically linked. `fly deploy` builds the image around it and boots a Machine.
 
 If you asked for an ARM Machine, build for it: `GOARCH=arm64 ./build.sh`.
 
-### 5. Look at the logs — the Machine is waiting for you
+### 5. Check the logs
 
 ```sh
 fly logs
@@ -105,9 +103,8 @@ basil:
 basil:   fly machine restart
 ```
 
-It deliberately does not run that init for itself. It could — but the init
-prints an API key exactly once, and `fly logs` is the wrong home for a
-credential.
+The entrypoint does not run the init itself: the init prints an API key
+exactly once, and `fly logs` is the wrong place for a credential.
 
 ### 6. Initialise the site root
 
@@ -193,16 +190,16 @@ It reaches the server the same way everything else does — commit it and
 
 ## After the first deploy, stop deploying
 
-This is the pleasant part, and the bit worth internalising:
+The two lifecycles are separate:
 
 ```
 fly deploy                       ships Basil
 git push / basil publish         ships the site
 ```
 
-Once the Machine is up you never touch Fly again to change a page. You push, the
+Once the Machine is up you never touch Fly to change a page. You push, the
 receive hook validates the release, and the running server picks up the new
-release within about a second. The two lifecycles are genuinely separate.
+release within about a second.
 
 To upgrade Basil itself:
 
@@ -222,9 +219,8 @@ time you rebuild; the Machine only gets one when you `fly deploy`. Ask it:
 fly ssh console -C "basil --version"
 ```
 
-`build.sh` stamps the version and commit so that answer is worth something —
-without it the Machine reports `dev (unknown)`, and a fix you know you wrote is
-impossible to account for from the box.
+`build.sh` stamps the version and commit into the binary. Without that, the
+Machine reports `dev (unknown)` and the question has no useful answer.
 
 ---
 
@@ -253,7 +249,7 @@ Volume is shaped for a long-lived site.
 
 ### What is in the image
 
-Less than you would think, and one thing more than you might expect:
+Four things:
 
 - **The Basil binary**, built static — see the [build note](#the-build-trap).
 - **`git`.** A real runtime dependency, not a convenience: Basil runs it to
@@ -387,8 +383,7 @@ and answered `/.git` with a Basic-auth challenge. On the box, `basil check`
 passed everything with the certificate cached.
 
 The two awkward findings above — the `lost+found` on a fresh volume, and port 80
-needing the `http` handler — came out of that run rather than out of reasoning,
-which is the usual way.
+needing the `http` handler — came out of that run, not out of reasoning.
 
 Note that nothing in `contrib/` is built or tested by Basil's CI.
 

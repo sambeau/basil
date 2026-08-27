@@ -76,9 +76,9 @@ on a Volume so a `fly deploy` cannot destroy it, port 443 is raw TCP passthrough
 so Basil still terminates TLS with its own Let's Encrypt certificate, and
 `basil --init … --server` is run once over `fly ssh console`.
 
-The two lifecycles stay separate and that is the pleasant part: `fly deploy`
-ships **Basil**, `git push` and `basil publish` ship **the site**. Everything on
-this page applies unchanged once the Machine is up.
+The two lifecycles stay separate: `fly deploy` ships **Basil**, while
+`git push` and `basil publish` ship **the site**. Everything on this page
+applies unchanged once the Machine is up.
 
 The [Fly.io README](../../contrib/fly/README.md) is the walkthrough, including
 the platform quirks that are not guessable — a dedicated IPv4 being required for
@@ -105,8 +105,8 @@ release; activation is an atomic re-point of that link. The
 [configuration guide](configuration.md#site-root-layout) describes the layout
 and the two path anchors (release vs data) in full.
 
-The legacy single-directory layout has no releases, so the deploy commands
-refuse it and say so.
+A plain project folder has no releases, so the deploy commands refuse it and
+say so.
 
 ## Graduating a local site to a server
 
@@ -310,7 +310,7 @@ reverted. See
 
 ## Validation
 
-Validation is the gate between materialise and activate: every `.pars` file in
+Validation runs between materialise and activate: every `.pars` file in
 the release — handlers, parts, layouts, the hook — is parsed, and the release's
 `basil.yaml` is loaded and validated exactly as the server would at startup.
 All errors are collected and reported, one grep-able `file:line:col: message`
@@ -451,7 +451,7 @@ the release branch 'live' matches the live release
 When the branch is ahead, status says by how many commits and prints the
 `basil deploy` to run. It names the site's **actual** release branch throughout —
 whatever `site.git`'s `HEAD` points at, `live` by default — not the literal word
-"live". Status reports rather than insists: a legacy layout or a missing
+"live". Status reports rather than insists: a plain project folder or a missing
 repository is stated plainly and exits 0.
 
 ### Changing the release branch

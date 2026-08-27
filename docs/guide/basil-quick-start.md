@@ -761,9 +761,9 @@ routes:
 kill -HUP $(pgrep basil)
 ```
 
-In the site-root layout this re-activates whatever release `current` points
-at, which rebuilds the routes and clears every cache; in the legacy
-single-directory layout it reloads scripts and clears the caches in place.
+In a site root this re-activates whatever release `current` points at, which
+rebuilds the routes and clears every cache; in a plain project folder it
+reloads scripts and clears the caches in place.
 Either way the server keeps running. A deploy does this for you — see the
 [Deployment guide](deployment.md) — so `SIGHUP` is the manual fallback rather
 than the usual route.

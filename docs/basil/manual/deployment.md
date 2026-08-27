@@ -25,16 +25,17 @@ keywords:
 
 # Deployment
 
-Deploying a Basil site has two halves, and they have very different rhythms.
+Deploying a Basil site has two parts.
 
 **Setting up a server** happens once. You put the binary on a machine, run one
-command, point DNS at it, and start it. Basil gets its own HTTPS certificate.
+command, point DNS at it, and start it. Basil fetches its own HTTPS certificate.
 
-**Shipping the site** happens all the time, and it is just Git. You `git push`
-to share work, and `basil publish` when you want it live. Basil reads the
+**Shipping the site** happens every day, and it is just Git. You `git push` to
+share work, and `basil publish` when you want it live. Basil checks each
 release before serving it and refuses one that would break the site.
 
-This page covers both, starting with the part you will do every day.
+This page covers shipping first, then HTTPS and the rest of the production
+configuration.
 
 ## The shape of a deployed site
 
@@ -49,26 +50,27 @@ This page covers both, starting with the part you will do every day.
   data/                           databases, certificates, uploads — no deploy touches this
 ```
 
-Two facts do most of the work here. Each release is a directory named after its
-commit and byte-identical to it, so Basil never rewrites your code and the
-deploy record can be trusted. And `current` is a symlink, so going live is an
-atomic re-point of one link, and rolling back is the same thing in reverse.
+Each release is a directory named after its commit and byte-identical to it:
+Basil never rewrites your code, so the deploy record can be trusted. `current`
+is a symlink, so going live re-points one link atomically, and rolling back
+points it at an earlier release.
 
-Between your laptop and that server sit two verbs, and keeping them apart is the
-whole design:
+Two commands move work between your laptop and the server, and they are
+deliberately separate:
 
 ```
 git push          →  shared with the team. Stored on the server, published to nobody.
 basil publish     →  the release branch moves, the release is checked, and the site goes live.
 ```
 
-The safe one is the one you get for free. Going public is the one you ask for.
+`git push` is always safe. Nothing goes live until you ask for it with
+`basil publish`.
 
 ## Two ways to start
 
-There are two ways a site and a server meet, depending on which existed first.
-Both end in the same place — a clone on your laptop, a bare repository on the
-server, and `basil publish` as the go-live button.
+Where you start depends on which exists first, the site or the server. Both
+paths end in the same place: a clone on your laptop, a repository on the
+server, and `basil publish` to go live.
 
 | | Start here if… | The first publish is… |
 |---|---|---|
@@ -85,7 +87,7 @@ loop](#the-daily-loop) below.
 The server is created first and holds the only copy of the history. You clone
 it, and that clone is your dev partner.
 
-#### 1. Build the site root — *on the server*
+#### 1. Build the site root (on the server)
 
 ```bash
 basil --init /srv/mysite --server --host mysite.example.com --admin sam
@@ -141,7 +143,7 @@ basil check --site /srv/mysite
 which tests the layout, the active release, the repository, `server.host`, DNS,
 port 80 and the certificate, and names the fix for each.
 
-#### 4. Clone it — *on your laptop*
+#### 4. Clone it (on your laptop)
 
 The init output ends with this command, with your hostname and account name
 already filled in:
@@ -189,7 +191,7 @@ public. Nothing about the folder has to be restructured — the server gets its
 own init, your folder gets a remote, and the first publish carries your history
 across.
 
-#### 1. Make the config describe the server — *on your laptop*
+#### 1. Make the config describe the server (on your laptop)
 
 Open `basil.yaml` and change the top-level `server` block from your laptop to
 the machine:
@@ -212,7 +214,7 @@ The edit costs you nothing locally: `basil --dev` serves plain HTTP on
 same folder, before and after. `https.auto` defaults to on, so a config with no
 `https:` block still gets its own certificate.
 
-#### 2. Build the site root — *on the server*
+#### 2. Build the site root (on the server)
 
 ```bash
 basil --init /srv/mysite --server --host mysite.example.com --admin sam
@@ -225,7 +227,7 @@ down. Then point DNS at the machine and start it:
 basil --site /srv/mysite
 ```
 
-#### 3. Add the server as `origin` — *on your laptop*
+#### 3. Add the server as `origin` (on your laptop)
 
 ```bash
 git remote add origin https://sam@mysite.example.com/.git
@@ -363,7 +365,7 @@ confirmation. Use your editor's Git panel if you prefer.
 
 The release branch is `site.git`'s `HEAD` — Git's own record of the default
 branch, and what a fresh clone checks out. `--init --server` points it at
-`live`. One command on the server changes it:
+`live`. To change it, run this on the server:
 
 ```bash
 git -C /srv/mysite/site.git symbolic-ref HEAD refs/heads/main
@@ -376,8 +378,8 @@ could point the protections at some other branch and leave the real one freely
 force-pushable.
 
 If you would rather every push go live immediately, point `HEAD` at the branch
-you work on. Then `git push` *is* publishing, which is the older push-to-publish
-model, and everything else here works unchanged.
+you work on. Then `git push` itself publishes, and everything else here works
+unchanged.
 
 ## What a publish does
 
@@ -410,8 +412,8 @@ pushed from.
 
 ### When a release is refused
 
-Validation is the gate between materialise and activate. A release that does not
-parse never becomes the live site:
+Validation runs after a release is materialised and before it is activated. A
+release that does not parse never goes live:
 
 ```
 remote: Checking release 5d56492c6437…
@@ -432,8 +434,8 @@ warning naming `basil fmt -w`, and never a rejection.
 ### Rolling back
 
 Rollback re-activates a release that is already on disk. It is a symlink swap
-and a cache clear, which is what makes it fast enough to be the emergency
-answer:
+and a cache clear, so it takes milliseconds — fast enough to reach for in an
+emergency:
 
 ```bash
 basil rollback --site /srv/mysite          # back to the previous release
@@ -492,9 +494,8 @@ separate. Basil terminates TLS itself with its own Let's Encrypt certificate, so
 port 443 is raw TCP passthrough.
 
 The [Fly.io README](https://github.com/sambeau/basil/blob/main/contrib/fly/README.md)
-has the full walkthrough, the reasons behind each setting, and the handful of
-platform quirks that are not guessable — read it before you start rather than
-after.
+has the full walkthrough, the reasons behind each setting, and the platform
+quirks that are not guessable. Read it before you start.
 
 ## HTTPS
 

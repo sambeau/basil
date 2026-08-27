@@ -155,22 +155,21 @@ A deployed site is a **site root**, and `basil.yaml` ships inside the release:
 `basil --init … --server` creates this layout, on the machine that receives
 deploys. The release directory is resolved through `current` once, at startup.
 
-### Legacy layout
+### Project folders
 
-A plain project directory with a `basil.yaml` in it still works exactly as
-before: the release directory *and* the data directory are both the project
-directory, so `basil --dev` in a working copy behaves as it always has. This is
-the layout plain `basil --init mysite` writes, and the shape a clone of a
-deployed site has.
+In a plain project folder — the layout `basil --init mysite` writes, and the
+shape a clone of a deployed site has — the release directory *and* the data
+directory are both the project directory. `basil --dev` in a working copy needs
+nothing more.
 
 ### `data_dir`
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `data_dir` | string | `<site root>/data`, or the project directory in the legacy layout | Root for everything that must survive a deploy |
+| `data_dir` | string | `<site root>/data`, or the project folder itself | Root for everything that must survive a deploy |
 
-A relative `data_dir` resolves against the site root (or the project directory
-in the legacy layout).
+A relative `data_dir` resolves against the site root (or, in a project folder,
+against the folder itself).
 
 ```yaml
 data_dir: ./data
@@ -210,9 +209,9 @@ auth:
     - path: /__uploads
 ```
 
-A legacy single-directory project is not affected: `/__uploads/` is only
-registered for a site root, so upgrading never publishes an existing `uploads/`
-directory.
+A plain project folder is not affected: `/__uploads/` is only registered for a
+site root, so a folder with its own `uploads/` directory never has it published
+by accident.
 
 ## Operator-Owned Settings on a Site Root
 
@@ -261,10 +260,10 @@ never an error, because a stale key in a file everyone pulls from must not stop
 a server (or a `basil publish`) from working. The warning is printed by
 `basil publish` too, so a clone does not carry it around unseen.
 
-In the **legacy layout** nothing is forced and `data_dir` works exactly as
-documented above: a plain project directory has no bare repository, so it has no
-Git endpoint to protect and no accounts to require — a local `basil --dev`
-server with neither is exactly right.
+In a **project folder** nothing is forced and `data_dir` works exactly as
+documented above: a plain folder has no bare repository, so it has no Git
+endpoint to protect and no accounts to require — a local `basil --dev` server
+with neither is exactly right.
 
 This is a narrow fence rather than a general rule about what a release may
 change: it covers exactly the settings whose loss removes the way back in.

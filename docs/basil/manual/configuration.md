@@ -238,9 +238,8 @@ dev:
 
 In `--dev`, an edit to any `.pars`, `.parsley` or `.part` file shows up on the
 next request — whether it is the page you are looking at or a component five
-imports down. Nothing has to notice the change for this to hold, and in
-particular the file watcher does not: it reloads your browser, and that is all
-it is responsible for.
+imports down. No file-watcher event is needed for this; the watcher only
+reloads your browser.
 
 Rendered responses and `<basil.cache.Cache>` fragments are simply not cached in
 dev, since a rendered fragment cannot be checked against anything. Imported

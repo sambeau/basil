@@ -226,8 +226,8 @@ the release branch 'live' is 1 commit ahead of the live release - deploy it with
 ```
 
 `basil publish` reports the same drift in its summary before you confirm, so you
-rarely have to ask. Status reports rather than insists: a legacy layout or a missing
-repository is stated plainly and exits 0.
+rarely have to ask. Status reports rather than insists: a plain project folder or a
+missing repository is stated plainly and exits 0.
 
 ## Formatting: `basil fmt` and the pre-commit hook
 

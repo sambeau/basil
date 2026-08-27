@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- **The docs no longer describe layouts by their history.** [Running Basil](docs/basil/manual/running.md) called the plain `--init` layout "the plain folder Basil has always been about" and gave it a section headed "The legacy layout" — framing that only means something to someone who used an earlier Basil, and reads as "outdated" to everyone else. The two layouts are now simply the **project folder** (plain `--init`, and the shape of a clone) and the **site root** (`--init --server`), described by what they are; the [configuration guide](docs/guide/configuration.md)'s "Legacy layout" section and `basil --help`'s SIGHUP line were renamed to match.
+- **A plain-language pass over the recent deployment docs.** The rewrite carried some writerly framing that said less than it appeared to — "Deploying a Basil site has two halves, and they have very different rhythms", "Two facts do most of the work here", "Validation is the gate between materialise and activate" — now replaced with direct statements of the same facts, in the [Deployment](docs/basil/manual/deployment.md) page, the [deployment guide](docs/guide/deployment.md) and the [Fly.io README](contrib/fly/README.md). Em dashes came out of the step headings, and the pointer to "the older push-to-publish model" now describes the behaviour without the history.
+
 ## [1.0.0-alpha.6] - 2026-08-27
 
 ### Added

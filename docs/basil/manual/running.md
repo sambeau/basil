@@ -30,7 +30,7 @@ cd myapp && basil --dev   # Run it in development mode
 
 ## Creating a Site
 
-`basil --init FOLDER` creates the plain folder Basil has always been about:
+`basil --init FOLDER` creates a project folder:
 
 ```
 myapp/
@@ -48,15 +48,15 @@ lands beside your code, covered by the generated `.gitignore`.
 
 If `git` is on the PATH, `--init` also makes the folder a repository on `main`
 with the starter site committed and `core.hooksPath` pointed at the pre-commit
-formatting hook. It is a quiet nicety, not a gate: `--no-git` opts out, and a
-machine without `git` simply gets the plain folder, with no warning. The point is
-that the folder is already clone-shaped on the day you decide to deploy it — see
+formatting hook. `--no-git` opts out, and a machine without `git` simply gets the
+plain folder, with no warning. Either way, the folder is already clone-shaped on
+the day you decide to deploy it — see
 [Graduating a local site to a server](https://github.com/sambeau/basil/blob/main/docs/guide/deployment.md#graduating-a-local-site-to-a-server).
 
 ### Creating a deployment server: `--server`
 
-`basil --init FOLDER --server --host HOSTNAME --admin NAME` is the other half,
-run on the machine that will *receive* deploys. It creates a **site root**:
+`basil --init FOLDER --server --host HOSTNAME --admin NAME` sets up the machine
+that *receives* deploys. It creates a **site root**:
 
 ```
 myapp/
@@ -112,13 +112,13 @@ itself, and any `security.allow_write` entry resolves there too. Files in the
 uploads directory are served at `/__uploads/` and are **public** unless you list
 the prefix in `auth.protected_paths`.
 
-### The legacy layout
+### Project folders have none of this
 
-A plain directory containing `basil.yaml` still works exactly as before, with the
-data root defaulting to that directory. `basil --dev` in a working copy needs no
-site root and no `current` symlink. This is the layout plain `basil --init` writes
-and the shape a clone of a deployed site has, which is why a local folder can
-graduate to a server without being restructured.
+A project folder — the layout plain `basil --init` writes, and the shape a clone
+of a deployed site has — needs no site root: `basil --dev` runs in any directory
+containing `basil.yaml`, there is no `releases/` directory and no `current`
+symlink, and the data root defaults to the folder itself. That shared shape is
+why a local folder can be connected to a server without being restructured.
 
 ## Starting the Server
 
@@ -200,7 +200,7 @@ basil apikey revoke <id>     # Revoke an API key
 
 | Signal | Effect |
 |--------|--------|
-| `SIGHUP` | Activate the release `current` points at — a full route/cache rebuild (in the legacy single-directory layout: reload scripts, clear cache, re-parse on next request) |
+| `SIGHUP` | Activate the release `current` points at — a full route/cache rebuild (in a project folder: reload scripts, clear cache, re-parse on next request) |
 
 ## See Also
 
