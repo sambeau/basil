@@ -55,9 +55,9 @@ logging:
 #   log_truncate_pct: 25               # Percentage to delete when truncating
 #   cache: false                       # true = cache like production (edits then need a restart)
 
-# Public directory for static files
-# Paths under this directory are automatically rewritten to web-root URLs
-# e.g., @./public/images/foo.png → /images/foo.png in HTML output
+# Public directory for static files, served at the web root
+# (the directory itself is not part of the URL: public/images/foo.png
+# is served at /images/foo.png)
 public_dir: ./public
 
 # Asset bundling (automatic)

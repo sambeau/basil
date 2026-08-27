@@ -117,7 +117,7 @@ gets served to a JSON client.
 public_dir: ./public
 ```
 
-Static files, served at the web root. Parsley paths under this directory are automatically rewritten to URLs in HTML output: `@./public/images/foo.png` becomes `/images/foo.png`.
+Static files, served at the web root — the directory itself is not part of the URL, so `public/images/foo.png` is served at `/images/foo.png`. See [Routing → Static Files](routing.md#static-files).
 
 ## database
 

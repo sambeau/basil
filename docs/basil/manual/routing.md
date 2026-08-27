@@ -86,16 +86,23 @@ routes:
 
 Two ways to serve them:
 
-**`public_dir`** (the usual way) — files under it are served at the web root, and Parsley paths are rewritten to URLs automatically:
+**`public_dir`** (the usual way) — files under it are served at the web root:
 
 ```yaml
 public_dir: ./public
 ```
 
+A file is served at its path *inside* the directory — the `public/` prefix is
+not part of the URL. So `public/images/logo.png` is served at
+`/images/logo.png`, and that URL is how you reference it:
+
 ```parsley
-<img src={@./public/images/logo.png}/>
-// renders as <img src="/images/logo.png"/>
+<img src="/images/logo.png" alt="The logo"/>
 ```
+
+Start the URL with `/`: an absolute path works from every page, however deep
+the page sits. When a URL matches both a file and a handler, the file wins —
+static files are checked first.
 
 **`static` routes** — mount any directory at any prefix:
 

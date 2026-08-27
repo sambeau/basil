@@ -39,7 +39,7 @@ type Config struct {
 	Dev         DevConfig                  `yaml:"dev"`
 	Database    DatabaseConfig             `yaml:"database"`    // Database configuration
 	Images      ImageConfig                `yaml:"images"`      // Image transformation and caching configuration
-	PublicDir   string                     `yaml:"public_dir"`  // Directory for static files, paths under this are rewritten to web URLs (default: "./public")
+	PublicDir   string                     `yaml:"public_dir"`  // Directory for static files, served at the web root (default: "./public")
 	Site        SiteConfig                 `yaml:"site"`        // Site mode configuration (filesystem-based routing)
 	ErrorPages  map[int]string             `yaml:"error_pages"` // Custom error pages: status code -> .pars file (e.g. 404: ./errors/404.pars)
 	Static      []StaticRoute              `yaml:"static"`

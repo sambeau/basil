@@ -381,7 +381,7 @@ site:
 #   - path: /favicon.ico
 #     file: ./public/favicon.ico
 
-public_dir: ./public            # Static files directory (rewritten to web URLs)
+public_dir: ./public            # Static files directory, served at the web root
 
 auth:
   enabled: true
