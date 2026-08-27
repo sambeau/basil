@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-alpha.7] - 2026-08-27
+
 ### Fixed
 - **`asset()` returned a wrong URL in site mode and was a no-op in routes mode (BUG-049)** — in the layout every `basil --init` project uses, `asset(@./public/images/logo.png)` returned `/public/images/logo.png`, a URL the site catch-all serves as HTML rather than 404ing, so the page rendered and the image quietly didn't. `route.PublicDir` is overloaded: in site mode it carries the *project root* so `@~/` resolves there (BUG-011), and `buildBasilContext` exported it as `basil.public_dir` verbatim, so `pathToWebURL` stripped the project root as if it were the public dir — the arithmetic ran perfectly on the wrong operand. In routes mode a route without its own `public_dir` exported an empty one, and asset()'s documented passthrough fired on every call. `contextPublicDir()` now computes what `basil.public_dir` should name — the config's `public_dir` in site mode (detected the same way the RootPath logic detects site mode), the per-route override or the global fallback in routes mode — and `route.PublicDir` itself is untouched, so `@~/` resolution and the static fallback keep working from the same field. asset()'s documented contract (strip if under `public_dir`, pass through otherwise) is deliberately unchanged; whether the passthrough should be an error is left as an open design question. Regression tests assert the full contract at the HTTP surface: the URL asset() returns must be one the same mux actually serves the file's bytes at. Found while writing the routing docs' "how do I reference an image?" paragraph — the previously documented example was tested before being published, and wasn't true.
 
