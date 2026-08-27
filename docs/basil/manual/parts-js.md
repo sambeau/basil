@@ -21,7 +21,7 @@ keywords:
 
 # Parts JavaScript API
 
-Parts work without writing any JavaScript — but when you want to script them, the runtime exposes a small, capable API: refresh any Part from your own code, read its state, and subscribe to its lifecycle. This is how Parts talk to the rest of your front end: websockets, keyboard shortcuts, third-party widgets, analytics.
+Parts work without writing any JavaScript — but when you want to script them, the runtime exposes a small API: refresh any Part from your own code, read its state, and subscribe to its lifecycle. This is how Parts talk to the rest of your front end: websockets, keyboard shortcuts, third-party widgets, analytics.
 
 The runtime is injected automatically on any page that renders a `<Part/>`. There is nothing to include; `window.Parts` is just there.
 
@@ -164,7 +164,7 @@ const socket = new WebSocket("wss://example.com/updates");
 socket.onmessage = () => Parts.refresh("notifications");
 ```
 
-## Under the Hood
+## How the Runtime Works
 
 Useful when debugging, or if you're curious what the runtime actually does.
 

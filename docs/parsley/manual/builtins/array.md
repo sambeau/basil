@@ -18,7 +18,7 @@ keywords:
 
 # Arrays
 
-Arrays are ordered, mixed-type collections and the workhorse of data processing in Parsley. They support indexing, slicing, functional operations, set algebra, random sampling, locale-aware formatting, and more.
+Arrays are ordered, mixed-type collections and the workhorse of data processing in Parsley. They support indexing, slicing, functional operations, set algebra, random sampling, and locale-aware formatting.
 
 ```parsley
 [1, "hello", true, null, £5.00]     // mixed types, including money

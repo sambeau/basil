@@ -25,7 +25,7 @@ keywords:
 
 # Query DSL
 
-Parsley's Query DSL provides declarative syntax for database operations through table bindings. Instead of writing SQL strings, you compose queries using `@query`, `@insert`, `@update`, and `@delete` expressions with a pipe-based syntax that generates parameterized SQL under the hood. It is designed to be minimalist, graphical and to express the flow of data passing through multiple steps.
+Parsley's Query DSL provides declarative syntax for database operations through table bindings. Instead of writing SQL strings, you compose queries using `@query`, `@insert`, `@update`, and `@delete` expressions with a pipe-based syntax that generates parameterized SQL. It is designed to be minimalist, graphical and to express the flow of data passing through multiple steps.
 
 All DSL operations require a **TableBinding** — a schema bound to a database table via `db.bind()`. See [Database](database.md) for connection setup and binding creation.
 

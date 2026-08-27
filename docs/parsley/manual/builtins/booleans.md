@@ -94,7 +94,7 @@ null ?? "default"       // "default"
 "value" ?? "default"    // "value"
 ```
 
-Crucially, `??` triggers **only on `null`** — not on other falsy values:
+`??` triggers **only on `null`** — not on other falsy values:
 
 ```parsley
 0 ?? "default"          // 0

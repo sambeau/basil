@@ -26,7 +26,7 @@ keywords:
 
 # The Search Guide
 
-The [Search page](search.md) covers the essentials: `@SEARCH`, watched folders, and `query()`. This guide is the deep dive — what actually gets indexed, how ranking works, the full query syntax, and how to index content that isn't a file.
+The [Search page](search.md) covers the essentials: `@SEARCH`, watched folders, and `query()`. This guide goes deeper: what actually gets indexed, how ranking works, the full query syntax, and how to index content that isn't a file.
 
 ## How Indexing Works
 

@@ -23,7 +23,7 @@ keywords:
 
 # The Parts Guide
 
-The [Parts page](parts.md) covers the essentials: `.part` files, views, `part-click`, and `part-submit`. This guide is the deep dive — the patterns that come up when you build real things with Parts, and the details that make them work.
+The [Parts page](parts.md) covers the essentials: `.part` files, views, `part-click`, and `part-submit`. This guide goes deeper: the patterns that come up when you build real things with Parts, and the details that make them work.
 
 ## Thinking in Views
 
@@ -72,7 +72,7 @@ export edit = fn({id, text}) {
 
 ## Where State Lives
 
-Parts have no memory between requests. Whatever a view needs must arrive in its props — or come from somewhere durable, like the database. The two triggers handle props differently, and the difference is worth internalizing:
+Parts have no memory between requests. Whatever a view needs must arrive in its props — or come from somewhere durable, like the database. The two triggers handle props differently:
 
 - **`part-click` starts fresh.** The view receives *only* the `part-*` props written on the clicked element. If the next view needs a value, pass it explicitly: `part-id={props.id}`.
 - **`part-submit` carries state forward.** Form fields are merged on top of the Part's current props, so everything the Part already knew survives the submit.

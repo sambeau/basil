@@ -304,7 +304,7 @@ See [@std/math](../stdlib/math.md) for the full reference.
 | Scientific notation | Not supported | `1e3` |
 | Rounding | `math.round(x)` (import required) | Often built-in |
 | Method calls on literals | `(3.14).format()` — parentheses needed for floats | Varies |
-| Int/float coercion | Automatic and seamless | Often explicit |
+| Int/float coercion | Automatic | Often explicit |
 
 ## See Also
 

@@ -24,7 +24,7 @@ keywords:
 
 # The Authentication Guide
 
-The [Authentication page](authentication.md) covers the essentials: enabling auth, the components, and protecting routes. This guide is the deep dive — how passkeys actually work, where everything is stored, and the patterns for roles, recovery, API keys, and email verification.
+The [Authentication page](authentication.md) covers the essentials: enabling auth, the components, and protecting routes. This guide goes deeper: how passkeys actually work, where everything is stored, and the patterns for roles, recovery, API keys, and email verification.
 
 ## How Passkey Sign-In Works
 
@@ -86,7 +86,7 @@ How roles are assigned:
 
 ### Bootstrapping Your Admin
 
-A CLI-created user has no passkey yet — they exist, but can't sign in. The trick: when someone registers with an email that matches a passkey-less user, the new passkey attaches to that existing account instead of creating a new one. So:
+A CLI-created user has no passkey yet — they exist, but can't sign in. When someone registers with an email that matches a passkey-less user, the new passkey attaches to that existing account instead of creating a new one. So:
 
 ```bash
 basil users create --name "You" --email you@example.com   # first user → admin

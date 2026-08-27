@@ -21,7 +21,7 @@ keywords:
 
 # Tables
 
-Tables are Parsley's first-class type for working with structured, rectangular data. Think of a Table as a spreadsheet or database result set—rows of data where each row has the same columns. Tables provide powerful SQL-like operations for filtering, sorting, selecting, and aggregating data, all with a clean method-chaining syntax.
+Tables are Parsley's first-class type for working with structured, rectangular data. Think of a Table as a spreadsheet or database result set—rows of data where each row has the same columns. Tables provide SQL-like operations for filtering, sorting, selecting, and aggregating data, through method chaining.
 
 ```parsley
 let sales = @table [

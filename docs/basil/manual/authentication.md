@@ -184,6 +184,6 @@ This page covers the essentials. Authentication also includes:
 
 ## See Also
 
-- [The Authentication Guide](authentication-guide.md) — the deep dive: passkeys, sessions, roles, protected paths, recovery, API keys, and email verification
+- [The Authentication Guide](authentication-guide.md) — auth in depth: passkeys, sessions, roles, protected paths, recovery, API keys, and email verification
 - [Running Basil](running.md) — user and API key CLI
 - [Git Deploy](git.md) — API keys in action

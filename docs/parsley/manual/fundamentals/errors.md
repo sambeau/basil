@@ -443,7 +443,7 @@ error.message                    // "name required"
 
 ### Structured API Error Handling
 
-Return rich error data from API handlers:
+Return structured error data from API handlers:
 
 ```parsley
 let api = import @basil/api

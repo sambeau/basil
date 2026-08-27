@@ -182,6 +182,6 @@ This page covers the essentials. Parts can also:
 
 ## See Also
 
-- [The Parts Guide](parts-guide.md) — patterns and deep dives: nesting, lazy loading, loading states, live data, and error handling
+- [The Parts Guide](parts-guide.md) — Parts in depth: nesting, lazy loading, loading states, live data, and error handling
 - [Parts JavaScript API](parts-js.md) — `window.Parts`, events, and cross-Part targeting
 - [Routing](routing.md) — how Part URLs resolve
