@@ -123,6 +123,12 @@ static:
     root: ./public
 ```
 
+There is a third option for a single file: `publicUrl()` publishes a private
+file sitting beside your handler code at a content-hashed URL, without moving
+it into `public/` — useful when one file should be public but the folder it
+lives in should not. See [Server Functions](globals.md#server-functions) on
+the Server Globals page.
+
 ## Asset Bundling
 
 Basil automatically bundles every `.css` and `.js` file from your handlers directory into `/__site.css` and `/__site.js` (concatenated depth-first alphabetically, cache-busted). Include them with the built-in tags:
