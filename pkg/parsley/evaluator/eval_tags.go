@@ -180,7 +180,7 @@ func evalCacheTag(node *ast.TagPairExpression, env *Environment) Object {
 	fullKey := env.HandlerPath + ":" + keyStr.Value
 
 	// Check if caching is disabled (dev mode or enabled=false)
-	if env.DevMode || !enabled {
+	if env.NoCache || !enabled {
 		// Dev mode: skip caching and evaluate children normally
 		// TODO: Add dev logging when DevLogWriter interface supports cache logging
 		return evalTagContents(node.Contents, env)

@@ -18,7 +18,7 @@ type fragmentCache struct {
 	mu       sync.RWMutex
 	entries  map[string]*fragmentEntry
 	maxSize  int
-	devMode  bool
+	noCache  bool
 	hits     atomic.Int64
 	misses   atomic.Int64
 	disabled bool // For testing: when true, always returns miss
@@ -77,24 +77,24 @@ type fragmentEntry struct {
 	size      int // Approximate size in bytes for LRU tracking
 }
 
-// newFragmentCache creates a new fragment cache.
-// In dev mode, caching is disabled but operations are logged.
-func newFragmentCache(devMode bool, maxSize int) *fragmentCache {
+// newFragmentCache creates a new fragment cache. noCache comes from
+// Config.NoCache - dev mode without the dev.cache opt-in.
+func newFragmentCache(noCache bool, maxSize int) *fragmentCache {
 	if maxSize <= 0 {
 		maxSize = 1000 // Default to 1000 entries
 	}
 	return &fragmentCache{
 		entries: make(map[string]*fragmentEntry),
 		maxSize: maxSize,
-		devMode: devMode,
+		noCache: noCache,
 	}
 }
 
 // Get retrieves a cached fragment if available and not expired.
 // Returns the HTML and true on cache hit, empty string and false on miss.
 func (c *fragmentCache) Get(key string) (string, bool) {
-	// No caching in dev mode
-	if c.devMode || c.disabled {
+	// No caching when caching is off for this configuration
+	if c.noCache || c.disabled {
 		c.misses.Add(1)
 		return "", false
 	}
@@ -125,8 +125,8 @@ func (c *fragmentCache) Get(key string) (string, bool) {
 // Set stores a fragment in the cache with the given TTL.
 // If maxAge is 0 or negative, the entry is not stored.
 func (c *fragmentCache) Set(key string, html string, maxAge time.Duration) {
-	// No caching in dev mode or with zero/negative TTL
-	if c.devMode || c.disabled || maxAge <= 0 {
+	// No caching when caching is off for this configuration or with zero/negative TTL
+	if c.noCache || c.disabled || maxAge <= 0 {
 		return
 	}
 
@@ -194,7 +194,7 @@ func (c *fragmentCache) Stats() FragmentCacheStats {
 		Hits:      c.hits.Load(),
 		Misses:    c.misses.Load(),
 		SizeBytes: totalSize,
-		DevMode:   c.devMode,
+		NoCache:   c.noCache,
 	}
 }
 
@@ -204,7 +204,7 @@ type FragmentCacheStats struct {
 	Hits      int64
 	Misses    int64
 	SizeBytes int
-	DevMode   bool
+	NoCache   bool
 }
 
 // HitRate returns the cache hit rate as a percentage (0-100).

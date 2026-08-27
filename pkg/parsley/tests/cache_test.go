@@ -48,7 +48,7 @@ func testCacheEval(input string, cache *mockFragmentCache, handlerPath string) e
 	env := evaluator.NewEnvironment()
 	env.FragmentCache = cache
 	env.HandlerPath = handlerPath
-	env.DevMode = false
+	env.NoCache = false
 	return evaluator.Eval(program, env)
 }
 
@@ -220,7 +220,7 @@ func TestCacheTag_DevMode(t *testing.T) {
 	env := evaluator.NewEnvironment()
 	env.FragmentCache = cache
 	env.HandlerPath = "/test"
-	env.DevMode = true // Enable dev mode
+	env.NoCache = true // Enable dev mode
 
 	result := evaluator.Eval(program, env)
 

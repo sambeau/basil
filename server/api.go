@@ -133,7 +133,8 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.AssetBundle = h.bundle()
 	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
-	env.DevMode = h.conf().Server.Dev
+	env.NoCache = h.conf().NoCache()
+	env.TrustModuleCache = !h.conf().NoCache()
 
 	// Inject publicUrl() function for asset registration
 	env.SetProtected("publicUrl", evaluator.NewPublicURLBuiltin())

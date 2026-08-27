@@ -231,8 +231,35 @@ dev:
   log_database: ./logs/dev_logs.db   # Dev log panel storage
   log_max_size: 10MB
   log_truncate_pct: 25
-  cache: false                       # Response caching in dev mode
+  cache: false                       # Caching in dev mode (see below)
 ```
+
+### dev.cache
+
+In `--dev`, an edit to any `.pars`, `.parsley` or `.part` file shows up on the
+next request — whether it is the page you are looking at or a component five
+imports down. Nothing has to notice the change for this to hold, and in
+particular the file watcher does not: it reloads your browser, and that is all
+it is responsible for.
+
+Rendered responses and `<basil.cache.Cache>` fragments are simply not cached in
+dev, since a rendered fragment cannot be checked against anything. Imported
+modules *are* still cached — importing is expensive and a page is mostly
+components — but each cached module records the modification time and size of
+every file it was built from, including everything it imports, and is re-read
+if any of them has changed. Editing a helper therefore updates every component
+that imports it, not just the file you touched.
+
+`dev.cache: true` turns all of that off and caches the way production does,
+with entries trusted as they stand and no revalidation, for profiling a page
+against the caching it will really have. You then need to restart to see edits,
+as in production.
+
+Production always caches and never revalidates; `dev.cache` has no effect
+there.
+
+The `pars` CLI and the REPL revalidate as well, so a file imported at the REPL
+prompt, edited, and imported again gives you the edited one.
 
 See [Dev Tools](dev-tools.md).
 

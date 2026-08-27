@@ -60,8 +60,8 @@ func TestFragmentCache_DevMode(t *testing.T) {
 	if stats.Misses != 1 {
 		t.Errorf("expected 1 miss, got %d", stats.Misses)
 	}
-	if !stats.DevMode {
-		t.Error("expected DevMode=true in stats")
+	if !stats.NoCache {
+		t.Error("expected NoCache=true in stats")
 	}
 }
 
@@ -238,8 +238,8 @@ func TestFragmentCache_Stats(t *testing.T) {
 	if stats.SizeBytes <= 0 {
 		t.Error("expected positive size")
 	}
-	if stats.DevMode {
-		t.Error("expected DevMode=false")
+	if stats.NoCache {
+		t.Error("expected NoCache=false")
 	}
 }
 

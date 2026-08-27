@@ -24,9 +24,10 @@ type Watcher struct {
 	stdout      io.Writer
 	stderr      io.Writer
 
-	// Track last change time to debounce rapid changes
+	// Track last change time per file to debounce rapid changes. Keyed by
+	// path rather than shared, so one file's save cannot swallow another's.
 	mu         sync.Mutex
-	lastChange time.Time
+	lastChange map[string]time.Time
 	changeSeq  uint64 // Incremented on each file change for live reload
 }
 
@@ -43,6 +44,7 @@ func NewWatcher(s *Server, configPath string, stdout, stderr io.Writer) (*Watche
 		configPath: configPath,
 		stdout:     stdout,
 		stderr:     stderr,
+		lastChange: make(map[string]time.Time),
 	}
 
 	// Collect directories to watch
@@ -139,6 +141,13 @@ func (w *Watcher) watchDirRecursive(root string) error {
 	})
 }
 
+// isDir reports whether path is a directory. A path that has already gone
+// away is not one.
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
 // eventLoop processes file system events
 func (w *Watcher) eventLoop(ctx context.Context) {
 	// Debounce duration - wait for rapid changes to settle
@@ -159,18 +168,35 @@ func (w *Watcher) eventLoop(ctx context.Context) {
 				continue
 			}
 
+			// fsnotify watches a directory, not its future children: a
+			// directory created after Start never reported anything, so
+			// nothing under a freshly-added components/ ever live-reloaded.
+			// Add it (and anything already inside it) as soon as it appears.
+			if event.Has(fsnotify.Create) && isDir(event.Name) {
+				if err := w.watchDirRecursive(event.Name); err != nil {
+					w.logError("failed to watch new dir %s: %v", event.Name, err)
+				} else {
+					w.logInfo("watching new dir: %s", event.Name)
+				}
+			}
+
 			// Check if this is a file we care about before updating changeSeq
 			if !w.shouldTriggerReload(event.Name) {
 				continue
 			}
 
-			// Debounce rapid changes
+			// Debounce rapid changes, per file. The window used to be global
+			// and to drop the event outright, so a Save All across two files
+			// discarded the second file's change entirely - no reload, no
+			// invalidation, stale until something else touched the tree. An
+			// editor that writes twice on one save still collapses to one
+			// reload, which is all the window was ever for.
 			w.mu.Lock()
-			if time.Since(w.lastChange) < debounce {
+			if time.Since(w.lastChange[event.Name]) < debounce {
 				w.mu.Unlock()
 				continue
 			}
-			w.lastChange = time.Now()
+			w.lastChange[event.Name] = time.Now()
 			w.changeSeq++
 			w.mu.Unlock()
 

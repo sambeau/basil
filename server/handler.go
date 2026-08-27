@@ -349,7 +349,8 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env.AssetBundle = h.bundle()
 	env.BasilJSURL = JSAssetURL()
 	env.HandlerPath = h.route.Path
-	env.DevMode = h.conf().Server.Dev
+	env.NoCache = h.conf().NoCache()
+	env.TrustModuleCache = !h.conf().NoCache()
 	env.PLNSecret = h.server.sessionSecret // For HMAC signing PLN in Part props (FEAT-098)
 
 	// Inject @params - merged query+form params (POST wins)

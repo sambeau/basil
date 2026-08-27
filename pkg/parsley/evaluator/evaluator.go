@@ -16,7 +16,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 
@@ -712,31 +711,33 @@ type Environment struct {
 	// resolves against it, because anything written inside the handler tree
 	// is destroyed by the next deploy. Empty for `pars`, which has no
 	// deploy and keeps its old, script-relative behaviour.
-	DataPath       string
-	LastToken      *lexer.Token
-	letBindings    map[string]bool // tracks which variables were declared with 'let' or 'var'
-	immutable      map[string]bool // tracks which variables are immutable (declared with 'let', not 'var')
-	exports        map[string]bool // tracks which variables were explicitly exported
-	protected      map[string]bool // tracks which variables cannot be reassigned
-	Security       *SecurityPolicy // File system security policy
-	StdoutWritten  bool            // tracks whether stdout was written to via ==> text(@stdout)
-	Logger         Logger          // Logger for log()/logLine() output
-	importStack    map[string]bool // tracks modules being imported (for circular dep detection)
-	DevLog         DevLogWriter    // Dev log writer (nil in production mode)
-	BasilCtx       Object          // Basil server context (request, db, auth, etc.)
-	ServerDB       *DBConnection   // Server-level database connection (set at startup, available to modules)
-	FragmentCache  FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
-	AssetRegistry  AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
-	ImageRegistry  ImageRegistrar  // Image registry for image() and imageInfo() (nil if not available)
-	AssetBundle    AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
-	BasilJSURL     string          // URL for basil.js prelude script (for <BasilJS/> tag)
-	HandlerPath    string          // Current handler path for cache key namespacing
-	DevMode        bool            // Whether dev mode is enabled (affects caching)
-	ContainsParts  bool            // Whether the response contains <Part/> components (for JS injection)
-	FormContext    *FormContext    // Current form context for @record/@field binding (FEAT-091)
-	PLNSecret      string          // Secret for HMAC signing PLN in Part props (FEAT-098)
-	callDepth      *int            // Shared function-call-depth counter (per evaluation tree; guards against runaway recursion)
-	AllowRedeclare bool            // Permit let/var redeclaration in this scope (REPL top-level only; not inherited by enclosed scopes)
+	DataPath         string
+	LastToken        *lexer.Token
+	letBindings      map[string]bool // tracks which variables were declared with 'let' or 'var'
+	immutable        map[string]bool // tracks which variables are immutable (declared with 'let', not 'var')
+	exports          map[string]bool // tracks which variables were explicitly exported
+	protected        map[string]bool // tracks which variables cannot be reassigned
+	Security         *SecurityPolicy // File system security policy
+	StdoutWritten    bool            // tracks whether stdout was written to via ==> text(@stdout)
+	Logger           Logger          // Logger for log()/logLine() output
+	importStack      map[string]bool // tracks modules being imported (for circular dep detection)
+	DevLog           DevLogWriter    // Dev log writer (nil in production mode)
+	BasilCtx         Object          // Basil server context (request, db, auth, etc.)
+	ServerDB         *DBConnection   // Server-level database connection (set at startup, available to modules)
+	FragmentCache    FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
+	AssetRegistry    AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
+	ImageRegistry    ImageRegistrar  // Image registry for image() and imageInfo() (nil if not available)
+	AssetBundle      AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
+	BasilJSURL       string          // URL for basil.js prelude script (for <BasilJS/> tag)
+	HandlerPath      string          // Current handler path for cache key namespacing
+	NoCache          bool            // Do not serve <basil.cache.Cache> fragments from cache. A rendered fragment cannot be checked against anything, so in dev it is simply not cached.
+	TrustModuleCache bool            // Serve cached modules without checking they are still current (see module_cache.go). Set only where the source files cannot change under the running evaluation - a production release, or dev.cache. The zero value revalidates, so an entry point that never heard of this field is correct and merely pays a stat per import; the reverse default is what BUG-048 was.
+	moduleDeps       *moduleDepSet   // Files imported while evaluating the enclosing module, collected so it can record what it was built from. nil outside a module.
+	ContainsParts    bool            // Whether the response contains <Part/> components (for JS injection)
+	FormContext      *FormContext    // Current form context for @record/@field binding (FEAT-091)
+	PLNSecret        string          // Secret for HMAC signing PLN in Part props (FEAT-098)
+	callDepth        *int            // Shared function-call-depth counter (per evaluation tree; guards against runaway recursion)
+	AllowRedeclare   bool            // Permit let/var redeclaration in this scope (REPL top-level only; not inherited by enclosed scopes)
 }
 
 // NewEnvironment creates a new environment
@@ -820,7 +821,9 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 		env.AssetBundle = outer.AssetBundle
 		env.BasilJSURL = outer.BasilJSURL
 		env.HandlerPath = outer.HandlerPath
-		env.DevMode = outer.DevMode
+		env.NoCache = outer.NoCache
+		env.TrustModuleCache = outer.TrustModuleCache
+		env.moduleDeps = outer.moduleDeps // a module's functions import on the module's behalf
 		env.ContainsParts = outer.ContainsParts
 		env.FormContext = outer.FormContext // Propagate form context (FEAT-091)
 		env.PLNSecret = outer.PLNSecret     // Propagate PLN secret for Record serialization
@@ -1097,48 +1100,6 @@ var (
 	TRUE  = &Boolean{Value: true}
 	FALSE = &Boolean{Value: false}
 )
-
-// ModuleCache caches imported modules
-type ModuleCache struct {
-	mu      sync.RWMutex
-	modules map[string]*Dictionary // absolute path -> module dictionary
-}
-
-// Global module cache
-var moduleCache = &ModuleCache{
-	modules: make(map[string]*Dictionary),
-}
-
-// ClearModuleCache clears all cached modules
-// This should be called before each request in Basil to ensure modules
-// see fresh basil.* values (request data, auth, etc.)
-func ClearModuleCache() {
-	moduleCache.mu.Lock()
-	defer moduleCache.mu.Unlock()
-	moduleCache.modules = make(map[string]*Dictionary)
-}
-
-// InvalidateModule removes a specific module from the cache.
-// The path can be absolute or relative - both will be tried.
-// This also invalidates any modules that might have imported the changed file.
-func InvalidateModule(path string) {
-	moduleCache.mu.Lock()
-	defer moduleCache.mu.Unlock()
-
-	// Try to find and remove the module by various path forms
-	absPath, err := filepath.Abs(path)
-	if err == nil {
-		delete(moduleCache.modules, absPath)
-	}
-	delete(moduleCache.modules, path)
-
-	// Also invalidate all modules that might have imported this one
-	// This is a conservative approach - we clear all modules that could
-	// transitively depend on the changed file
-	// For now, just clear all modules on any file change to ensure correctness
-	// TODO: Track import dependencies for selective invalidation
-	moduleCache.modules = make(map[string]*Dictionary)
-}
 
 // ClearDBConnections closes and clears all cached database connections.
 // This is primarily used in tests to ensure isolation between test cases.

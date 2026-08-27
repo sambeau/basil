@@ -12,7 +12,7 @@ import (
 func BenchmarkResponseCache_GetHit(b *testing.B) {
 	b.ReportAllocs()
 
-	cache := newResponseCache(false, true) // production mode, cache enabled
+	cache := newResponseCache(false) // production mode, cache enabled
 
 	// Create a representative request
 	req := httptest.NewRequest(http.MethodGet, "/api/users?page=1&limit=20", http.NoBody)
@@ -36,7 +36,7 @@ func BenchmarkResponseCache_GetHit(b *testing.B) {
 func BenchmarkResponseCache_GetMiss(b *testing.B) {
 	b.ReportAllocs()
 
-	cache := newResponseCache(false, true)
+	cache := newResponseCache(false)
 
 	// Request that won't be in cache
 	req := httptest.NewRequest(http.MethodGet, "/api/missing", http.NoBody)
@@ -50,7 +50,7 @@ func BenchmarkResponseCache_GetMiss(b *testing.B) {
 func BenchmarkResponseCache_SetThenGet(b *testing.B) {
 	b.ReportAllocs()
 
-	cache := newResponseCache(false, true)
+	cache := newResponseCache(false)
 
 	headers := http.Header{}
 	headers.Set("Content-Type", "application/json")

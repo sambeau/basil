@@ -100,7 +100,8 @@ func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary, env *
 		extendedEnv.DataPath = env.DataPath
 		extendedEnv.DevLog = env.DevLog
 		extendedEnv.HandlerPath = env.HandlerPath
-		extendedEnv.DevMode = env.DevMode
+		extendedEnv.NoCache = env.NoCache
+		extendedEnv.TrustModuleCache = env.TrustModuleCache
 		extendedEnv.Security = env.Security
 		extendedEnv.Logger = env.Logger
 		// Copy @params from calling environment so methods can access request params
@@ -148,7 +149,8 @@ func ApplyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			extendedEnv.DataPath = env.DataPath
 			extendedEnv.DevLog = env.DevLog
 			extendedEnv.HandlerPath = env.HandlerPath
-			extendedEnv.DevMode = env.DevMode
+			extendedEnv.NoCache = env.NoCache
+			extendedEnv.TrustModuleCache = env.TrustModuleCache
 			extendedEnv.Security = env.Security
 			extendedEnv.Logger = env.Logger
 			// Copy @params from calling environment so modules can access request params
@@ -340,13 +342,23 @@ func importModule(pathStr string, env *Environment) Object {
 		return newImportError("IMPORT-0002", map[string]any{"Path": absPath})
 	}
 
-	// Check cache first (with lock for thread safety)
-	moduleCache.mu.RLock()
-	if cached, ok := moduleCache.modules[absPath]; ok {
-		moduleCache.mu.RUnlock()
+	// Record this import against the module being evaluated, so that module
+	// can record what it was built from. Done before the cache lookup: a
+	// dependency is a dependency whether or not it was served from cache.
+	env.moduleDeps.add(absPath)
+
+	// A cached module is served only if it can still be shown to be current.
+	// env.TrustModuleCache skips that check, and is set only where the sources
+	// cannot change under the running evaluation - a production release, or
+	// dev.cache. Everywhere else, including the pars CLI and the REPL, gets
+	// the check by default.
+	if cached, ok := moduleCache.lookup(absPath, !env.TrustModuleCache); ok {
 		return cached
 	}
-	moduleCache.mu.RUnlock()
+
+	// Stamped before the read, never after - see ModuleCache.store. A file
+	// that cannot be stat'd is left to the read below to report properly.
+	stamp, stampErr := stampOf(absPath)
 
 	// Mark as loading in this request's import stack
 	rootEnv.importStack[absPath] = true
@@ -391,6 +403,14 @@ func importModule(pathStr string, env *Environment) Object {
 	moduleEnv.DataPath = env.DataPath
 	// Copy security policy from parent environment
 	moduleEnv.Security = env.Security
+	// Carry the caching decisions into the module. Without this a module's own
+	// imports, and any <basil.cache.Cache> at module scope, cache in dev mode
+	// however the request was configured.
+	moduleEnv.NoCache = env.NoCache
+	moduleEnv.TrustModuleCache = env.TrustModuleCache
+	// A fresh collector: what this module imports is what this module was
+	// built from, not what its importer was.
+	moduleEnv.moduleDeps = newModuleDepSet()
 	// Copy DevLog and BasilCtx for stdlib imports (std/dev) and basil namespace modules
 	moduleEnv.DevLog = env.DevLog
 	moduleEnv.BasilCtx = env.BasilCtx
@@ -452,10 +472,12 @@ func importModule(pathStr string, env *Environment) Object {
 		}
 	}
 
-	// Cache the result
-	moduleCache.mu.Lock()
-	moduleCache.modules[absPath] = moduleDict
-	moduleCache.mu.Unlock()
+	// Cache the result against the stamp taken before the read, together with
+	// what this module imported. A module whose own file could not be stat'd
+	// is not cached: there would be nothing to validate it against later.
+	if stampErr == nil {
+		moduleCache.store(absPath, stamp, moduleDict, moduleEnv.moduleDeps.snapshot())
+	}
 
 	return moduleDict
 }

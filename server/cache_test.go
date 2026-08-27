@@ -8,7 +8,7 @@ import (
 )
 
 func TestResponseCache_BasicCaching(t *testing.T) {
-	cache := newResponseCache(false, false) // production mode
+	cache := newResponseCache(false) // production mode
 
 	// Create a test request
 	req := httptest.NewRequest("GET", "/test?foo=bar", http.NoBody)
@@ -41,7 +41,7 @@ func TestResponseCache_BasicCaching(t *testing.T) {
 }
 
 func TestResponseCache_DevMode(t *testing.T) {
-	cache := newResponseCache(true, false) // dev mode - caching disabled
+	cache := newResponseCache(true) // dev mode - caching disabled
 
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
@@ -55,7 +55,10 @@ func TestResponseCache_DevMode(t *testing.T) {
 }
 
 func TestResponseCache_DevModeWithCacheEnabled(t *testing.T) {
-	cache := newResponseCache(true, true) // dev mode with caching enabled
+	// dev.cache: true. Whether that combination yields noCache=false is
+	// Config.NoCache's decision now, covered by TestConfigNoCache; this
+	// asserts the cache honours the answer it is handed.
+	cache := newResponseCache(false)
 
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
@@ -69,7 +72,7 @@ func TestResponseCache_DevModeWithCacheEnabled(t *testing.T) {
 }
 
 func TestResponseCache_Expiration(t *testing.T) {
-	cache := newResponseCache(false, false)
+	cache := newResponseCache(false)
 
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
@@ -86,7 +89,7 @@ func TestResponseCache_Expiration(t *testing.T) {
 }
 
 func TestResponseCache_DifferentQueries(t *testing.T) {
-	cache := newResponseCache(false, false)
+	cache := newResponseCache(false)
 
 	req1 := httptest.NewRequest("GET", "/test?a=1", http.NoBody)
 	req2 := httptest.NewRequest("GET", "/test?a=2", http.NoBody)
@@ -108,7 +111,7 @@ func TestResponseCache_DifferentQueries(t *testing.T) {
 }
 
 func TestResponseCache_DifferentMethods(t *testing.T) {
-	cache := newResponseCache(false, false)
+	cache := newResponseCache(false)
 
 	getReq := httptest.NewRequest("GET", "/test", http.NoBody)
 	postReq := httptest.NewRequest("POST", "/test", http.NoBody)
@@ -128,7 +131,7 @@ func TestResponseCache_DifferentMethods(t *testing.T) {
 }
 
 func TestResponseCache_Clear(t *testing.T) {
-	cache := newResponseCache(false, false)
+	cache := newResponseCache(false)
 
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	cache.Set(req, cache.Generation(), 5*time.Minute, 200, http.Header{}, []byte("test"))
@@ -148,7 +151,7 @@ func TestResponseCache_Clear(t *testing.T) {
 }
 
 func TestResponseCache_Prune(t *testing.T) {
-	cache := newResponseCache(false, false)
+	cache := newResponseCache(false)
 
 	// Add expired and valid entries
 	expiredReq := httptest.NewRequest("GET", "/expired", http.NoBody)
@@ -173,7 +176,7 @@ func TestResponseCache_Prune(t *testing.T) {
 }
 
 func TestResponseCache_ZeroTTL(t *testing.T) {
-	cache := newResponseCache(false, false)
+	cache := newResponseCache(false)
 
 	req := httptest.NewRequest("GET", "/test", http.NoBody)
 
@@ -186,7 +189,7 @@ func TestResponseCache_ZeroTTL(t *testing.T) {
 }
 
 func TestResponseCache_Size(t *testing.T) {
-	cache := newResponseCache(false, false)
+	cache := newResponseCache(false)
 
 	if cache.Size() != 0 {
 		t.Error("expected empty cache")

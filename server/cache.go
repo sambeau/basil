@@ -48,12 +48,12 @@ type cacheEntry struct {
 	expiresAt time.Time
 }
 
-// newResponseCache creates a new response cache.
-// In dev mode, caching is disabled unless cacheEnabled is true.
-func newResponseCache(devMode, cacheEnabled bool) *responseCache {
+// newResponseCache creates a new response cache. noCache comes from
+// Config.NoCache - dev mode without the dev.cache opt-in.
+func newResponseCache(noCache bool) *responseCache {
 	return &responseCache{
 		entries:       make(map[string]*cacheEntry),
-		cacheDisabled: devMode && !cacheEnabled,
+		cacheDisabled: noCache,
 	}
 }
 
