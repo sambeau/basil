@@ -1144,7 +1144,7 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 			// Expand auth components in HTML output
 			output = h.componentExpander.ExpandComponents(v)
 			// Inject Parts runtime if page contains Parts
-			if env != nil && env.ContainsParts {
+			if pageNeedsPartsRuntime(output) {
 				output = injectPartsRuntime(output)
 			}
 		}
@@ -1174,7 +1174,7 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 				if strings.HasPrefix(strings.TrimSpace(b), "<") {
 					output = h.componentExpander.ExpandComponents(b)
 					// Inject Parts runtime if page contains Parts
-					if env != nil && env.ContainsParts {
+					if pageNeedsPartsRuntime(output) {
 						output = injectPartsRuntime(output)
 					}
 				}
@@ -1207,7 +1207,7 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 				if strings.HasPrefix(strings.TrimSpace(output), "<") {
 					contentType = "text/html; charset=utf-8"
 					output = h.componentExpander.ExpandComponents(output)
-					if env != nil && env.ContainsParts {
+					if pageNeedsPartsRuntime(output) {
 						output = injectPartsRuntime(output)
 					}
 				}
@@ -1323,6 +1323,25 @@ func (h *parsleyHandler) handleScriptErrorWithLocation(w http.ResponseWriter, r 
 	}
 
 	h.server.handle500(w, r, fmt.Errorf("%s at %s:%d:%d", message, filePath, line, col))
+}
+
+// pageNeedsPartsRuntime reports whether rendered HTML contains a Part.
+//
+// It reads the output rather than asking the environment. env.ContainsParts,
+// which this used to gate on, is set by evalPartTag on whichever environment is
+// evaluating the tag — and that is never the handler's. NewEnclosedEnvironment
+// copies the flag outer→inner at creation and nothing carries it back, so a
+// Part anywhere below the top of the program (which is everywhere: inside a
+// function, inside a component, inside the tag that wraps the page) set it on a
+// child the handler could not see. Verified with pointers: the tag set the flag
+// on env=0xaf1a7da4000 while the handler read env=0xaf1a602c840 (BUG-047).
+//
+// The rendered HTML is the honest answer to the question being asked. Every
+// Part carries data-part-src — evalPartTag writes it unconditionally — and a
+// page that somehow contains that string without a Part gets a runtime that
+// finds no elements and does nothing.
+func pageNeedsPartsRuntime(html string) bool {
+	return strings.Contains(html, "data-part-src=")
 }
 
 // injectPartsRuntime injects the Parts JavaScript runtime before </body>

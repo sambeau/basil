@@ -69,9 +69,25 @@ func (h *liveReloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `{"seq":%d}`, seq)
 }
 
+// isPartFragmentRequest reports whether this request is a Part fetching one of
+// its views. The Parts runtime always sends _view, and nothing else does.
+func isPartFragmentRequest(r *http.Request) bool {
+	return r.URL.Query().Get("_view") != ""
+}
+
 // injectLiveReload wraps a handler to inject the live reload script into HTML responses
 func injectLiveReload(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A Part fragment is not a page. It has no </body> and no </html>, so
+		// the fallback below appended the script to the end of the fragment —
+		// and the runtime assigns that straight into el.innerHTML, so every
+		// refresh planted a dead livereload script inside the Part, once a
+		// second for a part-refresh={1000} (BUG-047).
+		if isPartFragmentRequest(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Wrap the response writer to intercept HTML
 		lrw := &liveReloadResponseWriter{
 			ResponseWriter: w,
