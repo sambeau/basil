@@ -104,6 +104,15 @@ Start the URL with `/`: an absolute path works from every page, however deep
 the page sits. When a URL matches both a file and a handler, the file wins —
 static files are checked first.
 
+The same rule applies inside CSS. A stylesheet is concatenated into the
+[`/__site.css` bundle](#asset-bundling) as-is, so a relative `url(…)` would
+resolve against the bundle's URL, not against where the file sits on disk.
+Reference images by their absolute URL:
+
+```css
+.hero { background-image: url(/images/logo.png); }
+```
+
 **`static` routes** — mount any directory at any prefix:
 
 ```yaml
