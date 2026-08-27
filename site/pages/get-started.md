@@ -106,12 +106,38 @@ Routes are folders. To make `/about`, create `site/about/` with a file named aft
 
 Visit [http://localhost:8080/about](http://localhost:8080/about) — it's already live. (A file called `index.pars` works too; the folder-named version is just easier to spot in your editor when you have ten tabs open.)
 
+## 6. Put it on the internet
+
+When the folder is ready to be a website, it does not have to be restructured to
+get there. Run one command on a server you can SSH into:
+
+```bash
+basil --init /srv/mysite --server --host mysite.example.com --admin sam
+```
+
+…point your domain at that machine, add it as a Git remote from your folder, and
+publish:
+
+```bash
+git remote add origin https://sam@mysite.example.com/.git
+git push -u origin main
+basil publish
+```
+
+Basil fetches its own HTTPS certificate, checks each release before it goes live,
+and keeps every release so you can roll back. From then on it is `git push` to
+share and `basil publish` to go live.
+
+Both ways round — starting on the server, or starting on your laptop like this —
+are written out step by step in [Deployment](basil/deployment.html#two-ways-to-start).
+
 ## Where next?
 
 - [Getting Started with Parsley](manual/getting-started.html) — a fuller tour of the language: variables, functions, dictionaries, components
 - [The Parsley Manual](manual/index.html) — every type, operator, and builtin
 - [The REPL](manual/features/repl.html) — output modes, tab completion, and `:help`
 - [File I/O](manual/features/file-io.html) — reading and writing JSON, CSV, and Markdown
+- [Deployment](basil/deployment.html) — HTTPS, push-to-deploy over Git, rolling back
 - [Why does this exist?](why.html) — the story, and why the quirks are quirks
 
 Stuck? Something confusing? [Open an issue](https://github.com/sambeau/basil/issues) — early feedback is a gift.

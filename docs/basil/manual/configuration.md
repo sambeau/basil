@@ -179,7 +179,7 @@ there is nothing to turn on. `enabled` is an off-switch only, and on a site root
 it is operator-owned: a release cannot disable the endpoint it arrived through.
 Authentication is not configurable — pushes always need an API key. See
 [Git Deploy](git.md) and
-[Operator-owned settings](../../guide/configuration.md#operator-owned-settings-on-a-site-root).
+[Operator-owned settings](https://github.com/sambeau/basil/blob/main/docs/guide/configuration.md#operator-owned-settings-on-a-site-root).
 
 ## images
 
@@ -250,10 +250,12 @@ every file it was built from, including everything it imports, and is re-read
 if any of them has changed. Editing a helper therefore updates every component
 that imports it, not just the file you touched.
 
-`dev.cache: true` turns all of that off and caches the way production does,
-with entries trusted as they stand and no revalidation, for profiling a page
-against the caching it will really have. You then need to restart to see edits,
-as in production.
+`dev.cache: true` switches response and fragment caching on and tells the
+module cache to trust its entries without checking them, which is what
+production does — useful for profiling a page against the caching it will
+really have. Edits to an imported file then need a restart, as in production.
+(Page handlers are re-parsed on every request in `--dev` either way; that one
+is not part of the opt-in.)
 
 Production always caches and never revalidates; `dev.cache` has no effect
 there.

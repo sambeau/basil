@@ -28,7 +28,7 @@ Every page served in dev mode polls for changes; save a handler and the browser 
 
 ## Error Pages
 
-In dev mode, a failing handler renders a detailed error page — the error class and code, the source line with a caret, and hints. In production, visitors get a generic error page instead (details go to the logs). The generic pages can be replaced with your own via the [`error_pages` config](configuration.md#error_pages).
+In dev mode, a failing handler renders a detailed error page — the error class and code, the source line with a caret, and hints. In production, visitors get a generic error page instead (details go to the logs). The generic pages can be replaced with your own via the [`error_pages` config](configuration.md#error-pages).
 
 ## The Dev Log
 
@@ -68,7 +68,8 @@ Requests are logged to the configured output (`logging.output`); use `--quiet` t
 | Protocol | HTTP on localhost | HTTPS (see [Deployment](deployment.md)) |
 | Live reload | ✓ | — |
 | Error pages | Detailed | Generic |
-| Response caching | Off (configurable) | On |
+| Response caching | Off (`dev.cache` turns it on) | On |
+| Edits to handlers and components | Picked up on the next request | On the next deploy or restart |
 | Dev log & inspector | ✓ | — |
 
 ## See Also

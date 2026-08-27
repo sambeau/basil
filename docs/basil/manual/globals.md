@@ -87,7 +87,7 @@ Basil also has an ordinary **public directory** for static files — CSS, third-
 public_dir: ./public
 ```
 
-Anything under `public_dir` is served at the web root, and Parsley rewrites paths under it to URLs automatically — `@./public/images/foo.png` becomes `/images/foo.png`. See [Configuration → `public_dir`](configuration.md#public_dir).
+Anything under `public_dir` is served at the web root, and Parsley rewrites paths under it to URLs automatically — `@./public/images/foo.png` becomes `/images/foo.png`. See [Configuration → `public_dir`](configuration.md#public-dir).
 
 **When to use which:**
 

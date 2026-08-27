@@ -154,7 +154,7 @@ See [configuration-example.yaml](configuration-example.yaml) for all available o
 ### Dev Mode
 Use `--dev` for local development:
 - Runs HTTP on localhost (no HTTPS required)
-- Disables script caching (edit and refresh!)
+- Picks up an edit to any handler or component on the next request (edit and refresh!)
 - Port defaults to 8080
 
 ### Configuration
@@ -751,7 +751,7 @@ routes:
 - Cache key includes method, path, and query string
 - Only successful responses (2xx) are cached
 - `X-Cache: HIT` or `X-Cache: MISS` header indicates cache status
-- Cache is disabled in dev mode
+- The response cache is off in dev mode (`dev.cache: true` turns it on)
 
 ### Cache Management
 
@@ -761,7 +761,12 @@ routes:
 kill -HUP $(pgrep basil)
 ```
 
-This clears both the AST cache (compiled scripts) and response cache without restarting the server.
+In the site-root layout this re-activates whatever release `current` points
+at, which rebuilds the routes and clears every cache; in the legacy
+single-directory layout it reloads scripts and clears the caches in place.
+Either way the server keeps running. A deploy does this for you — see the
+[Deployment guide](deployment.md) — so `SIGHUP` is the manual fallback rather
+than the usual route.
 
 ### When to Use Caching
 
@@ -782,7 +787,7 @@ This clears both the AST cache (compiled scripts) and response cache without res
 ```
 basil                       # Use default config resolution
 basil --config app.yaml     # Explicit config file
-basil --dev                 # Development mode (HTTP, no caching)
+basil --dev                 # Development mode (HTTP, no response caching)
 basil --dev --port 3000     # Custom port
 basil --dev -as sam         # Apply the developers.sam profile
 basil --init myapp          # Create a local site folder

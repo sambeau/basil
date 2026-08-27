@@ -22,9 +22,17 @@ Basil's server holds a **bare Git repository** you push to, served over HTTPS at
 
 > **Basil-only.** The Git endpoint is part of the Basil server. It is on whenever the site has a `site.git` repository, which `basil --init <dir> --server` creates on the deployment machine — there is nothing to enable.
 
+> **Setting a site up for the first time?** The [Deployment
+> page](deployment.md#two-ways-to-start) has numbered walkthroughs for the two
+> ways a site and a server meet — server first, or laptop first. This page is
+> the Git side of it: keys, roles, and what the endpoint will and will not
+> accept.
+
 ## Quick Start
 
-**1. Create a user and API key** (see [Running Basil](running.md)):
+**1. Get an API key.** `basil --init <dir> --server` creates the first admin
+account and prints its key once, so on a freshly built server you already have
+one. For anyone else (see [Running Basil](running.md)):
 
 ```bash
 basil users create --name Sam --email sam@example.com --role editor

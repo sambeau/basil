@@ -68,7 +68,7 @@ a layer of its own:
 | Layer | Mechanism | Versioned? |
 | --- | --- | --- |
 | **Production truth** | top-level keys: `server.host`, `server.port`, `https`, … | yes |
-| **Mode** | `--dev` — HTTP on localhost, live reload, no caching; the production listener is ignored | ambient |
+| **Mode** | `--dev` — HTTP on localhost, live reload, edits picked up on the next request; the production listener is ignored | ambient |
 | **Per-person** | `developers.<name>` profiles, applied with `-as <name>` | yes, deliberately |
 | **Per-run** | CLI flags — `--port 3000`, `--quiet`, `--config` | no |
 | **Secrets** | `!secret` values, resolved from the environment | no |
@@ -452,7 +452,7 @@ dev:
   # log_database: ./dev_logs.db
   log_max_size: 10MB
   log_truncate_pct: 25
-  cache: false                  # Response caching in dev mode
+  cache: false                  # Cache like production in dev mode (see the manual)
 
 # Per-person settings, applied with: basil --dev -as sam
 developers:
@@ -788,7 +788,7 @@ Development tools settings. Only used when the `--dev` flag is enabled.
 | `log_database` | string | auto | Path to dev log database file |
 | `log_max_size` | string | `"10MB"` | Maximum log database size |
 | `log_truncate_pct` | integer | `25` | Percentage to delete when truncating |
-| `cache` | boolean | `false` | Enable response caching in dev mode |
+| `cache` | boolean | `false` | Cache the way production does in dev mode: response and fragment caching on, imported modules trusted without revalidation. Off by default, so an edit anywhere shows up on the next request. |
 
 ```yaml
 dev:

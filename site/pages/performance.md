@@ -24,7 +24,7 @@ That puts a Parsley page in the same league as PHP, Ruby, or Python.
 
 Four things keep the common case quick.
 
-**AST caching.** In production, Basil lexes and parses each `.pars` file once, keeps the syntax tree in memory, and reuses it for every request after that. Parsing is the expensive part of running a script, so skipping it matters. Dev mode turns the cache off, so edits show up on the next refresh. See [Dev Tools](basil/dev-tools.html).
+**Code caching.** In production, Basil lexes and parses each `.pars` file once, keeps the syntax tree in memory, and reuses it for every request after that — and does the same for every file a page imports. Parsing is the expensive part of running a script, so skipping it matters. Dev mode spends a little of that back for freshness: an edit anywhere, including a component several imports down, shows up on the next request without a restart. See [Dev Tools](basil/dev-tools.html).
 
 **Response caching.** Production mode can cache whole responses. Set a TTL and Basil serves the page from memory until it expires. Most pages on most sites can live with a cache of a minute or two. See [Deployment](basil/deployment.html).
 

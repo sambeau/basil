@@ -62,6 +62,29 @@ basil --site /srv/mysite
 pushes cannot be built without git. Already have a site on your laptop? See
 [Graduating a local site to a server](#graduating-a-local-site-to-a-server).
 
+> Both paths — server first, or laptop first — are written out as numbered
+> walkthroughs in the manual's [Deployment
+> page](../basil/manual/deployment.md#two-ways-to-start). This guide is the
+> reference behind them.
+
+### On Fly.io
+
+If you would rather not run a VPS, [`contrib/fly/`](../../contrib/fly/README.md)
+has a tested recipe for a [Fly Machine](https://fly.io/docs/machines/): a
+Dockerfile, an entrypoint, a `fly.toml` and a build script. The site root lives
+on a Volume so a `fly deploy` cannot destroy it, port 443 is raw TCP passthrough
+so Basil still terminates TLS with its own Let's Encrypt certificate, and
+`basil --init … --server` is run once over `fly ssh console`.
+
+The two lifecycles stay separate and that is the pleasant part: `fly deploy`
+ships **Basil**, `git push` and `basil publish` ship **the site**. Everything on
+this page applies unchanged once the Machine is up.
+
+The [Fly.io README](../../contrib/fly/README.md) is the walkthrough, including
+the platform quirks that are not guessable — a dedicated IPv4 being required for
+passthrough, port 80 needing an `http` handler for the ACME challenge, and a
+freshly formatted volume not being empty.
+
 ## The site root
 
 Deployment works on the site-root layout that `basil --init … --server` creates:
@@ -145,9 +168,10 @@ the single forced push the hub allows:
 $ basil publish
 First publish to "live" on origin.
 
-This server has only its initial placeholder site. Publishing will replace it
-with your project's history. This is a one-time replacement; afterwards the
-release branch is protected normally.
+Your project's history is unrelated to what this server currently publishes,
+so publishing will force-replace the release branch with your history. The
+server allows this only if it has never had a real release - otherwise it will
+refuse, and nothing changes.
 
 1 commit:
   36f38ce my first page
@@ -163,6 +187,12 @@ remote: replacing the starter site created by 'basil --init' with your first rel
 remote: Checking release 36f38ce44dc4… ok
 remote: Deploying… done (16ms)
 ```
+
+The banner describes what the push will *attempt*, not what the server holds:
+from a clone the two indistinguishable cases — a hub still on its starter site,
+and a hub carrying a real but unrelated release because someone pointed a second
+project at it — look identical. Only the server can tell them apart, and it
+accepts the force in the first case only.
 
 The hub accepts that non-fast-forward **exactly once**: while the deploy record
 still shows nothing but the release `--init` created. Once one real release
@@ -478,6 +508,7 @@ ok    site root: /srv/mysite
 ok    release: a49d218cf47e is active
 ok    repository: /srv/mysite/site.git
 ok    repository placement: not inside any served root
+ok    release branch: live
 ok    server.host: example.com
 FAIL  dns: example.com does not resolve (lookup example.com: no such host) - create an A/AAAA record pointing it at this server
 note  port 80: free - nothing is listening, so the server (which answers ACME challenges there) is probably not running; reachability from outside cannot be verified from here

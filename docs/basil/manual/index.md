@@ -69,7 +69,7 @@ Globals, modules, and objects available inside server handlers.
 | Page | Description |
 |------|-------------|
 | [Dev Tools](dev-tools.md) | Hot reload, the dev log panel, and error pages |
-| [Deployment](deployment.md) | TLS, production mode, compression, CORS, and security |
+| [Deployment](deployment.md) | Putting a site on a server: the two Git workflows, HTTPS, rolling back, Fly.io |
 
 ## Reference
 

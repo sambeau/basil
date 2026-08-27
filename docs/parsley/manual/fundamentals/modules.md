@@ -190,6 +190,16 @@ import @./config.pars
 let {theme} = import @./config.pars    // no re-evaluation
 ```
 
+The cached entry records the modification time and size of every file it was
+built from — the module itself and everything it imports, however deep — and is
+re-read if any of them has changed on disk. Within a single run nothing changes,
+so this is invisible; in a long-lived process it is what stops an edit going
+unnoticed. Editing a file in a REPL session and importing it again gives you the
+edited one, and Basil's `--dev` picks up a component edit on the next request.
+
+A production Basil server opts out of that check, because a release's files
+cannot change underneath it — see [`dev.cache`](../../../basil/manual/configuration.md#devcache).
+
 ## Circular Import Prevention
 
 If module A imports module B and module B imports module A, Parsley detects the cycle and raises an import error. Restructure shared code into a third module that both can import.

@@ -208,7 +208,7 @@ When a route declares `auth: required` or `auth: optional` in routes mode, Basil
 </form>
 ```
 
-For `fetch()` calls, send it as a header instead: `X-CSRF-Token`. Forget the token and you'll get a 403 — in dev mode, with an error page that tells you exactly which of the two tokens went missing. A `fetch()` caller gets that diagnostic as JSON (`error.details`) rather than HTML. In production the same failure renders the standard [403 page](configuration.md#error_pages), with no token details.
+For `fetch()` calls, send it as a header instead: `X-CSRF-Token`. Forget the token and you'll get a 403 — in dev mode, with an error page that tells you exactly which of the two tokens went missing. A `fetch()` caller gets that diagnostic as JSON (`error.details`) rather than HTML. In production the same failure renders the standard [403 page](configuration.md#error-pages), with no token details.
 
 ## Recovery Codes
 

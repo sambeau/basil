@@ -51,7 +51,7 @@ with the starter site committed and `core.hooksPath` pointed at the pre-commit
 formatting hook. It is a quiet nicety, not a gate: `--no-git` opts out, and a
 machine without `git` simply gets the plain folder, with no warning. The point is
 that the folder is already clone-shaped on the day you decide to deploy it — see
-[Graduating a local site to a server](../../guide/deployment.md#graduating-a-local-site-to-a-server).
+[Graduating a local site to a server](https://github.com/sambeau/basil/blob/main/docs/guide/deployment.md#graduating-a-local-site-to-a-server).
 
 ### Creating a deployment server: `--server`
 
@@ -104,7 +104,7 @@ with an error that points at the database rather than at ownership.
 Everything in the release directory is replaced by the next deploy. Everything in
 `data/` survives it. Paths in `basil.yaml` resolve against one or the other and
 never against the directory you happen to be standing in — see
-[Configuration](../../guide/configuration.md#where-paths-resolve-the-two-anchors).
+[Configuration](https://github.com/sambeau/basil/blob/main/docs/guide/configuration.md#where-paths-resolve-the-two-anchors).
 
 Site code writes to the data root. `basil.uploads_dir` (`<data_dir>/uploads`) is
 always writable and needs no configuration; `basil.data_dir` names the root
@@ -131,6 +131,8 @@ basil --quiet         # Suppress request logs
 ```
 
 Development mode (`--dev`) serves plain HTTP on localhost, disables response caching, injects live-reload into pages (the browser refreshes when you save a handler), shows detailed error pages, and enables the [dev tools](dev-tools.md).
+
+Any edit — to the page you are looking at, or to a component five imports below it — shows up on the next request. Imported files are still cached, because importing is expensive and a page is mostly components, but each cached module is checked against the files it was built from and re-read when any of them changes. Nothing has to notice the edit for this to work; live reload just saves you pressing the refresh key. See [`dev.cache`](configuration.md#devcache) for the opt-out.
 
 ### Config Resolution
 
