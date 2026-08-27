@@ -2221,6 +2221,20 @@ datetime("May 8, 2009 5:57 PM") // Natural language datetime
 | `"long"` | `"December 25, 2024"` |
 | `"full"` | `"Wednesday, December 25, 2024"` |
 
+**Formatting respects `.kind`.** The styles above apply to `date` and
+`datetime` values. A time-only value has no date to print, so it formats as a
+time regardless of style — `"14:30"` for `time`, `"14:30:45"` for
+`time_seconds` — in 24-hour form, matching the `.time` property:
+
+```parsley
+@14:30.fmt("full")              // "14:30" — not a date
+@timeNow.medium()               // e.g. "09:05"
+`the show starts at {@20:00}`   // "the show starts at 20:00"
+```
+
+A `datetime` formats as its date portion, which is deliberate: these styles are
+for human-facing output, and `.iso` or `.time` give you the rest.
+
 ```parsley
 let dt = @2024-12-25T14:30:00
 dt.year                         // 2024

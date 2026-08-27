@@ -280,6 +280,25 @@ func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr stri
 		return newValidationError("VAL-0002", map[string]any{"Style": style, "Context": "formatDate", "ValidOptions": "short, medium, long, full"})
 	}
 
+	// A time carries no date, so do not print one.
+	//
+	// This function had a single code path — date patterns — for all four
+	// kinds, which meant @timeNow, a time-only value, formatted as a bare
+	// date: "Aug 26, 2026" for something whose whole content is 00:32:17.
+	// Since FEAT-146 routed template interpolation through here, `{t}` printed
+	// a date too. datetimeDictToString has always switched on kind correctly;
+	// this is the same switch, for the styled renderer (BUG-045).
+	//
+	// 24-hour and locale-independent, matching the .time property and
+	// datetimeDictToString. Whether en-US should get "12:32 AM" is a separate
+	// question from whether a time should print as a date.
+	switch getDictString(dict, "kind", env) {
+	case "time":
+		return &String{Value: t.Format("15:04")}
+	case "time_seconds":
+		return &String{Value: t.Format("15:04:05")}
+	}
+
 	// Map locale string to monday.Locale
 	mondayLocale := getMondayLocale(localeStr)
 

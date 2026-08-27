@@ -395,3 +395,51 @@ func TestTimePrecisionPreservation(t *testing.T) {
 		}
 	}
 }
+
+// TestFormatRespectsKind guards BUG-045.
+//
+// formatDateWithStyleAndLocale had one code path — date patterns — for all four
+// kinds, so a time-only value formatted as a bare date: @timeNow printed
+// "Aug 26, 2026" for something whose entire content is 00:32. Since FEAT-146
+// routed template interpolation through this renderer, `{t}` printed a date too.
+//
+// It got past the suite because the only test that formatted a datetime was
+// FEAT-146's TestDatetimeTemplateInterpolationMedium, whose two cases are a
+// date and a datetime — kinds that produce identical output here, so agreement
+// between them looked like kind-awareness. Neither time kind was ever formatted.
+// This covers all four.
+func TestFormatRespectsKind(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"time renders a time", `@14:30 + ""`, "14:30"},
+		{"time_seconds keeps its seconds", `@14:30:45 + ""`, "14:30:45"},
+		{"time via fmt", `@14:30.fmt("medium")`, "14:30"},
+		{"time via medium sugar", `@14:30.medium()`, "14:30"},
+		{"time in interpolation", "let t = @14:30; `at {t}`", "at 14:30"},
+
+		// Date and datetime are unchanged: FEAT-146 chose the date portion for
+		// human-facing output deliberately, and that decision stands here.
+		{"date is unaffected", `@2025-06-15.fmt("medium")`, "Jun 15, 2025"},
+		{"datetime keeps FEAT-146 behaviour", `@2025-06-15T14:30:00Z.fmt("medium")`, "Jun 15, 2025"},
+		{"date full style still works", `@2025-06-15.fmt("full")`, "Sunday, June 15, 2025"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			evaluated := testEvalKind(tc.input)
+			if err, ok := evaluated.(*evaluator.Error); ok {
+				t.Fatalf("%s: %s", tc.input, err.Message)
+			}
+			str, ok := evaluated.(*evaluator.String)
+			if !ok {
+				t.Fatalf("%s: expected String, got %T", tc.input, evaluated)
+			}
+			if str.Value != tc.want {
+				t.Errorf("%s = %q, want %q", tc.input, str.Value, tc.want)
+			}
+		})
+	}
+}
