@@ -114,7 +114,7 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		RestrictRead:  []string{"/etc", "/var", "/root"},
 	}
 
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.route.Path, "", nil, h.conf())
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, contextPublicDir(h.scriptPath, h.route, h.conf()), h.route.Path, "", nil, h.conf())
 	env.BasilCtx = basilObj
 	// Bind the context object so site code can read basil.data_dir - the
 	// durable place to write, which nothing else in the environment names.

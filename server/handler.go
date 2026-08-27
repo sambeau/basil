@@ -328,7 +328,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Build basil context for stdlib import (std/basil)
 	// Use route's public_dir for this handler
-	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, h.route.PublicDir, h.route.Path, csrfToken, sessionModule, h.conf())
+	basilObj := buildBasilContext(r, h.route, reqCtx, h.server.db, h.server.dbDriver, contextPublicDir(h.scriptPath, h.route, h.conf()), h.route.Path, csrfToken, sessionModule, h.conf())
 	env.BasilCtx = basilObj
 	// Bind the context object so site code can read basil.data_dir - the
 	// durable place to write, which nothing else in the environment names.
@@ -439,6 +439,30 @@ type responseMeta struct {
 	status  int
 	headers map[string]string
 	cookies []*http.Cookie
+}
+
+// contextPublicDir returns what basil.public_dir should name for a handler:
+// the actual public directory. route.PublicDir cannot be passed through as-is
+// because the field is overloaded - in site mode it carries the handler root
+// so that @~/ and relative paths resolve there (BUG-011), and that directory
+// is not a public dir at all. Exporting it as basil.public_dir made asset()
+// strip the wrong prefix: asset(@./public/images/logo.png) returned
+// "/public/images/logo.png", a URL the site catch-all serves as HTML
+// (BUG-049). The tell is the same one the RootPath logic above uses: the
+// handler script living inside route.PublicDir means site mode. In route mode
+// an explicitly set route.PublicDir is the public dir and wins; a route
+// without one falls back to the global public_dir.
+func contextPublicDir(scriptPath string, route config.Route, cfg *config.Config) string {
+	if route.PublicDir == "" {
+		return cfg.PublicDir
+	}
+	absScriptDir, _ := filepath.Abs(filepath.Dir(scriptPath))
+	absPublicDir, _ := filepath.Abs(route.PublicDir)
+	if absScriptDir == absPublicDir ||
+		strings.HasPrefix(absScriptDir+string(filepath.Separator), absPublicDir+string(filepath.Separator)) {
+		return cfg.PublicDir // site mode: route.PublicDir is the handler root
+	}
+	return route.PublicDir
 }
 
 // buildBasilContext creates the basil namespace object injected into Parsley scripts

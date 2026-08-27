@@ -102,7 +102,9 @@ not part of the URL. So `public/images/logo.png` is served at
 
 Start the URL with `/`: an absolute path works from every page, however deep
 the page sits. When a URL matches both a file and a handler, the file wins —
-static files are checked first.
+static files are checked first. To compute the URL from the file's path
+instead of writing it, use [`asset()`](../../parsley/manual/features/file-io.md#assets):
+`asset(@./public/images/logo.png)` returns `"/images/logo.png"`.
 
 The same rule applies inside CSS. A stylesheet is concatenated into the
 [`/__site.css` bundle](#asset-bundling) as-is, so a relative `url(…)` would
