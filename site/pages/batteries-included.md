@@ -6,7 +6,7 @@ title: Batteries Included
 
 Basil and Parsley come with the tools you need to build a website. 
 
-The hard parts — databases, forms, login, images, live updates — work out of the box with little or no configuration. When you come to build something tricky, we have, hopefully, already thought of it.
+The hard parts — databases, forms, login, images, live updates — work out of the box with little or no configuration. When you come to build something tricky, we have, hopefully, already thought of what you need and included it.
 
 ## What Parsley gives you
 
