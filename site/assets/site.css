@@ -647,10 +647,3 @@ strong,
 b {
     color: var(--pico-contrast);
 }
-
-/* Pico's h3/h4 colour tokens are muted greys close to body text, so lower-level
-   headings sank into the page the same way bold did — same fix. */
-h3,
-h4 {
-    color: var(--pico-contrast);
-}
