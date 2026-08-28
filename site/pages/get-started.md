@@ -92,7 +92,7 @@ Now open `site/index.pars` in your editor and change it:
 <p>"Today is " + @now.dayName + "."</p>
 ```
 
-Save, and the browser refreshes itself. That's the loop: edit, save, look. There is no step three.
+Save, and the browser refreshes itself. That's the loop: edit, save, look. There is no step four.
 
 ## 5. Add a page
 
@@ -112,14 +112,14 @@ When the folder is ready to be a website, it does not have to be restructured to
 get there. Run one command on a server you can SSH into:
 
 ```bash
-basil --init /srv/mysite --server --host mysite.example.com --admin sam
+basil --init /srv/mysite --server --host mysite.example.com --admin [your name]
 ```
 
 …point your domain at that machine, add it as a Git remote from your folder, and
 publish:
 
 ```bash
-git remote add origin https://sam@mysite.example.com/.git
+git remote add origin https://[your name]@mysite.example.com/.git
 git push -u origin main
 basil publish
 ```
