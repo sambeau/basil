@@ -4,7 +4,7 @@ title: Why?
 
 ## Who made this?
 
-[Sam Phillips](mailto:sambeau@mac.com)✉️ made this. 
+✉️ [Sam Phillips](mailto:sambeau@mac.com) made this. 
 
 I am an unemployed design/product manager, currently based in Scotland (working on a [replacement for Facebook ](https://Tickly.org)). I started out as a computer scientist, then became a full stack developer, then a designer. Now I’m unemployed—don't look for a job in your 50s, as the AIs reject you out-of-hand.
 
