@@ -157,7 +157,7 @@ export Layout = fn({title, description, root, path, menu, base, active, switcher
             <footer class="container">
                 <hr/>
                 <p><small>
-                    "MIT licensed. © " + year + " Sam Phillips. This site was built with Parsley — "
+                    "MIT licensed. © " + year + " Sam Phillips. This site was built with [Pico](https://picocss.com) and Parsley — "
                     <a href="https://github.com/sambeau/basil/blob/main/site/build.pars">"here's the build script"</a>
                     "."
                 </small></p>
