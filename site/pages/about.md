@@ -43,6 +43,15 @@ website.
 dependencies — Go compiles everything, including Parsley, into one file you can
 drop on a server and run.
 
+## Do I need Basil to use Parsley?
+
+No. Parsley runs perfectly well on its own — the `pars` command runs Parsley
+scripts straight from the command line, no server required. It's handy for
+munging data, generating files, and general scripting. In fact, this very
+website is a pile of static HTML built by a Parsley script.
+
+Basil is what you reach for when you want to *serve* Parsley pages over HTTP.
+
 ## Why do they exist?
 
 There's a whole page about that — see [Why?](why.html) for the full story of

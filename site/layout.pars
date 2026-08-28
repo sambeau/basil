@@ -110,7 +110,7 @@ export Layout = fn({title, description, root, path, menu, base, active, switcher
                         </li>
                     </ul>
                     <ul>
-                        <li><a href={root + "why.html"}>"About"</a></li>
+                        <li><a href={root + "about.html"}>"About"</a></li>
                         <li><a href={root + "manual/index.html"}>"Docs"</a></li>
                         <li class="nav-search">
                             <input type="search" id="site-search" placeholder="Search docs…"
