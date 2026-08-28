@@ -637,3 +637,13 @@ article h3 {
     font-size: 1.3rem;
     letter-spacing: -0.03em;
 }
+
+/* --- Bold text ------------------------------------------------------------ */
+/* Pico leaves <strong> in the muted body colour, so weight alone is all that
+   separates it from running text and it barely reads as bold. The contrast
+   token is brighter than body text in dark mode and darker in light, so
+   emphasis stands out in both. */
+strong,
+b {
+    color: var(--pico-contrast);
+}
