@@ -34,7 +34,7 @@ And, I am rather proud of it.
 
 It’s fun. And, once you get to know them, Parsley and Basil feel expressive and frictionless. They do all the boring stuff for you, including all the tedious security stuff, and they make all the fun stuff easy. If you still like the idea of making something by hand, using your own brain, then give them a try. You might even end up liking their quirks.
 
-Also, I don’t mean to shit on NPM—lots of brilliant people have put a loads of work into them—but, if like me you are tired of all the donkey-work needed to just get a React site up and running, then maybe you’ll enjoy a single-file install?
+Also, I don’t mean to shit on React and NPM—lots of brilliant people have put a loads of work into them—but, if like me you are tired of all the donkey-work needed to just get a React site up and running, then maybe you’ll enjoy a single-file install?
 
 ## Why shouldn’t you try this?
 
