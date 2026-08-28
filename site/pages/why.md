@@ -4,7 +4,7 @@ title: Why?
 
 ## Who made this?
 
-[Sam Phillips](mailto:sambeau@mac.com) made this. 
+[Sam Phillips](mailto:sambeau@mac.com)✉️ made this. 
 
 I am an unemployed design/product manager, currently based in Scotland (working on a [replacement for Facebook ](https://Tickly.org)). I started out as a computer scientist, then became a full stack developer, then a designer. Now I’m unemployed—don't look for a job in your 50s, as the AIs reject you out-of-hand.
 
@@ -34,7 +34,7 @@ And, I am rather proud of it.
 
 It’s fun. And, once you get to know them, Parsley and Basil feel expressive and frictionless. They do all the boring stuff for you, including all the tedious security stuff, and they make all the fun stuff easy. If you still like the idea of making something by hand, using your own brain, then give them a try. You might even end up liking their quirks.
 
-Also, I don’t mean to shit on NPM—lots of brilliant people have put a loads of work into them—but, if, like me, you are tired of all the donkey-work needed to just get a React site up and running, then maybe you’ll enjoy a single-file install?
+Also, I don’t mean to shit on NPM—lots of brilliant people have put a loads of work into them—but, if like me you are tired of all the donkey-work needed to just get a React site up and running, then maybe you’ll enjoy a single-file install?
 
 ## Why shouldn’t you try this?
 
@@ -49,12 +49,12 @@ Plus, **Parsley doesn’t have types**. I will claim that it doesn’t need them
 
 *Ha, **no**.*
 
-This took months to create. Last I measured (July 2026) we were at: 1,297 commits, 149 feature specification documents, 201,344 lines of code (100,797 lines of implementation and 100,547 lines of test code), 2,611 tests in 243 files, 619 Markdown files, 992,387 words written of which 781,072 words are workflow docs and 175,868 words are user-facing documentation.
+This took months to create. Last I measured (July 2026) there were: 1,297 commits, 149 feature specification documents, 201,344 lines of code (100,797 lines of implementation and 100,547 lines of test code), 2,611 tests in 243 files, 619 Markdown files, 992,387 words written of which 781,072 words are workflow docs and 175,868 words are user-facing documentation.
 
-Of course, [lines of code is a stupid metric](https://www.folklore.org/Negative_2000_Lines_Of_Code.html), but I mention them only to show this project was a lot of work,  carefully nurtured over 9 months, with a human making all the important decisions.
+Of course, [lines of code is a stupid metric](https://www.folklore.org/Negative_2000_Lines_Of_Code.html), I only mention them to show this project was a lot of work,  carefully nurtured over 9 months, with a human making all the important decisions.
 
 ## Thank, you
 
-Thanks for taking a look. I'll happily take feedback if you have any, especially anything security related. But, no, I'm very uinlikley to add type-checking.
+Thanks for taking a look. I'll happily take feedback if you have any, especially anything security related. But, no, I'm very unlikley to add type-checking.
 
 Made in 🏴󠁧󠁢󠁳󠁣󠁴󠁿 with ❤️.
