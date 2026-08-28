@@ -2,6 +2,13 @@
 title: About
 ---
 
+## What is this?
+
+- **Parsley** is a scripting language
+- **Basil** is a web server that runs Parsley code
+
+When put together, Parsley runs as a server-side programming language for building websites. It does not compile to Javascript, nor run in the browser. Though you can make client-side components with is (see [Parts](https://herbaceous.net/basil/parts.html)).
+
 ## Versions
 
 Basil & Parsley currently share a version number:
