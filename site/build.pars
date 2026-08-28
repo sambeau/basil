@@ -51,6 +51,7 @@ let aboutMenu = [{
         {href: "performance.html", title: "Performance"},
         {href: "security.html", title: "Security"},
         {href: "why.html", title: "Why?"},
+        {href: "about.html", title: "About"},
     ],
 }]
 
