@@ -647,3 +647,9 @@ strong,
 b {
     color: var(--pico-contrast);
 }
+
+/* Pico's h3 colour token is the same muted grey as body text, so third-level
+   headings sank into the page the same way bold did — same fix. */
+h3 {
+    color: var(--pico-contrast);
+}
