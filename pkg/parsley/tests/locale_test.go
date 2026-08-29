@@ -674,3 +674,69 @@ func TestFormatListErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestFormatPrecision guards BUG-050.
+//
+// `.fmt(n)` rounded to n places correctly and then printed only three of them,
+// padding the rest with zeros: 3.14159.fmt(4) rounded to 3.1416, formatted
+// through a number.Decimal that caps fraction digits at three, and came back
+// "3.1420" — a wrong digit dressed as a deliberate one. Every precision above
+// 3 was affected, and the padding also carried its own three-locale table of
+// decimal separators, so de-DE lost the separator distinction as well.
+//
+// Nothing tested `.fmt(n)` at any precision, which is why a cap at three
+// survived: the docs' own example, 3.14159.fmt(4), was the first call anyone
+// had made past it.
+func TestFormatPrecision(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// The manual's example, and the first case past the old cap.
+		{`3.14159.fmt(4)`, "3.1416"},
+
+		// Within the old cap: these were right before and must stay right.
+		{`1234.5678.fmt(2)`, "1,234.57"},
+		{`1234.5678.fmt(3)`, "1,234.568"},
+		{`1234.5678.fmt(0)`, "1,235"},
+
+		// Past it, where the zeros used to appear.
+		{`1234.5678.fmt(6)`, "1,234.567800"},
+		{`0.123456789.fmt(8)`, "0.12345679"},
+
+		// Padding a value with fewer digits than asked for is still right.
+		{`0.5.fmt(3)`, "0.500"},
+		{`7.0.fmt(2)`, "7.00"},
+
+		// Half away from zero, not half to even: 2.5 rounds up.
+		{`2.5.fmt(0)`, "3"},
+		{`0.125.fmt(2)`, "0.13"},
+
+		// The locale's own separators, from the formatter rather than a table.
+		{`1234.56789.fmt({precision: 4, locale: "de-DE"})`, "1.234,5679"},
+		{`1234.56789.fmt({precision: 4, locale: "fr-FR"})`, "1 234,5679"},
+
+		// The options-dictionary and long-style routes reach the same code.
+		{`1234.5678.fmt({precision: 5})`, "1,234.56780"},
+		{`3.14159.long({precision: 4})`, "3.1416"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := testEvalHelper(tt.input)
+			if err, ok := result.(*evaluator.Error); ok {
+				t.Fatalf("%s: %s", tt.input, err.Message)
+			}
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T (%+v)", result, result)
+			}
+			// Some locales group with a non-breaking space.
+			actual := strings.ReplaceAll(str.Value, " ", " ")
+			actual = strings.ReplaceAll(actual, " ", " ")
+			if actual != tt.expected {
+				t.Errorf("%s = %q, want %q", tt.input, actual, tt.expected)
+			}
+		})
+	}
+}

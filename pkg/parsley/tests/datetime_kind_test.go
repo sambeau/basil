@@ -219,8 +219,15 @@ func TestDatetimeTemplateInterpolationMedium(t *testing.T) {
 		input    string
 		expected string
 	}{
+		// A date string widened to a datetime sits at exact midnight and prints
+		// as the date it came from.
 		{"date_only", "let d = datetime(\"2025-06-15\"); `Date: {d}`", "Date: Jun 15, 2025"},
-		{"full_datetime", "let d = datetime(\"2025-12-25T14:30:00Z\"); `Date: {d}`", "Date: Dec 25, 2025"},
+
+		// This case asserted "Date: Dec 25, 2025" until BUG-051: it formats a
+		// value carrying 14:30 and pinned the dropped time as correct, which is
+		// how the styled renderer went on ignoring datetimes long after
+		// BUG-045 made it kind-aware for the two time kinds.
+		{"full_datetime", "let d = datetime(\"2025-12-25T14:30:00Z\"); `Date: {d}`", "Date: Dec 25, 2025, 14:30"},
 	}
 
 	for _, tt := range tests {
@@ -420,11 +427,77 @@ func TestFormatRespectsKind(t *testing.T) {
 		{"time via medium sugar", `@14:30.medium()`, "14:30"},
 		{"time in interpolation", "let t = @14:30; `at {t}`", "at 14:30"},
 
-		// Date and datetime are unchanged: FEAT-146 chose the date portion for
-		// human-facing output deliberately, and that decision stands here.
+		// A date has no time to print, then or now.
 		{"date is unaffected", `@2025-06-15.fmt("medium")`, "Jun 15, 2025"},
-		{"datetime keeps FEAT-146 behaviour", `@2025-06-15T14:30:00Z.fmt("medium")`, "Jun 15, 2025"},
 		{"date full style still works", `@2025-06-15.fmt("full")`, "Sunday, June 15, 2025"},
+
+		// The datetime case BUG-045 left open, settled by BUG-051: this
+		// asserted "Jun 15, 2025" here, dropping the 14:30 the value carries.
+		{"datetime carries its time", `@2025-06-15T14:30:00Z.fmt("medium")`, "Jun 15, 2025, 14:30"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			evaluated := testEvalKind(tc.input)
+			if err, ok := evaluated.(*evaluator.Error); ok {
+				t.Fatalf("%s: %s", tc.input, err.Message)
+			}
+			str, ok := evaluated.(*evaluator.String)
+			if !ok {
+				t.Fatalf("%s: expected String, got %T", tc.input, evaluated)
+			}
+			if str.Value != tc.want {
+				t.Errorf("%s = %q, want %q", tc.input, str.Value, tc.want)
+			}
+		})
+	}
+}
+
+// TestStyledDatetimeCarriesItsTime guards BUG-051.
+//
+// BUG-045 made the styled renderer kind-aware for the two time kinds and left
+// `datetime` alone, recording as an open design question whether a styled
+// datetime should show its time. It should: every style rendered
+// @2024-12-25T14:30:00 as "Dec 25, 2024", indistinguishable from the date-only
+// value, so a page showing an event time showed only its day and there was no
+// way to get a datetime's time out of .fmt() at all.
+//
+// The rule is the value's own content — print the time to the precision it
+// carries, and none when it carries none — so a date widened into a datetime
+// at midnight still prints as a date.
+func TestStyledDatetimeCarriesItsTime(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		// All four styles, which all dropped the time.
+		{"short", `@2024-12-25T14:30:00.short()`, "12/25/24, 14:30"},
+		{"medium", `@2024-12-25T14:30:00.medium()`, "Dec 25, 2024, 14:30"},
+		{"long", `@2024-12-25T14:30:00.long()`, "December 25, 2024, 14:30"},
+		{"full", `@2024-12-25T14:30:00.full()`, "Wednesday, December 25, 2024, 14:30"},
+
+		// And through fmt(), the options dictionary, and interpolation.
+		{"fmt style", `@2024-12-25T14:30:00.fmt("long")`, "December 25, 2024, 14:30"},
+		{"fmt options", `@2024-12-25T14:30:00.fmt({style: "medium"})`, "Dec 25, 2024, 14:30"},
+		{"interpolation", "let d = @2024-12-25T14:30:00; `at {d}`", "at Dec 25, 2024, 14:30"},
+
+		// A datetime carrying seconds keeps them; one at exact midnight — what
+		// datetime("2024-12-25"), a DB date column and a JSON date all produce
+		// — prints as the date it came from.
+		{"seconds are kept", `@2024-12-25T14:30:45.medium()`, "Dec 25, 2024, 14:30:45"},
+		{"midnight prints as a date", `datetime("2024-12-25").medium()`, "Dec 25, 2024"},
+		{"literal midnight too", `@2024-12-25T00:00:00.medium()`, "Dec 25, 2024"},
+
+		// The date joins the locale, the time does not: 24-hour everywhere,
+		// after a comma in every locale and style.
+		{"locale medium", `@2024-12-25T14:30:00.medium("de-DE")`, "25. Dez. 2024, 14:30"},
+		{"locale full", `@2024-12-25T14:30:00.full("fr-FR")`, "mercredi 25 décembre 2024, 14:30"},
+
+		// The neighbouring kinds must not move.
+		{"date unchanged", `@2024-12-25.long()`, "December 25, 2024"},
+		{"time unchanged", `@14:30.long()`, "14:30"},
+		{"time_seconds unchanged", `@14:30:45.long()`, "14:30:45"},
 	}
 
 	for _, tc := range cases {

@@ -781,9 +781,12 @@ func recordFormat(record *Record, args []Object, env *Environment) Object {
 
 // formatRecordDate formats a value as a date string "Jan 2, 2006"
 func formatRecordDate(value Object, env *Environment) Object {
-	// Handle datetime dictionary
+	// Handle datetime dictionary. A column declared `{format: "date"}` asked
+	// for a date, so it gets the date portion even when the value carries a
+	// time — the same as the ISO-string branch below.
 	if dict, ok := value.(*Dictionary); ok && isDatetimeDict(dict) {
-		return formatDateWithStyleAndLocale(dict, "long", "en-US", env)
+		t := datetimeDictWallClock(dict, env)
+		return &String{Value: formatDatePortionWithStyleAndLocale(t, "long", "en-US")}
 	}
 
 	// Handle ISO date string

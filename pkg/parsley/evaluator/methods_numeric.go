@@ -413,54 +413,6 @@ func formatFloatWithOpts(value float64, opts FormatOpts) Object {
 	}
 }
 
-// formatNumberWithPrecisionAndLocale formats a number with specific decimal places.
-func formatNumberWithPrecisionAndLocale(value float64, precision int, locale string) Object {
-	// Round to precision
-	multiplier := math.Pow(10, float64(precision))
-	rounded := math.Round(value*multiplier) / multiplier
-
-	// Format with locale
-	result := formatNumberWithLocale(rounded, locale)
-	if s, ok := result.(*String); ok {
-		// If precision specified, ensure we have exactly that many decimal places
-		if precision > 0 {
-			formatted := s.Value
-			// Check if there's a decimal point
-			decSep := "."
-			if locale == "de-DE" || locale == "fr-FR" || locale == "es-ES" {
-				decSep = ","
-			}
-			if idx := lastIndexOf(formatted, decSep); idx >= 0 {
-				// Count decimal places
-				decimals := len(formatted) - idx - 1
-				if decimals < precision {
-					// Pad with zeros
-					for i := decimals; i < precision; i++ {
-						formatted += "0"
-					}
-				}
-			} else {
-				// No decimal point, add one with zeros
-				formatted += decSep
-				for range precision {
-					formatted += "0"
-				}
-			}
-			return &String{Value: formatted}
-		}
-	}
-	return result
-}
-
-func lastIndexOf(s, substr string) int {
-	for i := len(s) - len(substr); i >= 0; i-- {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
-}
-
 func floatCurrency(receiver Object, args []Object, env *Environment) Object {
 	num := receiver.(*Float)
 	code, ok := args[0].(*String)

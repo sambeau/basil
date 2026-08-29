@@ -257,6 +257,31 @@ let datetimeKind = (@2024-12-25T14:30:00 + @1h).kind  // "datetime"
 
 The primary formatting method with multiple overloads.
 
+Every style prints what the value holds and nothing more: a date gets a date, a
+time gets a time, and a datetime gets its date followed by its time. The style
+chooses how the *date* is written — the time is always 24-hour and the same in
+every locale, after a comma.
+
+```parsley
+@2024-12-25.fmt("long")           // "December 25, 2024"       — a date
+@14:30.fmt("long")                // "14:30"                   — a time
+@14:30:45.fmt("long")             // "14:30:45"                — seconds kept
+@2024-12-25T14:30:00.fmt("long")  // "December 25, 2024, 14:30" — both
+```
+
+A datetime shows seconds only when it has some, and shows no time at all when
+it sits at exact midnight — which is where a date ends up when something widens
+it into a datetime, such as `datetime("2024-12-25")` or a date read from a
+database column:
+
+```parsley
+@2024-12-25T14:30:45.medium()   // "Dec 25, 2024, 14:30:45"
+@2024-12-25T00:00:00.medium()   // "Dec 25, 2024"
+datetime("2024-12-25").medium() // "Dec 25, 2024"
+```
+
+For full precision every time, use [`.iso`](#properties) or `toString()`.
+
 #### Usage: fmt()
 
 Format with default style (medium) and locale (en-US):
@@ -307,7 +332,7 @@ Compact date format:
 
 ```parsley
 @2024-12-25.short()           // "12/25/24"
-@2024-12-25T14:30:00.short()  // "12/25/24" (styles render the date only)
+@2024-12-25T14:30:00.short()  // "12/25/24, 14:30"
 
 // With locale:
 @2024-12-25.short("de-DE")    // "25.12.24"
@@ -319,7 +344,7 @@ Balanced format (default style):
 
 ```parsley
 @2024-12-25.medium()          // "Dec 25, 2024"
-@2024-12-25T14:30:00.medium() // "Dec 25, 2024"
+@2024-12-25T14:30:00.medium() // "Dec 25, 2024, 14:30"
 
 // With locale:
 @2024-12-25.medium("de-DE")   // "25. Dez. 2024"
@@ -331,7 +356,7 @@ Verbose format with full month name:
 
 ```parsley
 @2024-12-25.long()            // "December 25, 2024"
-@2024-12-25T14:30:00.long()   // "December 25, 2024"
+@2024-12-25T14:30:00.long()   // "December 25, 2024, 14:30"
 
 // With locale:
 @2024-12-25.long("de-DE")     // "25. Dezember 2024"
@@ -344,7 +369,7 @@ Maximum context with day of week:
 
 ```parsley
 @2024-12-25.full()            // "Wednesday, December 25, 2024"
-@2024-12-25T14:30:00.full()   // "Wednesday, December 25, 2024"
+@2024-12-25T14:30:00.full()   // "Wednesday, December 25, 2024, 14:30"
 
 // With locale:
 @2024-12-25.full("de-DE")     // "Mittwoch, 25. Dezember 2024"
@@ -528,11 +553,11 @@ let nextMeeting = @today + @1mo      // One month from now
 let event = @2024-12-25T19:00:00
 
 // Different formats for different contexts
-event.short()                        // "12/25/24"
-event.medium()                       // "Dec 25, 2024"
-event.long()                         // "December 25, 2024"
-event.full()                         // "Wednesday, December 25, 2024"
-event.long("de-DE")                  // "25. Dezember 2024"
+event.short()                        // "12/25/24, 19:00"
+event.medium()                       // "Dec 25, 2024, 19:00"
+event.long()                         // "December 25, 2024, 19:00"
+event.full()                         // "Wednesday, December 25, 2024, 19:00"
+event.long("de-DE")                  // "25. Dezember 2024, 19:00"
 ```
 
 ### Combine Date and Time

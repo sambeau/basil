@@ -24,16 +24,23 @@ should revert once the code is fixed).
    `pkg/parsley/evaluator/eval_expressions.go` built the rest dict from a bare map with no
    `KeyOrder`; it now carries the source's order minus the extracted keys. dictionary.md:301
    and variables.md:146 were already claiming the intent and now run true.
->>>>>>> 3efe1bb (fix(parsley): keep insertion order in dictionary rest-destructuring)
-3. **`.fmt(n)` caps at 3 decimal places.** `3.14159.fmt(4)` → `"3.1420"` (rounds at 3, pads
+3. ~~**`.fmt(n)` caps at 3 decimal places.** `3.14159.fmt(4)` → `"3.1420"` (rounds at 3, pads
    with zeros). `pkg/parsley/evaluator/methods_numeric.go:417` routes the rounded value
    through a formatter whose `number.Decimal` caps fraction digits at 3. numbers.md:71 left
-   claiming `"3.1416"` (the intent).
-4. **Styled datetime formatting drops the time.** `@2024-12-25T14:30:00.medium()` renders
+   claiming `"3.1416"` (the intent).~~ **Fixed 2026-08-29 ([BUG-050](../bugs/BUG-050.md)).**
+   The formatter is now asked for the width outright (`Min`/`MaxFractionDigits`), so
+   numbers.md's claim is true; the padding's hard-coded three-locale separator table went
+   with it. `TestFormatPrecision`.
+4. ~~**Styled datetime formatting drops the time.** `@2024-12-25T14:30:00.medium()` renders
    `"Dec 25, 2024"` — identical to a date-only value; `eval_locale.go:251` special-cases the
    two time kinds then falls through to date patterns for datetimes (BUG-045 fixed only the
    time-only case). datetime.md was **changed to match reality** (six sites ~lines 307–344,
-   528); if "December 25, 2024 at 2:30 PM" was the design, fix eval_locale.go and revert.
+   528); if "December 25, 2024 at 2:30 PM" was the design, fix eval_locale.go and revert.~~
+   **Fixed 2026-08-29 ([BUG-051](../bugs/BUG-051.md)).** It was the design. A styled datetime
+   now prints the time to the precision it carries (`"Dec 25, 2024, 14:30"`,
+   `"…, 14:30:45"`) and none at exact midnight, where a widened date lands; the connector is
+   a comma in every locale. The six datetime.md sites are reverted and the `fmt()` section
+   states the rule. `TestStyledDatetimeCarriesItsTime`.
 5. **`toBox()` misaligns the title row** when the title is narrower than the table: title row
    wider/narrower than the frame, `┬` instead of `┼` under the title. Affects datetime,
    duration, money, and dictionary `.toBox({title: …})`. Docs now carry the real (broken) art
