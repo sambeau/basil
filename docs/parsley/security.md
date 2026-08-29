@@ -347,24 +347,30 @@ let safePage <=/= parsedURL
 
 ### Current Behavior
 
-Tag interpolation is **raw**. A value placed into tag content or an attribute
-value is inserted without HTML escaping:
+Tag **content** interpolation is **raw**; **attribute values** are **escaped**.
 
 ```parsley
 let u = "<script>alert(1)</script>"
-<p>u</p>              // <p><script>alert(1)</script></p>
-<p class={u}>""</p>   // attribute values are raw too
+<p>u</p>              // <p><script>alert(1)</script></p>  — raw
+<p title={u}>""</p>  // <p title="&lt;script&gt;alert(1)&lt;/script&gt;">  — escaped
 ```
 
-This is deliberate: tags evaluate to strings, so a component's return value can
-be embedded in another tag — escaping interpolated strings would render nested
-components as visible text. The cost is that interpolating *untrusted input*
-(form submissions, `@params`, query strings, external APIs) into markup is a
-cross-site-scripting (XSS) vector, as in PHP, Perl, and other raw-by-default
-templating systems.
+Content is raw by deliberate design: tags evaluate to strings, so a component's
+return value can be embedded in another tag — escaping interpolated content
+would render nested components as visible text. The cost is that interpolating
+*untrusted input* (form submissions, `@params`, query strings, external APIs)
+into tag content is a cross-site-scripting (XSS) vector, as in PHP, Perl, and
+other raw-by-default templating systems.
 
-The exception is form components: `@field` labels, values, and error messages
-are escaped by the renderer.
+Attribute values, by contrast, are HTML-escaped (`& < > "` → entities) so a
+value cannot close its quotes and inject new attributes. This was not always
+true: before [BUG-052](../../work/bugs/BUG-052.md) the attribute path escaped a
+`"` as `\"`, which HTML ignores, and a crafted value could break out into a live
+event handler. It is fixed — but escaping is **not context-aware** (see the
+`href` caveat below).
+
+The other escaped context is form components: `@field` labels, values, and
+error messages are escaped by the renderer.
 
 ### What Narrows the Risk
 
@@ -378,13 +384,13 @@ are escaped by the renderer.
 
 ### Recommendations
 
-- Do not interpolate unprocessed user input into tag content or attribute
-  values. Prefer typed schema fields; where free text must be displayed,
-  process it first (there is currently **no built-in escape helper** — see
-  below).
-- Treat attribute contexts with extra care: quoting is handled, but an
-  attribute like `href` given a user-controlled value can still carry a
-  `javascript:` URL that escaping alone would not neutralise.
+- Do not interpolate unprocessed user input into tag **content**. Prefer typed
+  schema fields; where free text must be displayed, process it first (there is
+  currently **no built-in escape helper** — see below).
+- Attribute **values** are escaped against quote-breakout, but escaping is not
+  context-aware: an attribute like `href` or `src` given a user-controlled value
+  can still carry a `javascript:` URL that entity-escaping does not neutralise.
+  Don't route untrusted input into URL attributes.
 - Basil's security headers (`X-Content-Type-Options`, `X-Frame-Options`,
   `Referrer-Policy`) reduce the blast radius of an injection but do not
   prevent one.

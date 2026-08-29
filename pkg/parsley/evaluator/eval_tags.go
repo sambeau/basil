@@ -1337,18 +1337,14 @@ func evalTagProps(propsStr string, env *Environment, baseLine, baseCol int) Obje
 					result.Reset()
 					result.WriteString(s[:j+1])
 				} else {
-					// Write the attribute value
+					// Write the attribute value, HTML-escaping it. A bare `"`
+					// would otherwise close the double-quoted value early and
+					// let the rest parse as new attributes (BUG-052); `&<>`
+					// are escaped for the same reason `@field` values are.
 					strVal := objectToTemplateString(evaluated)
 					result.WriteByte('=')
 					result.WriteByte('"')
-					// Escape quotes in the value
-					for _, c := range strVal {
-						if c == '"' {
-							result.WriteString("\\\"")
-						} else {
-							result.WriteRune(c)
-						}
-					}
+					result.WriteString(escapeAttrValue(strVal))
 					result.WriteByte('"')
 				}
 			}

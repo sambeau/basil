@@ -103,6 +103,36 @@ let height = 200
 <button disabled={if(disabled){"disabled"}} />`,
 			expected: `<button />`,
 		},
+		// BUG-052: attribute values are HTML-escaped, not backslash-escaped.
+		{
+			name: "attribute quote does not break out",
+			input: "let v = `x\" onmouseover=\"alert(1)`\n<p title={v} />",
+			// The `"` becomes &quot;, so the value stays one attribute rather
+			// than closing early and injecting an onmouseover handler.
+			expected: `<p title="x&quot; onmouseover=&quot;alert(1)" />`,
+		},
+		{
+			name:     "attribute quotes render as entities not backslashes",
+			input:    "let v = `He said \"hi\"`\n<p title={v} />",
+			expected: `<p title="He said &quot;hi&quot;" />`,
+		},
+		{
+			name:     "attribute angle brackets are escaped",
+			input:    "let v = `a<b>c`\n<p title={v} />",
+			expected: `<p title="a&lt;b&gt;c" />`,
+		},
+		{
+			name:     "attribute ampersand is escaped",
+			input:    "let v = `Tom & Jerry`\n<p title={v} />",
+			expected: `<p title="Tom &amp; Jerry" />`,
+		},
+		{
+			name:     "attribute pre-existing entity double-encodes",
+			input:    "let v = `&amp;`\n<p title={v} />",
+			// Escaping the & again is the safe, conventional direction
+			// (Rails/Jinja do the same); pinned so it is a decision.
+			expected: `<p title="&amp;amp;" />`,
+		},
 	}
 
 	for _, tt := range tests {

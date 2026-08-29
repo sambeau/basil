@@ -42,8 +42,17 @@ method — is included as Phase 1.
 ```parsley
 let u = "<script>alert(1)</script>"
 <p>u</p>            // "<p><script>alert(1)</script></p>" — raw, today
-<p class={u}>""</p> // attribute values interpolate raw too
 ```
+
+> **Note (2026-08-29):** attribute *values* are no longer raw. [BUG-052](../bugs/BUG-052.md)
+> made `<p title={u}>` HTML-escape its value (`& < > "` → entities), closing an
+> attribute-injection hole where the old backslash-escaping let a `"` break out
+> into new attributes. So this feature is now specifically about tag **content**
+> (`<p>u</p>`) plus the *composition* semantics (a component's `Html` return
+> value passing through raw while a plain string is escaped). Attribute escaping
+> is done except for context-awareness — a `javascript:` URL in `href={u}` is
+> quote-safe but still live, which stays in this feature's Phase 4 (context-aware
+> escaping) scope.
 
 Any handler that interpolates request input (`@params`, form fields, query
 strings) into a page is an injection vector. No manual page documents this, and
@@ -198,7 +207,7 @@ raw markup (textarea content still escaped in transit, as today).
 ## Acceptance criteria (Phase 2+)
 
 - [ ] `<p>u</p>` with `u = "<script>x</script>"` renders `&lt;script&gt;x&lt;/script&gt;`
-- [ ] `<p class={u}>` escapes the attribute value
+- [x] `<p class={u}>` escapes the attribute value — done ahead of this feature by [BUG-052](../bugs/BUG-052.md)
 - [ ] `<div>Header()</div>` where `Header` returns a tag composes unescaped
 - [ ] `html(s)` and `MD(...).html` interpolate raw
 - [ ] `Html + string` escapes the string operand; `string + string` untouched
