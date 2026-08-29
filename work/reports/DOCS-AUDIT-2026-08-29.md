@@ -11,10 +11,13 @@ should revert once the code is fixed).
 
 ## A. Evaluator bugs surfaced by doc claims
 
-1. **Array `.sortBy(fn)` sorts wrongly.** `[3,1,2].sortBy(fn(x) { x })` → `[1, 3, 2]`;
+1. ~~**Array `.sortBy(fn)` sorts wrongly.**~~ **FIXED.** `[3,1,2].sortBy(fn(x) { x })` → `[1, 3, 2]`;
    `["bbb","a","cc"].sortBy(fn(s) { s.length() })` → `["a","bbb","cc"]`. Negating the key
-   sorts correctly. `pkg/parsley/evaluator/methods_array.go:180` (sortArrayByFunction).
-   reference.md's `.sortBy` row documents intended behaviour and was left alone.
+   sorted correctly, which was the clue: `sortArrayByFunction` sorted the *elements* while the
+   comparator indexed a parallel, unsorted `keys` slice, so after the first swap it compared the
+   keys of whichever elements had moved into those slots. Keys now travel with their elements
+   through `sort.SliceStable`. reference.md's `.sortBy` row described the intended behaviour and
+   needed no change. Regression tests: `TestSortByKeyOrdering` in `pkg/parsley/tests/sort_test.go`.
 2. **Dict rest-destructuring loses key order.** `let {id, ...rest} = {id:1, name:"A", active:true}`
    gives `rest.keys()` → `["active","name"]` (sorted), contradicting the documented
    "Ordered key-value pairs" contract. `pkg/parsley/evaluator/eval_expressions.go` ~line 1050

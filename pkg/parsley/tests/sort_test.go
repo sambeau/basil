@@ -389,3 +389,78 @@ func TestSortEmptyAndSingle(t *testing.T) {
 		})
 	}
 }
+
+// TestSortByKeyOrdering guards against the key function only partially driving
+// the order: keys must stay paired with their elements as the sort permutes them.
+func TestSortByKeyOrdering(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "identity key on integers",
+			input:    `[3, 1, 2].sortBy(fn(x) { x }).join(",")`,
+			expected: "1,2,3",
+		},
+		{
+			name:     "identity key on a longer array",
+			input:    `[5, 3, 9, 1, 4, 8, 2, 7, 6].sortBy(fn(x) { x }).join(",")`,
+			expected: "1,2,3,4,5,6,7,8,9",
+		},
+		{
+			name:     "identity key on strings",
+			input:    `["pear", "apple", "fig", "date"].sortBy(fn(s) { s }).join(",")`,
+			expected: "apple,date,fig,pear",
+		},
+		{
+			name:     "derived key: string length",
+			input:    `["bbb", "a", "cc"].sortBy(fn(s) { s.length() }).join(",")`,
+			expected: "a,cc,bbb",
+		},
+		{
+			name:     "derived key: string length over a longer array",
+			input:    `["dddd", "a", "ccc", "bb", "eeeee"].sortBy(fn(s) { s.length() }).join(",")`,
+			expected: "a,bb,ccc,dddd,eeeee",
+		},
+		{
+			name:     "derived key: dictionary field",
+			input:    `[{n: "c", age: 30}, {n: "a", age: 10}, {n: "b", age: 20}].sortBy(fn(p) { p.age }).map(fn(p) { p.n }).join(",")`,
+			expected: "a,b,c",
+		},
+		{
+			name:     "descending via negated identity key",
+			input:    `[3, 1, 2].sortBy(fn(x) { -x }).join(",")`,
+			expected: "3,2,1",
+		},
+		{
+			name:     "descending via negated derived key",
+			input:    `["bbb", "a", "cc"].sortBy(fn(s) { -s.length() }).join(",")`,
+			expected: "bbb,cc,a",
+		},
+		{
+			name:     "equal keys keep input order",
+			input:    `[{n: "x", k: 1}, {n: "y", k: 1}, {n: "z", k: 0}].sortBy(fn(d) { d.k }).map(fn(d) { d.n }).join(",")`,
+			expected: "z,x,y",
+		},
+		{
+			name:     "empty array",
+			input:    `[].sortBy(fn(x) { x }).join(",")`,
+			expected: "",
+		},
+		{
+			name:     "single element",
+			input:    `[7].sortBy(fn(x) { x }).join(",")`,
+			expected: "7",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := testEvalSort(tt.input)
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

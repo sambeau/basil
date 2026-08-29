@@ -362,13 +362,16 @@ func sortArrayByFunction(arr *Array, fn *Function, env *Environment) Object {
 	if fn.ParamCount() != 1 {
 		return newCallbackArityError("sort", "1 parameter", fn.ParamCount())
 	}
-	// Make a copy of elements
-	elements := make([]Object, len(arr.Elements))
-	copy(elements, arr.Elements)
+	// Each element travels with its key so the sort permutes both together;
+	// sorting elements against a separate key slice compares keys belonging to
+	// whichever elements happen to occupy those slots mid-sort.
+	type keyedElement struct {
+		element Object
+		key     Object
+	}
 
-	// Compute keys for all elements
-	keys := make([]Object, len(elements))
-	for i, elem := range elements {
+	keyed := make([]keyedElement, len(arr.Elements))
+	for i, elem := range arr.Elements {
 		extendedEnv := extendFunctionEnv(fn, []Object{elem})
 		result := Eval(fn.Body, extendedEnv)
 		if isError(result) {
@@ -377,13 +380,17 @@ func sortArrayByFunction(arr *Array, fn *Function, env *Environment) Object {
 		if returnValue, ok := result.(*ReturnValue); ok {
 			result = returnValue.Value
 		}
-		keys[i] = result
+		keyed[i] = keyedElement{element: elem, key: result}
 	}
 
-	// Sort by keys
-	sort.SliceStable(elements, func(i, j int) bool {
-		return compareObjects(keys[i], keys[j]) < 0
+	sort.SliceStable(keyed, func(i, j int) bool {
+		return compareObjects(keyed[i].key, keyed[j].key) < 0
 	})
+
+	elements := make([]Object, len(keyed))
+	for i, k := range keyed {
+		elements[i] = k.element
+	}
 
 	return &Array{Elements: elements}
 }
