@@ -133,6 +133,25 @@ let height = 200
 			// (Rails/Jinja do the same); pinned so it is a decision.
 			expected: `<p title="&amp;amp;" />`,
 		},
+		// BUG-052, paired-tag path: <p …>content</p> is rendered by
+		// evalStandardTagPair, a separate function from the self-closing
+		// literal path above, with its own attribute-escaping loop. Same
+		// escaping must hold there.
+		{
+			name:     "paired: attribute quote does not break out",
+			input:    "let v = `x\" onmouseover=\"alert(1)`\n<p title={v}>\"hi\"</p>",
+			expected: `<p title="x&quot; onmouseover=&quot;alert(1)">hi</p>`,
+		},
+		{
+			name:     "paired: attribute angle brackets and ampersand escaped",
+			input:    "let v = `Tom & Jerry <b>`\n<p title={v}>\"hi\"</p>",
+			expected: `<p title="Tom &amp; Jerry &lt;b&gt;">hi</p>`,
+		},
+		{
+			name:     "paired: escaping applies to every attribute, not just the first",
+			input:    "let v = `a\"<b>&c`\n<p title={v} data-x={v}>\"hi\"</p>",
+			expected: `<p title="a&quot;&lt;b&gt;&amp;c" data-x="a&quot;&lt;b&gt;&amp;c">hi</p>`,
+		},
 	}
 
 	for _, tt := range tests {
