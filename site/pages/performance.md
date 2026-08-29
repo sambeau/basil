@@ -20,7 +20,7 @@ We have not published benchmarks yet. Treat these as rough figures from our own 
 
 That puts a Parsley page in the same league as PHP, Ruby, or Python.
 
-## Why it is fast enough?
+## Why it is fast enough
 
 Four things keep the common case quick.
 
