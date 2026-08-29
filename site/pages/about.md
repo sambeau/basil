@@ -18,13 +18,15 @@ See [changelog](https://github.com/sambeau/basil/blob/main/CHANGELOG.md) for rec
 
 ## How stable is it?
 
-Despite the shared version number, consider:
+Despite the shared version number, we consider:
 - **Parsley** to be **Beta**, 
 - **Basil** to be **Alpha**.
 
 **Parsley** (the language) has been stable for a while now: the syntax and standard library have settled down, and changes at this point are mostly fixes and small additions—though, every time I think I’m done, I find another error page to fix.
 
 **Basil** (the server) is younger, and while it works well, some of its edges are still being sanded — configuration, dev-tools, deployment, and error handling in particular are still being worked on.
+
+Warning: Neither `basil`, nor `pars` have been tested on Windows, so consider support for Windows to be experimental. They have been extensively tested on macOS and Linux.
 
 ## License
 
