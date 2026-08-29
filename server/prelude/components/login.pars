@@ -1,0 +1,25 @@
+// Login - Passkey sign-in button (Basil auth)
+// Usage: let {Login} = import @basil/auth
+//        <Login button_text="Sign in" redirect="/dashboard"/>
+//
+// Props:
+//   button_text - Button label (default "Sign in")
+//   redirect    - Where to go after success (default "/")
+//   class       - Extra CSS classes for the container
+//
+// The behaviour lives in /__/js/auth.js, which binds by class and reads the
+// data-* attributes; the script tag is emitted per component and self-guards.
+
+export Login = fn(props) {
+    let {button_text, redirect, class, contents, ...divAttrs} = props
+
+    <div
+        class={"basil-auth-login" + if (class) " " + class else ""}
+        data-redirect={redirect ?? "/"}
+        ...divAttrs
+    >
+        <button type="button" class="basil-auth-button">(button_text ?? "Sign in")</button>
+        <div class="basil-auth-error" hidden="hidden"></div>
+    </div>
+    <script src="/__/js/auth.js"></script>
+}

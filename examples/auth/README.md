@@ -30,7 +30,7 @@ Then visit http://localhost:8080
 
 ### Registration
 
-The `<basil.auth.Register/>` component handles WebAuthn registration. When a user signs up:
+The `<Register/>` component (from `@basil/auth`) handles WebAuthn registration. When a user signs up:
 
 1. They enter their name (and optionally email)
 2. Their browser prompts to create a passkey
@@ -39,7 +39,7 @@ The `<basil.auth.Register/>` component handles WebAuthn registration. When a use
 
 ### Login
 
-The `<basil.auth.Login/>` component handles authentication:
+The `<Login/>` component handles authentication:
 
 1. User clicks "Sign in"
 2. Browser prompts for passkey selection

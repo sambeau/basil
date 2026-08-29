@@ -1,6 +1,6 @@
 // signup.pars - Registration page
 
-let {auth} = import @basil/auth
+let {auth, Register} = import @basil/auth
 let {Page} = import @./page.pars
 
 // Redirect if already logged in
@@ -15,7 +15,7 @@ if auth.user {
     <h1>"Create Account"</h1>
     <p>"Create your account using a passkey. No password needed!"</p>
     
-    <auth.Register
+    <Register
       name_placeholder="Your name"
       email_placeholder="Email (optional)"
       button_text="Create account"

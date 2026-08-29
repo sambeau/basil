@@ -1,0 +1,37 @@
+// Register - Passkey registration form (Basil auth)
+// Usage: let {Register} = import @basil/auth
+//        <Register button_text="Create account" redirect="/dashboard"/>
+//
+// Props:
+//   name              - Pre-filled name value
+//   email             - Pre-filled email value
+//   name_placeholder  - Placeholder for the name input (default "Your name")
+//   email_placeholder - Placeholder for the email input (default "you@example.com")
+//   button_text       - Submit button label (default "Create account")
+//   redirect          - Where to go after success (default "/")
+//   recovery_page     - Page to show recovery codes on (optional; codes land in
+//                       sessionStorage as basil_recovery_codes / basil_recovery_user)
+//   class             - Extra CSS classes for the form
+//
+// The behaviour lives in /__/js/auth.js, which binds by class and reads the
+// data-* attributes; the script tag is emitted per component and self-guards.
+
+export Register = fn(props) {
+    let {name, email, name_placeholder, email_placeholder, button_text,
+         redirect, recovery_page, class, contents, ...formAttrs} = props
+
+    <form
+        class={"basil-auth-register" + if (class) " " + class else ""}
+        data-redirect={redirect ?? "/"}
+        data-recovery-page={recovery_page}
+        ...formAttrs
+    >
+        <input type="text" name="name" class="basil-auth-input"
+            placeholder={name_placeholder ?? "Your name"} value={name ?? ""} required="required"/>
+        <input type="email" name="email" class="basil-auth-input"
+            placeholder={email_placeholder ?? "you@example.com"} value={email ?? ""}/>
+        <button type="submit" class="basil-auth-button">(button_text ?? "Create account")</button>
+        <div class="basil-auth-error" hidden="hidden"></div>
+    </form>
+    <script src="/__/js/auth.js"></script>
+}

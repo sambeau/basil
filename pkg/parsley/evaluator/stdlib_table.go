@@ -304,48 +304,59 @@ func loadBasilHTTPModule(env *Environment) Object {
 }
 
 // loadBasilAuthModule returns the auth/database/session basil module
-// Exports: session, auth (auth context), user (auth.user shortcut)
-// All exports are DynamicAccessors for per-request freshness.
+// Exports: session, auth (auth context), user (auth.user shortcut), plus the
+// Register/Login/Logout passkey components when the prelude is available.
+// Data exports are DynamicAccessors for per-request freshness.
 // Note: Database access has been moved to @DB magic variable.
 var basilAuthModuleMeta = ModuleMeta{
-	Description: "Auth context, db, session, and user shortcuts",
+	Description: "Auth context, session/user shortcuts, and passkey components",
 	Exports: map[string]ExportMeta{
-		"session": {Kind: "accessor", Description: "Current session"},
-		"auth":    {Kind: "accessor", Description: "Auth context"},
-		"user":    {Kind: "accessor", Description: "Current authenticated user"},
+		"session":  {Kind: "accessor", Description: "Current session"},
+		"auth":     {Kind: "accessor", Description: "Auth context"},
+		"user":     {Kind: "accessor", Description: "Current authenticated user"},
+		"Register": {Kind: "component", Description: "Passkey registration form"},
+		"Login":    {Kind: "component", Description: "Passkey sign-in button"},
+		"Logout":   {Kind: "component", Description: "Sign-out button or link"},
 	},
 }
 
+// authComponentFiles lists the prelude components exported from @basil/auth.
+var authComponentFiles = []struct{ file, name string }{
+	{"register.pars", "Register"},
+	{"login.pars", "Login"},
+	{"logout.pars", "Logout"},
+}
+
 func loadBasilAuthModule(env *Environment) Object {
-	return &StdlibModuleDict{
-		Meta: &basilAuthModuleMeta,
-		Exports: map[string]Object{
-			"session": &DynamicAccessor{
-				Name: "session",
-				Resolver: func(e *Environment) Object {
-					basilDict := getBasilCtxDict(e)
-					return ensureObject(evalDictValue(basilDict, "session", e))
-				},
-			},
-			"auth": &DynamicAccessor{
-				Name: "auth",
-				Resolver: func(e *Environment) Object {
-					basilDict := getBasilCtxDict(e)
-					return ensureObject(evalDictValue(basilDict, "auth", e))
-				},
-			},
-			"user": &DynamicAccessor{
-				Name: "user",
-				Resolver: func(e *Environment) Object {
-					basilDict := getBasilCtxDict(e)
-					authObj := evalDictValue(basilDict, "auth", e)
-					if authDict, ok := authObj.(*Dictionary); ok {
-						return ensureObject(evalDictValue(authDict, "user", e))
-					}
-					return NULL
-				},
-			},
+	exports := loadPreludeComponents(authComponentFiles, env)
+	exports["session"] = &DynamicAccessor{
+		Name: "session",
+		Resolver: func(e *Environment) Object {
+			basilDict := getBasilCtxDict(e)
+			return ensureObject(evalDictValue(basilDict, "session", e))
 		},
+	}
+	exports["auth"] = &DynamicAccessor{
+		Name: "auth",
+		Resolver: func(e *Environment) Object {
+			basilDict := getBasilCtxDict(e)
+			return ensureObject(evalDictValue(basilDict, "auth", e))
+		},
+	}
+	exports["user"] = &DynamicAccessor{
+		Name: "user",
+		Resolver: func(e *Environment) Object {
+			basilDict := getBasilCtxDict(e)
+			authObj := evalDictValue(basilDict, "auth", e)
+			if authDict, ok := authObj.(*Dictionary); ok {
+				return ensureObject(evalDictValue(authDict, "user", e))
+			}
+			return NULL
+		},
+	}
+	return &StdlibModuleDict{
+		Meta:    &basilAuthModuleMeta,
+		Exports: exports,
 	}
 }
 

@@ -1,6 +1,6 @@
 // logout.pars - Logout page
 
-let {auth} = import @basil/auth
+let {auth, Logout} = import @basil/auth
 let {Page} = import @./page.pars
 
 <Page title="Sign Out">
@@ -8,7 +8,7 @@ let {Page} = import @./page.pars
   
   if auth.user {
     <p>"Click below to sign out of your account."</p>
-    <auth.Logout
+    <Logout
       text="Sign out"
       redirect="/"
       method="button"

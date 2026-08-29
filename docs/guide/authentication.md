@@ -17,12 +17,14 @@ auth:
 
 ### 2. Add Auth Components
 
-In your Parsley handlers, use the built-in components:
+In your Parsley handlers, import the components from `@basil/auth`:
 
 **Registration page (signup.pars):**
 
 ```parsley
-<basil.auth.Register
+let {Register} = import @basil/auth
+
+<Register
   name_placeholder="Your name"
   email_placeholder="Email (optional)"
   button_text="Create account"
@@ -33,7 +35,9 @@ In your Parsley handlers, use the built-in components:
 **Login page (login.pars):**
 
 ```parsley
-<basil.auth.Login
+let {Login} = import @basil/auth
+
+<Login
   button_text="Sign in"
   redirect="/dashboard"
 />
@@ -42,11 +46,16 @@ In your Parsley handlers, use the built-in components:
 **Logout (anywhere):**
 
 ```parsley
-<basil.auth.Logout
+let {Logout} = import @basil/auth
+
+<Logout
   text="Sign out"
   redirect="/"
 />
 ```
+
+Need a name for your own component? Rename on import:
+`let {Login as PasskeyLogin} = import @basil/auth`.
 
 ### 3. Protect Routes
 
@@ -82,7 +91,10 @@ User object fields:
 
 ## Components Reference
 
-### `<basil.auth.Register/>`
+All three are exported by `@basil/auth`:
+`let {Register, Login, Logout} = import @basil/auth`.
+
+### `<Register/>`
 
 Registration form with WebAuthn.
 
@@ -99,7 +111,7 @@ Registration form with WebAuthn.
 
 **Recovery codes:** When `recovery_page` is set, codes are stored in `sessionStorage` as `basil_recovery_codes` (JSON array) and `basil_recovery_user` (username), then the user is redirected there. Your recovery page can display them nicely and clear the storage after.
 
-### `<basil.auth.Login/>`
+### `<Login/>`
 
 Login button with WebAuthn.
 
@@ -109,7 +121,7 @@ Login button with WebAuthn.
 | `redirect` | `"/"` | URL after successful login |
 | `class` | `""` | Additional CSS classes |
 
-### `<basil.auth.Logout/>`
+### `<Logout/>`
 
 Logout button or link.
 

@@ -124,8 +124,9 @@ A prefix matches itself and everything under it: `/dashboard` protects `/dashboa
 Your login page can honour `?next=` by passing it through to the component:
 
 ```parsley
+let {Login} = import @basil/auth
 let next = @params.next ?? "/"
-<basil.auth.Login button_text="Sign in" redirect={next}/>
+<Login button_text="Sign in" redirect={next}/>
 ```
 
 ### Per-Route Auth in Routes Mode
@@ -219,7 +220,9 @@ Passkeys are wonderful right up until the phone is in a river. At registration, 
 Set `recovery_page` on the Register component:
 
 ```parsley
-<basil.auth.Register
+let {Register} = import @basil/auth
+
+<Register
     button_text="Create account"
     redirect="/dashboard"
     recovery_page="/recovery-codes"

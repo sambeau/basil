@@ -48,15 +48,20 @@ This also creates the auth database (`.basil-auth.db`, next to `basil.yaml`) —
 **3. Add the components** to your pages:
 
 ```parsley
+let {Register, Login, Logout} = import @basil/auth
+
 // signup page
-<basil.auth.Register button_text="Create account" redirect="/dashboard"/>
+<Register button_text="Create account" redirect="/dashboard"/>
 
 // login page
-<basil.auth.Login button_text="Sign in" redirect="/dashboard"/>
+<Login button_text="Sign in" redirect="/dashboard"/>
 
 // anywhere
-<basil.auth.Logout text="Sign out" redirect="/"/>
+<Logout text="Sign out" redirect="/"/>
 ```
+
+Like any import, the components can be renamed if a name is taken —
+`let {Login as PasskeyLogin} = import @basil/auth`.
 
 Sign up with the same email as your CLI-created user and the new passkey attaches to that account.
 
@@ -105,7 +110,9 @@ The two email fields only appear when the user has an email address. `basil.auth
 
 ## Components
 
-### `<basil.auth.Register/>`
+All three come from `@basil/auth` — `let {Register, Login, Logout} = import @basil/auth`.
+
+### `<Register/>`
 
 | Attribute | Default | Description |
 |-----------|---------|-------------|
@@ -119,7 +126,7 @@ The two email fields only appear when the user has an email address. `basil.auth
 
 When `recovery_page` is set, the new user's recovery codes are placed in `sessionStorage` (`basil_recovery_codes`, `basil_recovery_user`) and the user is redirected there — display them, then clear the storage. Without it, the codes appear in a browser `alert()`, which works but won't win any design awards.
 
-### `<basil.auth.Login/>`
+### `<Login/>`
 
 | Attribute | Default | Description |
 |-----------|---------|-------------|
@@ -127,7 +134,7 @@ When `recovery_page` is set, the new user's recovery codes are placed in `sessio
 | `redirect` | `"/"` | URL after login |
 | `class` | `""` | Extra CSS classes |
 
-### `<basil.auth.Logout/>`
+### `<Logout/>`
 
 | Attribute | Default | Description |
 |-----------|---------|-------------|

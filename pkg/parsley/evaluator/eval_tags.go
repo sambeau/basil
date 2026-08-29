@@ -2223,7 +2223,7 @@ func evalCustomTag(tok lexer.Token, tagName string, propsStr string, env *Enviro
 	// `CSS` and `Javascript` were the original spellings and still work: a site
 	// that used them must not break. The manual's pair is the primary one — it
 	// matches the TitleCase every other component uses (<Page/>, <Select/>,
-	// <basil.auth.Login/>) and does not spell JavaScript "Javascript".
+	// <Login/>) and does not spell JavaScript "Javascript".
 	//
 	// The two were out of step for long enough that following the manual gave
 	// you "Undefined component: `Css`" (BUG-040).

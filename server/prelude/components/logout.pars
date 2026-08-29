@@ -1,0 +1,32 @@
+// Logout - Sign-out button or link (Basil auth)
+// Usage: let {Logout} = import @basil/auth
+//        <Logout text="Sign out" redirect="/"/>
+//        <Logout method="link" text="Sign out"/>
+//
+// Props:
+//   text     - Label (default "Sign out")
+//   redirect - Where to go afterwards (default "/")
+//   method   - "button" (default) or "link"
+//   class    - Extra CSS classes
+//
+// The behaviour lives in /__/js/auth.js, which binds by class and reads the
+// data-* attributes; the script tag is emitted per component and self-guards.
+
+export Logout = fn(props) {
+    let {text, redirect, method, class, contents, ...attrs} = props
+
+    if ((method ?? "button") == "link") {
+        <a href="#"
+            class={"basil-auth-logout" + if (class) " " + class else ""}
+            data-redirect={redirect ?? "/"}
+            ...attrs
+        >(text ?? "Sign out")</a>
+    } else {
+        <button type="button"
+            class={"basil-auth-logout basil-auth-button" + if (class) " " + class else ""}
+            data-redirect={redirect ?? "/"}
+            ...attrs
+        >(text ?? "Sign out")</button>
+    }
+    <script src="/__/js/auth.js"></script>
+}

@@ -103,7 +103,6 @@ type parsleyHandler struct {
 	scriptPath        string
 	cache             *scriptCache
 	responseCache     *responseCache
-	componentExpander *auth.ComponentExpander
 
 	// cfg and assetBundle pin the release this handler serves. They are set
 	// by every construction site (setupRoutes, createRootHandler, the site
@@ -147,12 +146,11 @@ func newParsleyHandler(s *Server, route config.Route, cache *scriptCache) (*pars
 	scriptPath := route.Handler
 
 	h := &parsleyHandler{
-		server:            s,
-		route:             route,
-		scriptPath:        scriptPath,
-		cache:             cache,
-		responseCache:     s.responseCache,
-		componentExpander: auth.NewComponentExpander(),
+		server:        s,
+		route:         route,
+		scriptPath:    scriptPath,
+		cache:         cache,
+		responseCache: s.responseCache,
 	}
 	// nil in tests that build a bare Server by hand
 	if s.responseCache != nil {
@@ -1166,8 +1164,6 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 		output := v
 		if strings.HasPrefix(strings.TrimSpace(v), "<") {
 			contentType = "text/html; charset=utf-8"
-			// Expand auth components in HTML output
-			output = h.componentExpander.ExpandComponents(v)
 			// Inject Parts runtime if page contains Parts
 			if pageNeedsPartsRuntime(output) {
 				output = injectPartsRuntime(output)
@@ -1194,10 +1190,8 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 		if body, ok := v["body"]; ok {
 			switch b := body.(type) {
 			case string:
-				// Expand auth components if it looks like HTML
 				output := b
 				if strings.HasPrefix(strings.TrimSpace(b), "<") {
-					output = h.componentExpander.ExpandComponents(b)
 					// Inject Parts runtime if page contains Parts
 					if pageNeedsPartsRuntime(output) {
 						output = injectPartsRuntime(output)
@@ -1231,7 +1225,6 @@ func (h *parsleyHandler) writeResponse(w http.ResponseWriter, r *http.Request, r
 				contentType := "text/plain; charset=utf-8"
 				if strings.HasPrefix(strings.TrimSpace(output), "<") {
 					contentType = "text/html; charset=utf-8"
-					output = h.componentExpander.ExpandComponents(output)
 					if pageNeedsPartsRuntime(output) {
 						output = injectPartsRuntime(output)
 					}

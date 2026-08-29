@@ -119,6 +119,12 @@ var componentFiles = []struct {
 	{"data_table.pars", "DataTable"},
 }
 
+// componentAST pairs a component's export name with its parsed program.
+type componentAST struct {
+	name    string
+	program *ast.Program
+}
+
 // loadHTMLModule loads the HTML components module from prelude.
 // Components are pre-parsed .pars files in the prelude/components/ directory.
 // Uses a two-pass approach so components can reference each other.
@@ -134,10 +140,6 @@ func loadHTMLModule(env *Environment) Object {
 	}
 
 	// Pass 1: Load all component ASTs
-	type componentAST struct {
-		name    string
-		program *ast.Program
-	}
 	var components []componentAST
 
 	for _, comp := range componentFiles {
@@ -155,6 +157,17 @@ func loadHTMLModule(env *Environment) Object {
 
 	// Pass 2: Evaluate components with shared environment
 	// This allows components to reference each other (e.g., Page uses SkipLink)
+	exports := evalPreludeComponents(components, env)
+
+	return &StdlibModuleDict{
+		Exports: exports,
+	}
+}
+
+// evalPreludeComponents evaluates pre-loaded component ASTs in a shared
+// environment (so components can reference each other) and returns the
+// exported functions keyed by export name.
+func evalPreludeComponents(components []componentAST, env *Environment) map[string]Object {
 	sharedEnv := NewEnvironment()
 	sharedEnv.Security = env.Security
 	sharedEnv.DevLog = env.DevLog
@@ -183,7 +196,23 @@ func loadHTMLModule(env *Environment) Object {
 		}
 	}
 
-	return &StdlibModuleDict{
-		Exports: exports,
+	return exports
+}
+
+// loadPreludeComponents loads and evaluates the named prelude component files,
+// returning the exported functions. Returns an empty map when the prelude is
+// not available (standalone pars).
+func loadPreludeComponents(files []struct{ file, name string }, env *Environment) map[string]Object {
+	if PreludeLoader == nil {
+		return map[string]Object{}
 	}
+	var components []componentAST
+	for _, comp := range files {
+		program := PreludeLoader("components/" + comp.file)
+		if program == nil {
+			continue
+		}
+		components = append(components, componentAST{name: comp.name, program: program})
+	}
+	return evalPreludeComponents(components, env)
 }
