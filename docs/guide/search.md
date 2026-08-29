@@ -11,13 +11,14 @@ Basil includes built-in full-text search powered by SQLite FTS5. No external sea
 In your Parsley handler:
 
 ```parsley
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   watch: @./docs,
   path: "search.db"
 })
 ```
 
-`@SEARCH()` returns `{search, error}` — destructure the instance out of it.
+`@SEARCH` returns a `{search, error}` pair: the search instance, or an error message
+if setup failed. Everything below calls methods on that `search` value.
 
 That's all the setup. The search engine automatically:
 - Scan your `docs` folder for markdown files
@@ -74,15 +75,14 @@ For those needs, use Meilisearch or Elasticsearch instead.
 ### Factory Function: @SEARCH()
 
 ```parsley
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   // Required if no watch paths
   path: "search.db",           // SQLite database file
                                 // Use ":memory:" for tests
   
   // Optional: Auto-indexing
-  watch: @./docs,               // Single path
-  watch: [@./docs, @./blog],   // Or multiple paths
-  extensions: [".md", ".html"], // File types (default: [".md"])
+  watch: @./docs,               // Single path, or an array: [@./docs, @./blog]
+  extensions: [".md", ".html"], // File types (default: [".md", ".html"])
   
   // Optional: Ranking weights
   weights: {
@@ -117,7 +117,7 @@ let {search} = @SEARCH({
 - Supports `@./relative` or absolute paths
 
 **extensions** — File types to index:
-- Default: `[".md"]`
+- Default: `[".md", ".html"]`
 - Common: `[".md", ".html", ".txt", ".docx", ".pdf"]`
 - DOCX support extracts text, headings, and metadata (title, keywords, dates)
 - PDF support extracts plain text (text-based PDFs only, no OCR for scanned documents)
@@ -164,7 +164,9 @@ let results = search.query("hello world", {
 ```
 
 **Filter behavior:**
-- `tags` → Keep documents carrying any of the listed tags (array or single string)
+- `tags` → Keep documents carrying any of the listed tags (array or single string).
+  Matching is substring-based, so a filter for `"art"` also matches documents tagged
+  `"articles"` — keep tag names distinct
 - `dateAfter` / `dateBefore` → Inclusive bounds, compared in UTC. Accept datetime literals (`@2024-01-01`) or ISO strings (`"2024-01-01"`)
 - Documents without a `date` are excluded whenever a date filter is set
 - `total` reflects the filtered match count, so pagination math stays correct
@@ -205,13 +207,13 @@ let results = search.query("hello world", {
 **Pagination:**
 ```parsley
 // Page 1 (results 1-10)
-var results = search.query("hello", {limit: 10, offset: 0})
+let page1 = search.query("hello", {limit: 10, offset: 0})
 
 // Page 2 (results 11-20)
-results = search.query("hello", {limit: 10, offset: 10})
+let page2 = search.query("hello", {limit: 10, offset: 10})
 
 // Calculate pages
-let totalPages = (results.total + 9) / 10  // Round up
+let totalPages = (page1.total + 9) / 10  // Round up
 ```
 
 ### .add(document)
@@ -237,25 +239,29 @@ search.add({
 
 **Requirements:**
 - `url` must be unique (overwrites existing)
-- All fields are strings (convert dates to ISO format)
-- Tags as array or comma-separated string
+- `url`, `title`, `content`, `date` and `headings` must be strings — convert dates to
+  ISO format (`"2024-01-15"`), and pass strings rather than path or datetime literals
+- `tags` must be an array of strings
 
-### .update(url, fields)
+### .update(document)
 
-Update specific fields of an existing document.
+Replace an existing document.
 
 ```parsley
-search.update("/blog/my-post", {
-  title: "Updated Title",
+search.update({
+  url: "/blog/my-post",             // Required: identifies the document
+  title: "Updated Title",           // Required
+  content: "Updated text...",       // Required
   tags: ["updated", "revised"]
 })
 ```
 
 **Behavior:**
-- Only specified fields are updated
-- Other fields remain unchanged
-- If document doesn't exist, it's created
-- More efficient than `.add()` for partial updates
+- Takes one dictionary — the same shape `.add()` takes, not a `(url, fields)` pair
+- Replaces the document wholesale: it removes the old entry and re-adds it, so any
+  field you leave out is dropped, not preserved
+- If the document doesn't exist, it's created
+- Because `.add()` already overwrites on a matching `url`, `.add()` is usually all you need
 
 ### .remove(url)
 
@@ -264,6 +270,8 @@ Remove a document from the index.
 ```parsley
 search.remove("/blog/old-post")
 ```
+
+`.remove()` takes a **string**, not a path literal.
 
 **Behavior:**
 - Deletes document by URL
@@ -279,9 +287,11 @@ let stats = search.stats()
 // Returns: {
 //   documents: 142,
 //   size: "5.2MB",
-//   last_indexed: @2024-01-09T14:30:00
+//   last_indexed: "2024-01-09T14:30:00Z"
 // }
 ```
+
+`last_indexed` is a string, not a datetime value.
 
 **Use cases:**
 - Display "Searching 142 documents" message
@@ -316,16 +326,13 @@ search.reindex()
 **Scenario:** Search across markdown documentation.
 
 ```parsley
-let {request} = import @basil/http
-let urlQuery = request.query
-
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   watch: @./docs,
   path: "search.db"
 })
 
-// In your search page
-let query = urlQuery["q"] ?? ""
+// In your search page — @params merges query string and form input
+let query = @params.q ?? ""
 let results = search.query(query, {limit: 20})
 
 <form method="get">
@@ -350,10 +357,7 @@ if (results.total > 0) {
 **Scenario:** Search blog posts, filter by tags and date.
 
 ```parsley
-let {request} = import @basil/http
-let urlQuery = request.query
-
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   watch: @./posts,
   path: "blog.db",
   weights: {
@@ -363,10 +367,10 @@ let {search} = @SEARCH({
 })
 
 // Filter by tag from URL
-let tag = urlQuery["tag"]
-let query = urlQuery["q"] ?? ""
+let tag = @params.tag ?? ""
+let query = @params.q ?? ""
 
-let filters = {}
+var filters = {}
 if (tag) {
   filters.tags = [tag]
 }
@@ -393,11 +397,8 @@ let results = search.query(query, {
 **Scenario:** Search both markdown files and database records.
 
 ```parsley
-let {request} = import @basil/http
-let urlQuery = request.query
-
 // Auto-index markdown files
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   watch: @./docs,
   path: "search.db"
 })
@@ -411,43 +412,48 @@ for (post in posts) {
     url: "/blog/" + post.slug,
     title: post.title,
     content: post.body,
-    date: post.published_at,
+    date: post.published_at,   // must be an ISO date string
     tags: post.tags.split(",")
   })
 }
 
 // Search everything together
-let results = search.query(urlQuery["q"], {limit: 10})
+let results = search.query((@params.q ?? ""), {limit: 10})
 ```
 
 ### Multiple Search Indexes
 
 **Scenario:** Separate indexes for different content types.
 
+Parsley's destructuring can't rename keys, so bind each `@SEARCH` result to its own
+name and reach through `.search`:
+
 ```parsley
+let {request} = import @basil/http
+
 // Documentation search
-let docsSearch = @SEARCH({
+let docsIndex = @SEARCH({
   watch: @./docs,
   path: "docs.db",
   tokenizer: "porter"
-}).search
+})
 
 // Blog search (different tokenizer)
-let blogSearch = @SEARCH({
+let blogIndex = @SEARCH({
   watch: @./blog,
   path: "blog.db",
   tokenizer: "unicode61"  // Better for international content
-}).search
+})
 
 // Product search (manual indexing)
-let productSearch = @SEARCH({
+let productIndex = @SEARCH({
   path: "products.db"
-}).search
+})
 
 let db = @sqlite("./app.db")
 let products = db <=??=> "SELECT * FROM products WHERE active = 1"
 for (product in products) {
-  productSearch.add({
+  productIndex.search.add({
     url: "/products/" + product.id,
     title: product.name,
     content: product.description,
@@ -456,15 +462,16 @@ for (product in products) {
 }
 
 // Use appropriate search based on context
-let {request} = import @basil/http
-let urlQuery = request.query
+let q = @params.q ?? ""
+let section = request.path.split("/")[1]
 
-let results = if (request.path ~ /^\/docs/) {
-  docsSearch.query(urlQuery["q"])
-} else if (request.path ~ /^\/blog/) {
-  blogSearch.query(urlQuery["q"])
+var results = null
+if (section == "docs") {
+  results = docsIndex.search.query(q)
+} else if (section == "blog") {
+  results = blogIndex.search.query(q)
 } else {
-  productSearch.query(urlQuery["q"])
+  results = productIndex.search.query(q)
 }
 ```
 
@@ -473,13 +480,10 @@ let results = if (request.path ~ /^\/docs/) {
 **Scenario:** A complete search UI.
 
 ```parsley
-let {request} = import @basil/http
-let urlQuery = request.query
+let {search, error} = @SEARCH({watch: @./content, path: "search.db"})
 
-let {search} = @SEARCH({watch: @./content, path: "search.db"})
-let query = urlQuery["q"] ?? ""
-let pageParam = urlQuery["page"] ?? "1"
-let page = toInt(pageParam)
+let query = @params.q ?? ""
+let page = toInt((@params.page ?? "1"))
 let perPage = 20
 
 let results = search.query(query, {
@@ -571,7 +575,7 @@ Adjust field weights based on your content structure:
 
 ```parsley
 // Documentation site: boost headings
-let docsSearch = @SEARCH({
+let docsIndex = @SEARCH({
   watch: @./docs,
   weights: {
     title: 10.0,
@@ -579,10 +583,10 @@ let docsSearch = @SEARCH({
     tags: 2.0,
     content: 1.0
   }
-}).search
+})
 
 // Blog: boost tags for discovery
-let blogSearch = @SEARCH({
+let blogIndex = @SEARCH({
   watch: @./blog,
   weights: {
     title: 15.0,
@@ -590,7 +594,7 @@ let blogSearch = @SEARCH({
     tags: 7.0,        // Higher than default
     content: 1.0
   }
-}).search
+})
 ```
 
 **Tuning tips:**
@@ -605,16 +609,16 @@ For power users who need advanced FTS5 features:
 
 ```parsley
 // Boolean operators
-var results = search.query("parsley OR basil", {raw: true})
+let boolResults = search.query("parsley OR basil", {raw: true})
 
 // Phrase with proximity
-results = search.query('"web server" NEAR/5 parsley', {raw: true})
+let nearResults = search.query('"web server" NEAR/5 parsley', {raw: true})
 
 // Field-specific search
-results = search.query("title:tutorial content:advanced", {raw: true})
+let fieldResults = search.query("title:tutorial content:advanced", {raw: true})
 
 // Column filters (requires FTS5 knowledge)
-results = search.query("{title}: tutorial", {raw: true})
+let columnResults = search.query("{title}: tutorial", {raw: true})
 ```
 
 **Warning:** Raw queries bypass safety features:
@@ -642,20 +646,20 @@ results = search.query("{title}: tutorial", {raw: true})
 
 ```parsley
 // 1. Use pagination (don't fetch everything)
-var results = search.query(query, {limit: 20})  // Good
-results = search.query(query, {limit: 1000}) // Bad
+let good = search.query(query, {limit: 20})   // Good
+let bad = search.query(query, {limit: 1000})  // Bad
 
 // 2. Cache instances (automatic with same config)
-let cached = @SEARCH({watch: @./docs}).search  // Reuses connection
+let cached = @SEARCH({watch: @./docs})  // Reuses connection
 
 // 3. Limit snippet length for faster generation
 let shortSnippets = @SEARCH({
   watch: @./docs,
   snippetLength: 150  // Shorter = faster
-}).search
+})
 
 // 4. Use filters to narrow results
-results = search.query(query, {
+let filtered = search.query(query, {
   limit: 10,
   filters: {tags: ["tutorial"]}  // Faster than scanning all results
 })
@@ -671,7 +675,7 @@ results = search.query(query, {
 
 **English (default):**
 ```parsley
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   watch: @./docs,
   tokenizer: "porter"  // Stems words: "running" → "run"
 })
@@ -679,7 +683,7 @@ let {search} = @SEARCH({
 
 **Other languages:**
 ```parsley
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   watch: @./docs,
   tokenizer: "unicode61"  // No stemming, better for non-English
 })
@@ -687,21 +691,22 @@ let {search} = @SEARCH({
 
 **Multiple languages:**
 ```parsley
-let {request} = import @basil/http
-let urlQuery = request.query
-
 // Separate indexes per language
-let enSearch = @SEARCH({watch: @./docs/en, tokenizer: "porter"}).search
-let esSearch = @SEARCH({watch: @./docs/es, tokenizer: "unicode61"}).search
-let frSearch = @SEARCH({watch: @./docs/fr, tokenizer: "unicode61"}).search
+let enIndex = @SEARCH({watch: @./docs/en, tokenizer: "porter"})
+let esIndex = @SEARCH({watch: @./docs/es, tokenizer: "unicode61"})
+let frIndex = @SEARCH({watch: @./docs/fr, tokenizer: "unicode61"})
 
 // Route based on language
-let results = if (urlQuery["lang"] == "es") {
-  esSearch.query(urlQuery["q"])
-} else if (urlQuery["lang"] == "fr") {
-  frSearch.query(urlQuery["q"])
+let lang = @params.lang ?? "en"
+let q = @params.q ?? ""
+
+var results = null
+if (lang == "es") {
+  results = esIndex.search.query(q)
+} else if (lang == "fr") {
+  results = frIndex.search.query(q)
 } else {
-  enSearch.query(urlQuery["q"])
+  results = enIndex.search.query(q)
 }
 ```
 
@@ -710,7 +715,7 @@ let results = if (urlQuery["lang"] == "es") {
 For tests, use `:memory:` to avoid file I/O:
 
 ```parsley
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   path: ":memory:",
   tokenizer: "porter"
 })
@@ -737,9 +742,9 @@ let results = search.query("test")
 
 **Check 1:** Is the file extension included?
 ```parsley
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   watch: @./docs,
-  extensions: [".md"]  // Add ".html" if indexing HTML
+  extensions: [".md", ".html", ".txt"]  // Defaults are only .md and .html
 })
 ```
 
@@ -766,8 +771,8 @@ search.reindex()  // Drops and rebuilds index
 
 **Check 1:** Verify query syntax:
 ```parsley
-var results = search.query("hello world")  // Both words must appear
-results = search.query("hello")            // Try single term
+let bothWords = search.query("hello world")  // Both words must appear
+let oneWord = search.query("hello")          // Try single term
 ```
 
 **Check 2:** Check if documents exist:
@@ -796,7 +801,7 @@ let stats = search.stats()
 
 **Check 3:** Reduce snippet length:
 ```parsley
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   watch: @./docs,
   snippetLength: 100  // Default is 200
 })
@@ -823,7 +828,7 @@ let stats = search.stats()
 
 **Solution:** Add watch paths:
 ```parsley
-let {search} = @SEARCH({
+let {search, error} = @SEARCH({
   path: "search.db",
   watch: @./docs  // Required for .reindex()
 })
@@ -837,20 +842,16 @@ let {search} = @SEARCH({
 
 **Solution:** Use default query processing (not raw):
 ```parsley
-let {request} = import @basil/http
-let urlQuery = request.query
-
 // Good: Auto-sanitized
-var results = search.query(urlQuery["q"])
+let safe = search.query((@params.q ?? ""))
 
 // Bad: Can break on special chars
-results = search.query(urlQuery["q"], {raw: true})
+let unsafe = search.query((@params.q ?? ""), {raw: true})
 ```
 
 **Or:** Validate user input:
 ```parsley
-let {request} = import @basil/http
-var query = request.query["q"] ?? ""
+var query = @params.q ?? ""
 if (query.length() > 100) {
   query = query.truncate(100)  // Limit length
 }
