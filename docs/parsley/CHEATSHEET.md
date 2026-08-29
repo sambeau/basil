@@ -1518,7 +1518,7 @@ dev.clearLogPage("/route")         // Clear log for route
 | `.collapse()` | Collapse whitespace | `"a  b   c".collapse()` → `"a b c"` |
 | `.normalizeSpace()` | Collapse and trim | `"  a  b  ".normalizeSpace()` → `"a b"` |
 | `.stripSpace()` | Remove all whitespace | `"a b c".stripSpace()` → `"abc"` |
-| `.split(delim)` | Split to array | `"a,b".split(",")` → `["a","b"]` |
+| `.split(delim)` | Split to array (string or regex) | `"a1b".split(/\d/)` → `["a","b"]` |
 | `.replace(old, new)` | Replace all occurrences | `"hi hi".replace("i", "o")` → `"ho ho"` |
 | `.includes(substr)` | Contains check | `"hello".includes("ell")` → `true` |
 | `.slug()` | URL-safe slug | `"Hello World!".slug()` → `"hello-world"` |

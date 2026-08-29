@@ -136,6 +136,17 @@ r.replace("hello WORLD", fn(m) { m.toUpper() })
 // "HELLO WORLD"
 ```
 
+### .split(str)
+
+Split a string on every match of the pattern:
+
+```parsley
+let sep = /\s*[,;]\s*/
+sep.split("Alice, Bob;  Carol")  // ["Alice", "Bob", "Carol"]
+```
+
+Splitting always uses every match, so the `g` flag makes no difference here.
+
 ### .format(style?)
 
 Format the regex for display:
@@ -164,9 +175,12 @@ Several string methods accept regex arguments:
 
 "abc123def".replace(/\d+/, "X")     // "abcXdef" (first match)
 "abc123def456".replace(/\d+/g, "X") // "abcXdefX" (g flag: all matches)
+
+"one   two \t three".split(/\s+/)   // ["one", "two", "three"]
+"a1b22c".split(/\d+/)               // ["a", "b", "c"]
 ```
 
-> ⚠️ `.split()` takes a string separator only — it does not accept a regex.
+Unlike `.replace()`, `.split()` always uses every match — the `g` flag makes no difference. Capture groups mark part of the separator and are not returned as elements: `"a1b2c".split(/(\d)/)` is `["a", "b", "c"]`.
 
 The `.replace()` string method also supports function replacement:
 
@@ -218,13 +232,14 @@ clean.replace("  too   many   spaces  ", " ")
 ## Key Differences from Other Languages
 
 - **`~` returns an array or null** — not a boolean. Use `!~` for a boolean "does not match" test, or check `!= null` for "does match" as a boolean.
-- **`g` flag controls global matching** — without it, `~` and `.replace()` operate on the first match only.
+- **`g` flag controls global matching** — without it, `~` and `.replace()` operate on the first match only. `.split()` is unaffected: it always splits on every match.
+- **Capture groups are dropped by `.split()`** — unlike JavaScript, the captured text is not interleaved into the result.
 - **No regex literal in arbitrary expression position** — regex literals must be assigned to a variable or used on the right side of `~` / `!~`. Use `regex()` for dynamic patterns.
 - **Go regex engine** — Parsley uses Go's `regexp` package (RE2 syntax). No backreferences, no lookahead/lookbehind.
 - **Named groups use `(?P<name>...)`** — the Go/Python syntax, not the JavaScript `(?<name>...)` syntax.
 
 ## See Also
 
-- [Strings](strings.md) — `.replace()` accepts a regex; use `~` for matching
+- [Strings](strings.md) — `.replace()` and `.split()` accept a regex; use `~` for matching
 - [Operators](../fundamentals/operators.md) — `~` and `!~` match operators
 - [Variables & Binding](../fundamentals/variables.md) — destructuring match results

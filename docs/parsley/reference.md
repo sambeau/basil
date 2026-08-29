@@ -1819,7 +1819,7 @@ let upper = name.toUpper()      // Assign to use the result
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
 | `.length()` | none | `integer` | Character count |
-| `.split(delim)` | `delim: string` | `array` | Split by delimiter |
+| `.split(delim)` | `delim: string \| regex` | `array` | Split by string or regex separator |
 | `.replace(old, new)` | `old, new: string` | `string` | Replace all occurrences |
 | `.includes(substr)` | `substr: string` | `boolean` | Check if contains substring |
 | `.digits()` | none | `string` | Extract only digits |
@@ -1883,6 +1883,7 @@ let upper = name.toUpper()      // Assign to use the result
 "  Hello, World!  ".trim()      // "Hello, World!"
 "hello world".toTitle()         // "Hello World"
 "hello world".split(" ")        // ["hello", "world"]
+"one   two three".split(/\s+/)  // ["one", "two", "three"] (regex separator)
 "hello".replace("l", "L")       // "heLLo"
 "<div>test</div>".htmlEncode()  // "&lt;div&gt;test&lt;/div&gt;"
 "abc123def456".digits()         // "123456"
@@ -5078,7 +5079,7 @@ try, check, stop, skip, true, false, null, and, or, not, as, via, is, computed, 
 | `toPascal()` | 0 | Convert to PascalCase |
 | `toSnake()` | 0 | Convert to snake_case |
 | `trim()` | 0 | Remove surrounding whitespace |
-| `split(delim)` | 1 | Split by delimiter |
+| `split(delim)` | 1 | Split by string or regex separator |
 | `replace(old, new)` | 2 | Replace all occurrences |
 | `length()` | 0 | Character count |
 | `includes(substr)` | 1 | Contains substring? |
