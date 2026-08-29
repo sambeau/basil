@@ -7,6 +7,7 @@
 package evaluator
 
 import (
+	"math"
 	"strings"
 	"time"
 
@@ -220,6 +221,38 @@ func formatNumberWithLocale(value float64, localeStr string) Object {
 	return &String{Value: p.Sprintf("%v", number.Decimal(value))}
 }
 
+// formatNumberWithPrecisionAndLocale formats a number with exactly the given
+// number of decimal places, in the given locale.
+//
+// The rounding is ours and the digits are the formatter's. This used to round
+// correctly and then hand the rounded value to formatNumberWithLocale, whose
+// number.Decimal caps fraction digits at three, and pad the truncated result
+// out to the requested width with zeros — so 3.14159.fmt(4) rounded to 3.1416,
+// printed "3.142", and padded to "3.1420". Every precision above 3 was wrong,
+// silently, and the padding made it look deliberate rather than truncated.
+// Asking the formatter for the width we want also gets the locale's decimal
+// separator and grouping for free: the old padding carried its own
+// three-locale table of separators and appended ASCII digits to a string it
+// had not really parsed, so 1234.56789.fmt({precision: 4, locale: "de-DE"})
+// came out "1.234,5680".
+func formatNumberWithPrecisionAndLocale(value float64, precision int, locale string) Object {
+	tag, err := language.Parse(locale)
+	if err != nil {
+		return newLocaleError(locale)
+	}
+
+	// Round half away from zero, which is what this function has always done
+	// and what a reader expects of 2.5.fmt(0); x/text rounds half to even.
+	multiplier := math.Pow(10, float64(precision))
+	rounded := math.Round(value*multiplier) / multiplier
+
+	p := message.NewPrinter(tag)
+	return &String{Value: p.Sprintf("%v", number.Decimal(rounded,
+		number.MinFractionDigits(precision),
+		number.MaxFractionDigits(precision),
+	))}
+}
+
 // formatCurrencyWithLocale formats a currency value with the given locale
 func formatCurrencyWithLocale(value float64, currencyCode string, localeStr string) Object {
 	cur, err := currency.ParseISO(currencyCode)
@@ -247,32 +280,45 @@ func formatPercentWithLocale(value float64, localeStr string) Object {
 	return &String{Value: p.Sprintf("%v", number.Percent(value))}
 }
 
-// formatDateWithStyleAndLocale formats a datetime dictionary with the given style and locale
-func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr string, env *Environment) Object {
-	// Build the time from the dictionary's own fields, the way every other
-	// datetime accessor does.
-	//
-	// This used to go via the unix timestamp — time.Unix(u, 0).UTC() — which
-	// re-derived the calendar fields in UTC and so printed a different day from
-	// the one the value reports. At 00:32 BST a value whose .day was 27, whose
-	// .weekday was "Thursday" and whose .iso was 2026-08-27T00:32:17+01:00
-	// formatted as "Wednesday, August 26, 2026". One hour a night in Britain,
-	// and up to thirteen hours a day in New Zealand (BUG-044).
-	//
-	// dictToTime reads the stored year/month/day/hour/minute/second, which ARE
-	// the value's wall clock. It labels them UTC, which does not matter here:
-	// formatting reads only those fields, never the zone.
-	var t time.Time
+// datetimeDictWallClock rebuilds the wall clock a datetime dictionary holds.
+//
+// It reads the dictionary's own fields, the way every other datetime accessor
+// does. This used to go via the unix timestamp — time.Unix(u, 0).UTC() — which
+// re-derived the calendar fields in UTC and so printed a different day from
+// the one the value reports. At 00:32 BST a value whose .day was 27, whose
+// .weekday was "Thursday" and whose .iso was 2026-08-27T00:32:17+01:00
+// formatted as "Wednesday, August 26, 2026". One hour a night in Britain, and
+// up to thirteen hours a day in New Zealand (BUG-044).
+//
+// dictToTime reads the stored year/month/day/hour/minute/second, which ARE the
+// value's wall clock. It labels them UTC, which does not matter to a caller
+// that formats: formatting reads only those fields, never the zone.
+func datetimeDictWallClock(dict *Dictionary, env *Environment) time.Time {
 	if built, err := dictToTime(dict, env); err == nil {
-		t = built
-	} else if unixExpr, ok := dict.Pairs["unix"]; ok {
+		return built
+	}
+	if unixExpr, ok := dict.Pairs["unix"]; ok {
 		// A dictionary without the calendar fields is not one this evaluator
 		// built. Local, not UTC: it is the better guess of the two.
 		unixObj := Eval(unixExpr, NewEnvironment())
 		if unixInt, ok := unixObj.(*Integer); ok {
-			t = time.Unix(unixInt.Value, 0).Local()
+			return time.Unix(unixInt.Value, 0).Local()
 		}
 	}
+	return time.Time{}
+}
+
+// formatDatePortionWithStyleAndLocale renders the date part of t alone, for the
+// given style and locale. Callers that want a date and only a date — a record
+// column declared `{format: "date"}`, say — use this directly.
+func formatDatePortionWithStyleAndLocale(t time.Time, style string, localeStr string) string {
+	mondayLocale := getMondayLocale(localeStr)
+	return monday.Format(t, getDateFormatForStyle(style, mondayLocale), mondayLocale)
+}
+
+// formatDateWithStyleAndLocale formats a datetime dictionary with the given style and locale
+func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr string, env *Environment) Object {
+	t := datetimeDictWallClock(dict, env)
 
 	// Validate style
 	validStyles := map[string]bool{"short": true, "medium": true, "long": true, "full": true}
@@ -280,7 +326,7 @@ func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr stri
 		return newValidationError("VAL-0002", map[string]any{"Style": style, "Context": "formatDate", "ValidOptions": "short, medium, long, full"})
 	}
 
-	// A time carries no date, so do not print one.
+	// Print what the value actually holds, and only that.
 	//
 	// This function had a single code path — date patterns — for all four
 	// kinds, which meant @timeNow, a time-only value, formatted as a bare
@@ -289,7 +335,7 @@ func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr stri
 	// a date too. datetimeDictToString has always switched on kind correctly;
 	// this is the same switch, for the styled renderer (BUG-045).
 	//
-	// 24-hour and locale-independent, matching the .time property and
+	// Times are 24-hour and locale-independent, matching the .time property and
 	// datetimeDictToString. Whether en-US should get "12:32 AM" is a separate
 	// question from whether a time should print as a date.
 	switch getDictString(dict, "kind", env) {
@@ -297,13 +343,36 @@ func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr stri
 		return &String{Value: t.Format("15:04")}
 	case "time_seconds":
 		return &String{Value: t.Format("15:04:05")}
+	case "date":
+		return &String{Value: formatDatePortionWithStyleAndLocale(t, style, localeStr)}
 	}
 
-	// Map locale string to monday.Locale
-	mondayLocale := getMondayLocale(localeStr)
-
-	// Get format pattern for style
-	format := getDateFormatForStyle(style, mondayLocale)
-
-	return &String{Value: monday.Format(t, format, mondayLocale)}
+	// A datetime, which BUG-045 left printing as a bare date: every style gave
+	// @2024-12-25T14:30:00 the same "Dec 25, 2024" as the date-only value, so
+	// there was no way to display a datetime's time through .fmt() at all, and
+	// a page showing an event time silently showed only its day. That was the
+	// open design question BUG-045 recorded; this settles it the way the rest
+	// of the file already leans — a renderer prints what the value holds.
+	//
+	// A datetime has one kind for three precisions, so the rule is the value's
+	// own content: print the time to the precision it carries, and not at all
+	// when it carries none. That mirrors the time/time_seconds split above and
+	// keeps the common case quiet — datetime("2025-06-15"), a DB date column
+	// and a JSON date all widen a date into a datetime at exact midnight, and
+	// hanging ", 00:00" off every one of them would put a meaningless clock on
+	// most pages. Nothing is lost either way: a value at midnight prints what a
+	// human would write for it, and a value carrying seconds keeps them.
+	//
+	// The connector is a comma in every locale and every style. English "at"
+	// reads better in long and full, but then every locale needs its own word,
+	// and a table of thirty guessed translations is worse than the comma that
+	// nearly all of them use for the shorter styles anyway.
+	formatted := formatDatePortionWithStyleAndLocale(t, style, localeStr)
+	switch {
+	case t.Second() != 0:
+		formatted += ", " + t.Format("15:04:05")
+	case t.Hour() != 0 || t.Minute() != 0:
+		formatted += ", " + t.Format("15:04")
+	}
+	return &String{Value: formatted}
 }
