@@ -24,7 +24,7 @@ That puts a Parsley page in the same league as PHP, Ruby, or Python.
 
 Four things keep the common case quick.
 
-**Code caching.** In production, Basil lexes and parses each `.pars` file once, keeps the syntax tree in memory, and reuses it for every request after that — and does the same for every file a page imports. Parsing is the expensive part of running a script, so skipping it matters. Dev mode spends a little of that back for freshness: an edit anywhere, including a component several imports down, shows up on the next request without a restart. See [Dev Tools](basil/dev-tools.html).
+**Code caching.** In production, Basil lexes and parses each `.pars` file once, keeps the syntax tree in memory, and reuses it for every request after that — and does the same for every file a page imports. Parsing is the expensive part of running a script, so skipping it matters. Dev mode trades a little of that speed for instant updates: an edit anywhere, including a component several imports deep, shows up on the next request without a restart. See [Dev Tools](basil/dev-tools.html).
 
 **Response caching.** Production mode can cache whole responses. Set a TTL and Basil serves the page from memory until it expires. Most pages on most sites can live with a cache of a minute or two. See [Deployment](basil/deployment.html).
 
@@ -38,7 +38,7 @@ Smaller things help too: HTTP/2 and gzip are on by default, and Basil caches ima
 
 Most web scripting languages talk to a database that lives somewhere else. PHP, Ruby, and Python send each query over a socket to Postgres or MySQL, wait, and read the reply back. Every query pays for that round trip, and usually for a connection pool and an ORM on top.
 
-Basil skips all of that. SQLite runs inside the Basil process, on a connection Basil opens at startup and keeps warm. A query is a function call. The rows come back as a Parsley Table, with no ORM in between.
+Basil can skip all of that. SQLite runs inside the Basil process, on a connection Basil opens at startup and keeps warm. A query is a function call. The rows come back as a Parsley Table, with no ORM in between.
 
 So small queries are cheap, and a page that runs ten costs little more than one that runs one. The "N+1 query" problem that hurts other stacks mostly disappears. You can write the obvious code — find the user, then their orders, then each order's items — and it will be fine.
 
@@ -56,7 +56,7 @@ Basil fits:
 
 Think first before using it for:
 
-- Very busy sites with thousands of uncached dynamic requests per second. Basil scales out behind a load balancer with a shared session secret, but at that point a compiled stack may serve you better.
+- Very busy sites with thousands of uncached dynamic requests per second. Basil scales out behind a load balancer with a shared session secret, but at that point a compiled language would probably be better.
 - Heavy computation inside a request. Parsley is a scripting language; long loops over large data run slower than in Go.
 - Workloads that need Postgres-scale concurrency. SQLite excels at reads and handles moderate writes, but it is one file on one disk. Basil connects to [Postgres or MySQL](manual/features/database.html) when you outgrow it — and then you pay the round trip like everyone else.
 
