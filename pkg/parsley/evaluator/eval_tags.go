@@ -941,22 +941,10 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		result.WriteString(key)
 		result.WriteString("=\"")
 
-		// Get string value and escape
+		// Write the attribute value, HTML-escaped (BUG-052 / #157: one helper,
+		// not a hand-rolled copy of it).
 		strVal := objectToTemplateString(value.(Object))
-		for _, c := range strVal {
-			switch c {
-			case '"':
-				result.WriteString("&quot;")
-			case '&':
-				result.WriteString("&amp;")
-			case '<':
-				result.WriteString("&lt;")
-			case '>':
-				result.WriteString("&gt;")
-			default:
-				result.WriteRune(c)
-			}
-		}
+		result.WriteString(escapeAttrValue(strVal))
 
 		result.WriteByte('"')
 	}
@@ -2079,24 +2067,10 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 								result.WriteString(s[:len(s)-1])
 							}
 						default:
-							// For strings and other values, quote them
+							// For strings and other values, quote them (HTML-escaped
+							// via the shared helper — see #157).
 							result.WriteByte('"')
-							strVal := objectToTemplateString(evaluated)
-							// Escape quotes in the value
-							for _, c := range strVal {
-								switch c {
-								case '"':
-									result.WriteString("&quot;")
-								case '&':
-									result.WriteString("&amp;")
-								case '<':
-									result.WriteString("&lt;")
-								case '>':
-									result.WriteString("&gt;")
-								default:
-									result.WriteRune(c)
-								}
-							}
+							result.WriteString(escapeAttrValue(objectToTemplateString(evaluated)))
 							result.WriteByte('"')
 						}
 					}
@@ -2187,22 +2161,10 @@ func evalStandardTag(node *ast.TagLiteral, tagName string, propsStr string, env 
 		result.WriteString(key)
 		result.WriteString("=\"")
 
-		// Get string value and escape
+		// Write the attribute value, HTML-escaped (BUG-052 / #157: one helper,
+		// not a hand-rolled copy of it).
 		strVal := objectToTemplateString(value.(Object))
-		for _, c := range strVal {
-			switch c {
-			case '"':
-				result.WriteString("&quot;")
-			case '&':
-				result.WriteString("&amp;")
-			case '<':
-				result.WriteString("&lt;")
-			case '>':
-				result.WriteString("&gt;")
-			default:
-				result.WriteRune(c)
-			}
-		}
+		result.WriteString(escapeAttrValue(strVal))
 
 		result.WriteByte('"')
 	}

@@ -516,7 +516,14 @@ func deriveHTMLInputType(schemaType string) string {
 	}
 }
 
-// escapeAttrValue escapes a string for use in an HTML attribute value.
+// escapeAttrValue escapes a string for use in a **double-quoted** HTML
+// attribute value (& < > "). It is the single home for that escaping — every
+// tag attribute path routes through it (#157); do not hand-roll the loop again.
+//
+// It deliberately does NOT escape ', so it is unsafe for single-quoted
+// attributes. Two sibling helpers cover the other contexts, and merging them
+// would be wrong: escapeHTMLText (& < >) is for text content, and htmlEscape
+// (& < > " ') is for markdown output and Parts' single-quoted data-part-* attrs.
 func escapeAttrValue(s string) string {
 	var result strings.Builder
 	for _, c := range s {
