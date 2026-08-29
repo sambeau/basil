@@ -4,7 +4,7 @@ title: Get Started
 
 # Get started
 
-Ten minutes, one small binary, and a working website at the end. Let's go.
+Ten minutes, one install, and a working website at the end. Let's go.
 
 ## 1. Install
 
