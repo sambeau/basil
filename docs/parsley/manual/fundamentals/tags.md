@@ -370,14 +370,14 @@ See [Database](../features/database.md) for complete database documentation.
 
 ### Cache <small>(Basil only)</small>
 
-The `<basil.cache.Cache>` tag caches rendered fragments by key. Requires the Basil server — in standalone `pars`, the tag still renders its content but caching is a no-op.
+The `<Cache>` tag caches rendered fragments by key. Requires the Basil server — in standalone `pars`, the tag still renders its content but caching is a no-op.
 
 ```parsley
-<basil.cache.Cache key="sidebar" maxAge={@5m}>
+<Cache key="sidebar" maxAge={@5m}>
     <nav>
         // ... expensive rendering ...
     </nav>
-</basil.cache.Cache>
+</Cache>
 ```
 
 | Attribute | Type | Description |
@@ -385,6 +385,10 @@ The `<basil.cache.Cache>` tag caches rendered fragments by key. Requires the Bas
 | `key` | string | Cache key (required) |
 | `maxAge` | duration | TTL as a duration literal, e.g. `{@5m}` (required) |
 | `enabled` | boolean | Enable/disable caching (default: `true`) |
+
+Like `<Part>`, `<Cache>` is built in — no import needed — and the name is
+reserved: a component of your own called `Cache` won't be picked up. The older
+spelling `<basil.cache.Cache>` still works but is deprecated.
 
 ### Part <small>(Basil only)</small>
 

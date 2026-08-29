@@ -724,13 +724,13 @@ type Environment struct {
 	DevLog           DevLogWriter    // Dev log writer (nil in production mode)
 	BasilCtx         Object          // Basil server context (request, db, auth, etc.)
 	ServerDB         *DBConnection   // Server-level database connection (set at startup, available to modules)
-	FragmentCache    FragmentCacher  // Fragment cache for <basil.cache.Cache> (nil if not available)
+	FragmentCache    FragmentCacher  // Fragment cache for <Cache> (nil if not available)
 	AssetRegistry    AssetRegistrar  // Asset registry for publicUrl() (nil if not available)
 	ImageRegistry    ImageRegistrar  // Image registry for image() and imageInfo() (nil if not available)
 	AssetBundle      AssetBundler    // Asset bundle for <Css/> and <Script/> tags (nil if not available)
 	BasilJSURL       string          // URL for basil.js prelude script (for <BasilJS/> tag)
 	HandlerPath      string          // Current handler path for cache key namespacing
-	NoCache          bool            // Do not serve <basil.cache.Cache> fragments from cache. A rendered fragment cannot be checked against anything, so in dev it is simply not cached.
+	NoCache          bool            // Do not serve <Cache> fragments from cache. A rendered fragment cannot be checked against anything, so in dev it is simply not cached.
 	TrustModuleCache bool            // Serve cached modules without checking they are still current (see module_cache.go). Set only where the source files cannot change under the running evaluation - a production release, or dev.cache. The zero value revalidates, so an entry point that never heard of this field is correct and merely pays a stat per import; the reverse default is what BUG-048 was.
 	moduleDeps       *moduleDepSet   // Files imported while evaluating the enclosing module, collected so it can record what it was built from. nil outside a module.
 	ContainsParts    bool            // Whether the response contains <Part/> components (for JS injection)

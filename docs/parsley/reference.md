@@ -4534,21 +4534,22 @@ Pre-built HTML components. **Requires Basil server context**—not available in 
 | `DataTable` | Data table with sorting/pagination |
 
 ```parsley
-// In a Basil template
-let html = import @basil/html
+// In a Basil template — destructure the components you use;
+// a dotted tag name like <html.Page> will not resolve
+let {Page, Head, Form, TextField, TextareaField, Button} = import @basil/html
 
-<html.Page title="My App">
-    <html.Head>
+<Page title="My App">
+    <Head>
         <link rel="stylesheet" href="/styles.css"/>
-    </html.Head>
+    </Head>
     <main>
-        <html.Form action="/submit" method="post">
-            <html.TextField name="email" label="Email" type="email" required=true/>
-            <html.TextareaField name="message" label="Message"/>
-            <html.Button type="submit">"Send"</html.Button>
-        </html.Form>
+        <Form action="/submit" method="post">
+            <TextField name="email" label="Email" type="email" required=true/>
+            <TextareaField name="message" label="Message"/>
+            <Button type="submit">"Send"</Button>
+        </Form>
     </main>
-</html.Page>
+</Page>
 ```
 
 > **Note:** See the Basil HTML Components documentation for detailed component props and usage.

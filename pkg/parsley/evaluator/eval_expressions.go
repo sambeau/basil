@@ -405,7 +405,7 @@ func importModule(pathStr string, env *Environment) Object {
 	// Copy security policy from parent environment
 	moduleEnv.Security = env.Security
 	// Carry the caching decisions into the module. Without this a module's own
-	// imports, and any <basil.cache.Cache> at module scope, cache in dev mode
+	// imports, and any <Cache> at module scope, cache in dev mode
 	// however the request was configured.
 	moduleEnv.NoCache = env.NoCache
 	moduleEnv.TrustModuleCache = env.TrustModuleCache

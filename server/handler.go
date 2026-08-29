@@ -340,7 +340,7 @@ func (h *parsleyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		env.ServerDB = evaluator.NewManagedDBConnection(h.server.db, h.server.dbDriver)
 	}
 
-	// Set fragment cache and handler path for <basil.cache.Cache> component.
+	// Set fragment cache and handler path for <Cache> component.
 	// The generation-pinned view keeps old-release writes invisible to the
 	// new release across a swap.
 	env.FragmentCache = h.fragments
@@ -544,7 +544,7 @@ func buildBasilContext(r *http.Request, route config.Route, reqCtx map[string]an
 		basilDict.Pairs["session"] = &ast.ObjectLiteralExpression{Obj: sessionModule}
 	}
 
-	// Note: Fragment caching (FEAT-037) uses <basil.cache.Cache> tag which accesses
+	// Note: Fragment caching (FEAT-037) uses the <Cache> tag which accesses
 	// the cache via env.FragmentCache. The basil.cache.invalidate() function
 	// will be added in a future task.
 

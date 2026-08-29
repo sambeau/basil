@@ -44,6 +44,18 @@ func evalTagLiteral(node *ast.TagLiteral, env *Environment) Object {
 		return evalPartTag(node.Token, rest, env)
 	}
 
+	// A self-closing Cache has nothing to cache
+	if tagName == "Cache" || tagName == "basil.cache.Cache" {
+		return &Error{
+			Class:   ClassValue,
+			Code:    "CACHE-0006",
+			Message: "Cache component requires children to cache",
+			Hints:   []string{"Wrap the content to cache: <Cache key=\"sidebar\" maxAge={@5m}>...</Cache>"},
+			Line:    node.Token.Line,
+			Column:  node.Token.Column,
+		}
+	}
+
 	// Check if it's a custom tag (starts with uppercase letter, including Unicode)
 	firstRune, _ := utf8.DecodeRuneInString(tagName)
 	isCustom := len(tagName) > 0 && unicode.IsUpper(firstRune)
@@ -64,8 +76,9 @@ func evalTagPair(node *ast.TagPairExpression, env *Environment) Object {
 		return evalTagContents(node.Contents, env)
 	}
 
-	// Special handling for basil.cache.Cache component
-	if node.Name == "basil.cache.Cache" {
+	// Special handling for the Cache component. <basil.cache.Cache> is the
+	// deprecated spelling from before FEAT-039 and still accepted.
+	if node.Name == "Cache" || node.Name == "basil.cache.Cache" {
 		return evalCacheTag(node, env)
 	}
 
@@ -82,7 +95,7 @@ func evalTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	}
 }
 
-// evalCacheTag handles the <basil.cache.Cache> component for fragment caching.
+// evalCacheTag handles the <Cache> component for fragment caching.
 // It short-circuits child evaluation on cache hit, or caches the result on miss.
 func evalCacheTag(node *ast.TagPairExpression, env *Environment) Object {
 	// Parse props to get key and maxAge
@@ -100,7 +113,7 @@ func evalCacheTag(node *ast.TagPairExpression, env *Environment) Object {
 			Class:   ClassValue,
 			Code:    "CACHE-0001",
 			Message: "Cache component requires 'key' attribute",
-			Hints:   []string{"Add a key attribute: <basil.cache.Cache key=\"sidebar\">"},
+			Hints:   []string{"Add a key attribute: <Cache key=\"sidebar\">"},
 			Line:    node.Token.Line,
 			Column:  node.Token.Column,
 		}
@@ -128,7 +141,7 @@ func evalCacheTag(node *ast.TagPairExpression, env *Environment) Object {
 			Class:   ClassValue,
 			Code:    "CACHE-0003",
 			Message: "Cache component requires 'maxAge' attribute",
-			Hints:   []string{"Add a duration: <basil.cache.Cache key=\"sidebar\" maxAge={@1h}>"},
+			Hints:   []string{"Add a duration: <Cache key=\"sidebar\" maxAge={@1h}>"},
 			Line:    node.Token.Line,
 			Column:  node.Token.Column,
 		}

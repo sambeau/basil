@@ -241,7 +241,7 @@ next request — whether it is the page you are looking at or a component five
 imports down. No file-watcher event is needed for this; the watcher only
 reloads your browser.
 
-Rendered responses and `<basil.cache.Cache>` fragments are simply not cached in
+Rendered responses and `<Cache>` fragments are simply not cached in
 dev, since a rendered fragment cannot be checked against anything. Imported
 modules *are* still cached — importing is expensive and a page is mostly
 components — but each cached module records the modification time and size of

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// fragmentCache stores rendered HTML fragments for the <basil.cache.Cache> component.
+// fragmentCache stores rendered HTML fragments for the <Cache> component.
 // It uses an in-memory LRU cache with time-based expiration.
 //
 // Keys are user-chosen strings, so releases would collide across a swap; the
