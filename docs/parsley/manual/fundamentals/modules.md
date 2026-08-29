@@ -122,8 +122,9 @@ Block form for multi-line computations:
 
 ```parsley
 export computed activeUsers {
-    let query = "SELECT * FROM users WHERE active = true"
-    @DB.query(query)
+    let db = @sqlite("./app.sqlite")
+    let rows = db <=??=> "SELECT * FROM users WHERE active = true"
+    rows
 }
 ```
 

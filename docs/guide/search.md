@@ -398,8 +398,8 @@ search = @SEARCH({
 })
 
 // Manually index database posts
-db = @DB(@./app.db)
-posts = db.query("SELECT * FROM posts WHERE published = 1")
+let db = @sqlite("./app.db")
+let posts = db <=??=> "SELECT * FROM posts WHERE published = 1"
 
 for (post in posts) {
   search.add({
@@ -439,8 +439,8 @@ productSearch = @SEARCH({
   path: "products.db"
 })
 
-db = @DB(@./app.db)
-products = db.query("SELECT * FROM products WHERE active = 1")
+let db = @sqlite("./app.db")
+let products = db <=??=> "SELECT * FROM products WHERE active = 1"
 for (product in products) {
   productSearch.add({
     url: "/products/" + product.id,

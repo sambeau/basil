@@ -1165,7 +1165,9 @@ export Logo = <img src="logo.png" alt="Logo"/>
 // Computed exports (recalculate on each access)
 export computed timestamp = @now
 export computed users {
-    @DB.query("SELECT * FROM users")
+    let db = @sqlite("./app.sqlite")
+    let rows = db <=??=> "SELECT * FROM users"
+    rows
 }
 
 // Import with destructuring (recommended)
@@ -1184,7 +1186,8 @@ M.floor(3.7)
 #### ⚠️ Computed Export Pitfall
 ```parsley
 // Computed exports ALWAYS recalculate
-export computed users = @DB.query("SELECT * FROM users")
+let db = @sqlite("./app.sqlite")
+export computed users = db <=??=> "SELECT * FROM users"
 
 // BAD: This queries the database twice!
 for (user in users) { user.name }

@@ -207,8 +207,9 @@ export computed count = items.length()
 
 ```parsley
 export computed activeUsers {
-    let query = "SELECT * FROM users WHERE active = true"
-    @DB.query(query)
+    let db = @sqlite("./app.sqlite")
+    let rows = db <=??=> "SELECT * FROM users WHERE active = true"
+    rows
 }
 ```
 

@@ -71,22 +71,24 @@ Records behave like dictionaries — you access fields with dot notation — but
 ```parsley
 user.name                        // "Alice"
 user.role                        // "user" (default applied)
-user.errors()                    // {} (no errors)
-user.valid()                     // true
+
+let checked = user.validate()
+checked.isValid()                // true
+checked.errors()                 // {} (no errors)
 ```
 
-Invalid data is accepted but tracked:
+Invalid data is accepted but tracked — call `.validate()` to run the schema checks:
 
 ```parsley
-let bad = User({name: "", email: "not-an-email"})
-bad.valid()                      // false
-bad.errors()                     // {name: "...", email: "..."}
+let bad = User({name: "", email: "not-an-email"}).validate()
+bad.isValid()                    // false
+bad.errors()                     // {name: {...}, email: {...}}
 ```
 
 Records are **immutable** — updating returns a new record:
 
 ```parsley
-let updated = user.set("name", "Bob")
+let updated = user.update({name: "Bob"})
 updated.name                     // "Bob"
 user.name                        // "Alice" (unchanged)
 ```
@@ -120,8 +122,9 @@ let t = @table [
 // From CSV
 let sales <== CSV(@./sales.csv)
 
-// From a database query
-let users <== @DB.query("SELECT * FROM users")
+// From a database query (query-many returns a table)
+let db = @sqlite("./myapp.sqlite")
+let users = db <=??=> "SELECT * FROM users"
 ```
 
 Tables provide SQL-like query methods that return new tables (immutable chaining):
@@ -138,7 +141,9 @@ let result = t
 When a table has a schema, rows are Records instead of plain dictionaries:
 
 ```parsley
-let users = User.table()         // table bound to User schema
+let users = @table(User) [
+    {name: "Alice", email: "alice@example.com"}
+]
 let row = users[0]               // a Record, not a dictionary
 row is User                      // true
 ```
@@ -159,19 +164,20 @@ This is a schema identity check, not a structural/duck-typing check. A plain dic
 
 ## Table Bindings
 
-A table binding connects a schema to a database, enabling CRUD operations:
+A table binding connects a schema to a database table, enabling CRUD operations. Create one with `db.bind()`:
 
 ```parsley
-let users = User.table()         // in-memory table
-let dbUsers = @DB.table(User)    // database-backed table
+let db = @sqlite("./myapp.sqlite")
+db.createTable(User, "users")        // create the table from the schema
+let users = db.bind(User, "users")   // bind the schema to the table
 ```
 
-Database-backed tables support:
+Table bindings support:
 
-- **Insert** — `record ==> dbUsers`
-- **Query** — `dbUsers.where(...)`, `dbUsers.find(id)`
-- **Update** — `updatedRecord ==> dbUsers`
-- **Delete** — `dbUsers.delete(id)`
+- **Insert** — `users.insert(record)`
+- **Query** — `users.all()`, `users.where({status: "active"})`, `users.find(id)`, `users.first()`
+- **Update** — `users.update(record)`, or `users.save(record)` for upsert
+- **Delete** — `users.delete(record)`
 
 Records from database tables are auto-validated against their schema.
 
@@ -180,11 +186,12 @@ Records from database tables are auto-validated against their schema.
 A typical data flow in a Basil web application:
 
 1. **Define** a schema: `@schema User { ... }`
-2. **Create** a record from form input: `let user = User(formData)`
-3. **Validate**: `user.valid()` — check before saving
-4. **Persist**: `user ==> @DB.table(User)` — write to database
-5. **Query**: `let users <== @DB.table(User).where(...)` — read back
-6. **Render**: `<form @record={user}>` — bind to HTML form
+2. **Create** a record from form input: `let user = User(formData).validate()`
+3. **Validate**: `user.isValid()` — check before saving
+4. **Bind**: `let Users = @DB.bind(User, "users")` — connect the schema to a table
+5. **Persist**: `Users.insert(user)` — write to database
+6. **Query**: `let active = Users.where({status: "active"})` — read back
+7. **Render**: `<form @record={user}>` — bind to HTML form
 
 Each step uses the schema as the single source of truth for field names, types, constraints, and UI metadata.
 

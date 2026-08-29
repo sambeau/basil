@@ -326,13 +326,13 @@ let users = db.bind(User, "users", {soft_delete: "deleted_at"})
 | Method | Returns | Description |
 |---|---|---|
 | `.all()` | Table | All rows |
-| `.where(cond)` | TableBinding | Filter (chainable) |
+| `.where(cond)` | Table | Rows matching the condition dictionary |
 | `.find(id)` | Record or null | Find by primary key |
 | `.first()` | Record or null | First matching row |
 
 ```parsley
 let allUsers = users.all()
-let active = users.where({status: "active"}).all()
+let active = users.where({status: "active"})
 let user = users.find("abc-123")
 ```
 
