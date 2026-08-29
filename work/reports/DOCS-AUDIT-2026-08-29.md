@@ -18,11 +18,13 @@ should revert once the code is fixed).
    keys of whichever elements had moved into those slots. Keys now travel with their elements
    through `sort.SliceStable`. reference.md's `.sortBy` row described the intended behaviour and
    needed no change. Regression tests: `TestSortByKeyOrdering` in `pkg/parsley/tests/sort_test.go`.
-2. **Dict rest-destructuring loses key order.** `let {id, ...rest} = {id:1, name:"A", active:true}`
-   gives `rest.keys()` → `["active","name"]` (sorted), contradicting the documented
-   "Ordered key-value pairs" contract. `pkg/parsley/evaluator/eval_expressions.go` ~line 1050
-   builds the rest dict without an ordered key slice. dictionary.md:301 and variables.md:146
-   left claiming insertion order (the intent).
+2. ~~**Dict rest-destructuring loses key order.**~~ **FIXED.** `let {id, ...rest} = {id:1, name:"A", active:true}`
+   gave `rest.keys()` → `["active","name"]` (sorted), contradicting the documented
+   "Ordered key-value pairs" contract. `evalDictDestructuringAssignment` in
+   `pkg/parsley/evaluator/eval_expressions.go` built the rest dict from a bare map with no
+   `KeyOrder`; it now carries the source's order minus the extracted keys. dictionary.md:301
+   and variables.md:146 were already claiming the intent and now run true.
+>>>>>>> 3efe1bb (fix(parsley): keep insertion order in dictionary rest-destructuring)
 3. **`.fmt(n)` caps at 3 decimal places.** `3.14159.fmt(4)` → `"3.1420"` (rounds at 3, pads
    with zeros). `pkg/parsley/evaluator/methods_numeric.go:417` routes the rounded value
    through a formatter whose `number.Decimal` caps fraction digits at 3. numbers.md:71 left

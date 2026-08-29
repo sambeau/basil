@@ -100,6 +100,26 @@ func TestDictDestructuringWithRest(t *testing.T) {
 			input:    `let {a, b, ...rest} = {a: 1, b: 2}; rest`,
 			expected: "{}",
 		},
+		{
+			name:     "rest keeps source insertion order",
+			input:    `let {id, ...rest} = {id: 1, name: "Alice", active: true}; rest`,
+			expected: `{name: Alice, active: true}`,
+		},
+		{
+			name:     "rest keys() keeps source insertion order",
+			input:    `let {id, ...rest} = {id: 1, name: "Alice", active: true}; rest.keys()`,
+			expected: `[name, active]`,
+		},
+		{
+			name:     "rest order survives extraction from the middle",
+			input:    `let {b, ...rest} = {c: 1, b: 2, a: 3}; rest.keys()`,
+			expected: `[c, a]`,
+		},
+		{
+			name:     "rest order after an aliased extraction",
+			input:    `let {city, ...rest} = {name: "Bob", age: 25, city: "NYC"}; rest`,
+			expected: `{name: Bob, age: 25}`,
+		},
 	}
 
 	for _, tt := range tests {
