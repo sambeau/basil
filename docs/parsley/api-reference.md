@@ -19,24 +19,40 @@
 | Method | Description |
 |--------|-------------|
 | `.filter(arg)` | Filter by predicate |
-| `.format(arg1?, arg2?)` | Format as list (and/or/unit, locale) |
+| `.fmt(arg1?, arg2?)` | Format as list (and/or/unit, locale) |
+| `.format(arg1?, arg2?)` | Format as list (and/or/unit, locale) (alias for fmt) |
+| `.has(arg)` | Check if element exists |
+| `.hasAll(arg)` | Check if all elements from array exist |
+| `.hasAny(arg)` | Check if any element from array exists |
 | `.insert(arg1, arg2)` | Insert at index |
 | `.join(arg?)` | Join elements into string |
 | `.length()` | Get element count |
 | `.map(arg)` | Transform each element |
 | `.pick(arg?)` | Pick random element(s) |
 | `.reduce(arg1, arg2)` | Reduce to single value with accumulator function |
+| `.reorder(arg, ...)` | Reorder/rename keys in each dictionary element |
+| `.repr()` | Get representation string |
 | `.reverse()` | Reverse order |
 | `.shuffle()` | Randomly shuffle elements |
-| `.sort()` | Sort elements |
+| `.sort(arg?)` | Sort elements |
 | `.sortBy(arg)` | Sort by key function |
 | `.take(arg)` | Take n unique random elements |
+| `.toBox(...)` | Render as box diagram |
 | `.toCSV(arg?)` | Convert to CSV string |
+| `.toHTML(...)` | Convert to HTML |
 | `.toJSON()` | Convert to JSON string |
+| `.toMarkdown(...)` | Convert to Markdown |
 
 ### Boolean
 
-*No properties or methods.*
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `.inspect()` | Get debug dictionary |
+| `.repr()` | Get representation string |
+| `.toBox()` | Render as box diagram |
+| `.toJSON()` | Convert to JSON string |
 
 ### Datetime
 
@@ -65,9 +81,18 @@
 | Method | Description |
 |--------|-------------|
 | `.dayOfYear()` | Day of year (1-366) |
-| `.format(arg1?, arg2?)` | Format with style and locale |
+| `.fmt(arg1?, arg2?)` | Format with style and/or locale |
+| `.format(arg1?, arg2?)` | Format with style and/or locale (alias for fmt) |
+| `.full(arg?)` | Maximum context date format |
+| `.inspect()` | Return full dictionary including __type for debugging |
+| `.long(arg?)` | Verbose date format |
+| `.medium(arg?)` | Standard date format |
+| `.repr()` | Get PLN literal representation |
+| `.short(arg?)` | Compact date format |
 | `.timestamp()` | Unix timestamp |
-| `.toDict()` | Convert to dictionary |
+| `.toBox(...)` | Render as box diagram |
+| `.toDict()` | Convert to plain dictionary (without __type marker) |
+| `.toJSON()` | Convert to ISO 8601 JSON string |
 | `.week()` | ISO week number |
 
 ### Dbconnection
@@ -76,11 +101,14 @@
 
 | Method | Description |
 |--------|-------------|
-| `.begin()` | Begin transaction |
-| `.close()` | Close connection |
-| `.commit()` | Commit transaction |
-| `.ping()` | Test connection |
-| `.rollback()` | Rollback transaction |
+| `.begin()` | Begin a transaction |
+| `.bind(arg1, arg2, arg3?)` | Bind a schema to a table (schema, tableName, options?) |
+| `.close()` | Close the database connection |
+| `.commit()` | Commit the current transaction |
+| `.createTable(arg1, arg2?)` | Create a table from a schema (schema, tableName?) |
+| `.lastInsertId()` | Get the last inserted row ID (SQLite only) |
+| `.ping()` | Test the database connection |
+| `.rollback()` | Rollback the current transaction |
 
 ### Dev
 
@@ -89,10 +117,10 @@
 | Method | Description |
 |--------|-------------|
 | `.clearLog()` | Clear dev log |
-| `.clearLogPage()` | Clear page log |
+| `.clearLogPage(arg)` | Clear page log for a route |
 | `.log(arg1, arg2?, arg3?)` | Log value to dev panel |
-| `.logPage(arg?)` | Log page content |
-| `.setLogRoute(arg)` | Set log route pattern |
+| `.logPage(...)` | Log value for a specific route |
+| `.setLogRoute(arg)` | Set default log route |
 
 ### Dictionary
 
@@ -100,14 +128,20 @@
 
 | Method | Description |
 |--------|-------------|
+| `.as(arg)` | Cast to record using schema |
 | `.delete(arg)` | Remove key |
-| `.entries()` | Get [key, value] pairs |
+| `.entries(...)` | Get entries as array of {key, value} dicts (keyName?, valueName?) |
 | `.has(arg)` | Check if key exists |
-| `.insertAfter(arg1, arg2)` | Insert after key |
-| `.insertBefore(arg1, arg2)` | Insert before key |
+| `.insertAfter(arg1, arg2, arg3)` | Insert key-value pair after existing key |
+| `.insertBefore(arg1, arg2, arg3)` | Insert key-value pair before existing key |
 | `.keys()` | Get all keys |
-| `.render(arg?)` | Render template with values |
+| `.render(arg)` | Render template string with dictionary values |
+| `.reorder(arg, ...)` | Reorder and optionally rename keys |
+| `.repr()` | Get representation string |
+| `.toBox(...)` | Render as box diagram |
+| `.toHTML(...)` | Convert to HTML |
 | `.toJSON()` | Convert to JSON string |
+| `.toMarkdown(...)` | Convert to Markdown |
 | `.values()` | Get all values |
 
 ### Dir
@@ -119,15 +153,14 @@
 | `.exists` | boolean | Whether directory exists |
 | `.path` | path | Directory path |
 
-### Directory
-
 #### Methods
 
 | Method | Description |
 |--------|-------------|
-| `.exists()` | Check if directory exists |
-| `.list()` | List directory contents |
-| `.toDict()` | Convert to dictionary |
+| `.inspect()` | Return full dictionary including __type for debugging |
+| `.mkdir(arg?)` | Create directory |
+| `.rmdir(arg?)` | Remove directory |
+| `.toDict()` | Convert to plain dictionary (without __type marker) |
 
 ### Duration
 
@@ -146,8 +179,17 @@
 
 | Method | Description |
 |--------|-------------|
-| `.format(arg?)` | Format as relative time |
-| `.toDict()` | Convert to dictionary |
+| `.fmt(arg1?, arg2?)` | Format with style and/or locale |
+| `.format(arg1?, arg2?)` | Format with style and/or locale (alias for fmt) |
+| `.full()` | Not supported for duration (returns error) |
+| `.inspect()` | Return full dictionary including __type for debugging |
+| `.long(arg?)` | Verbose duration format (2 hours 30 minutes) |
+| `.medium(arg?)` | Standard duration format (2 hours) |
+| `.repr()` | Get PLN literal representation |
+| `.short(arg?)` | Compact duration format (2h) |
+| `.toBox(...)` | Render as box diagram |
+| `.toDict()` | Convert to plain dictionary (without __type marker) |
+| `.toJSON()` | Convert to JSON object with components |
 
 ### File
 
@@ -164,10 +206,11 @@
 
 | Method | Description |
 |--------|-------------|
-| `.exists()` | Check if file exists |
-| `.read()` | Read file contents |
-| `.stat()` | Get file metadata |
-| `.toDict()` | Convert to dictionary |
+| `.inspect()` | Return full dictionary including __type for debugging |
+| `.mkdir(arg?)` | Create directory at this path |
+| `.remove()` | Delete the file from filesystem |
+| `.rmdir(arg?)` | Remove directory at this path |
+| `.toDict()` | Convert to plain dictionary (without __type marker) |
 
 ### Float
 
@@ -192,10 +235,6 @@
 | `.toBox()` | Render as box diagram |
 | `.toJSON()` | Convert to JSON string |
 
-### Function
-
-*No properties or methods.*
-
 ### Integer
 
 #### Methods
@@ -215,6 +254,29 @@
 | `.short(arg?)` | Compact format (1K, 1M) |
 | `.toBox()` | Render as box diagram |
 | `.toJSON()` | Convert to JSON string |
+
+### Markdown
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `.ast()` | Get the raw AST dictionary |
+| `.codeBlocks(arg?)` | Get all code blocks (language?) |
+| `.filter(arg)` | Filter nodes by predicate fn |
+| `.findAll(arg)` | Find all nodes of a given type (type or [types]) |
+| `.findFirst(arg)` | Find the first node of a given type |
+| `.headings(arg?)` | Get all headings (level?) |
+| `.images()` | Get all images |
+| `.links()` | Get all links |
+| `.map(arg)` | Transform nodes with fn |
+| `.text()` | Get plain text content |
+| `.title()` | Get the document title (first h1) |
+| `.toHTML()` | Render the document to HTML |
+| `.toMarkdown()` | Render the document back to markdown |
+| `.toc(arg?)` | Get table of contents (maxDepth?) |
+| `.walk(arg)` | Walk the AST calling fn for each node |
+| `.wordCount()` | Get word count |
 
 ### Money
 
@@ -247,7 +309,14 @@
 
 ### Null
 
-*No properties or methods.*
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `.inspect()` | Get debug dictionary |
+| `.repr()` | Get representation string |
+| `.toBox()` | Render as box diagram |
+| `.toJSON()` | Convert to JSON string |
 
 ### Path
 
@@ -265,15 +334,43 @@
 
 | Method | Description |
 |--------|-------------|
+| `.inspect()` | Return full dictionary including __type for debugging |
 | `.isAbsolute()` | Check if absolute path |
 | `.isRelative()` | Check if relative path |
-| `.join(arg, ...)` | Join path components |
-| `.match(arg)` | Match against pattern |
-| `.parent()` | Get parent directory |
-| `.public()` | Get public URL |
-| `.toDict()` | Convert to dictionary |
-| `.toString()` | Convert to string |
-| `.toURL(arg)` | Convert to URL with prefix |
+| `.match(arg)` | Match against pattern, returns captures |
+| `.public()` | Get public URL for this path |
+| `.repr()` | Get PLN literal representation |
+| `.toBox(...)` | Render as box diagram |
+| `.toDict()` | Convert to plain dictionary (without __type marker) |
+| `.toJSON()` | Convert to JSON string |
+| `.toURL(arg)` | Convert to URL string with prefix |
+
+### Record
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `.data()` | Get all record data as a dictionary |
+| `.enumValues(arg)` | Get enum options for a field |
+| `.error(arg)` | Get error message for a field |
+| `.errorCode(arg)` | Get error code for a field |
+| `.errorList()` | Get all errors as an array |
+| `.errors(arg?)` | Get validation errors (field?) |
+| `.failIfInvalid(arg?)` | Fail with an error if the record is invalid (message?) |
+| `.fieldProps(arg1, arg2?)` | Get form field props for a field (field, overrides?) |
+| `.format(arg1, arg2?)` | Format a field value (field, options?) |
+| `.hasError(arg)` | Check if a field has an error |
+| `.isValid()` | Check if the record is valid |
+| `.keys()` | Get all field names as an array |
+| `.meta(arg1, arg2)` | Get metadata value for a field (field, key) |
+| `.placeholder(arg)` | Get placeholder text for a field |
+| `.schema()` | Get the record's schema |
+| `.title(arg)` | Get display title for a field |
+| `.toJSON()` | Serialize record data to a JSON string |
+| `.update(arg)` | Merge fields and revalidate (dict) |
+| `.validate()` | Validate the record against its schema |
+| `.withError(arg1, arg2?, arg3?)` | Return a copy of the record with an added error (field, message?, code?) |
 
 ### Regex
 
@@ -288,12 +385,54 @@
 
 | Method | Description |
 |--------|-------------|
-| `.match(arg)` | Find first match |
-| `.matchAll(arg)` | Find all matches |
-| `.replace(arg1, arg2)` | Replace matches |
-| `.split(arg)` | Split string by pattern |
-| `.test(arg)` | Test if string matches |
-| `.toDict()` | Convert to dictionary |
+| `.format(arg?)` | Format as string (pattern, literal, verbose) |
+| `.inspect()` | Return full dictionary including __type for debugging |
+| `.replace(arg1, arg2)` | Replace matches in string |
+| `.split(arg)` | Split string on matches |
+| `.test(arg)` | Test if string matches pattern |
+| `.toBox(...)` | Render as box diagram |
+| `.toDict()` | Convert to plain dictionary (without __type marker) |
+| `.toJSON()` | Convert to JSON object with pattern and flags |
+
+### Request
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `.toDict()` | Convert to raw dictionary for debugging |
+
+### Response
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `.data()` | Get __data value |
+| `.format()` | Get format string (json, text, etc.) |
+| `.response()` | Get __response metadata dictionary |
+| `.toDict()` | Convert to raw dictionary for debugging |
+
+### Schema
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `.enumValues(arg)` | Get enum options for a field |
+| `.fields()` | Get all field names as an array |
+| `.meta(arg1, arg2)` | Get metadata value for a field (field, key) |
+| `.placeholder(arg)` | Get placeholder text for a field |
+| `.title(arg)` | Get display title for a field |
+| `.visibleFields()` | Get non-auto field names as an array |
+
+### Schemadict
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `.validate(arg)` | Validate a value against the schema |
 
 ### Session
 
@@ -301,7 +440,7 @@
 
 | Method | Description |
 |--------|-------------|
-| `.all()` | Get all session data |
+| `.all()` | Get all session data as dictionary |
 | `.clear()` | Clear all session data |
 | `.delete(arg)` | Delete session key |
 | `.flash(arg1, arg2)` | Set flash message (key, value) |
@@ -309,7 +448,7 @@
 | `.getAllFlash()` | Get all flash messages |
 | `.getFlash(arg)` | Get and clear flash message |
 | `.has(arg)` | Check if key exists |
-| `.hasFlash()` | Check if flash messages exist |
+| `.hasFlash()` | Check if any flash messages exist |
 | `.regenerate()` | Regenerate session ID |
 | `.set(arg1, arg2)` | Set session value (key, value) |
 
@@ -319,7 +458,7 @@
 
 | Method | Description |
 |--------|-------------|
-| `.close()` | Close connection |
+| `.close()` | Close the SFTP connection |
 
 ### Sftpfile
 
@@ -327,9 +466,9 @@
 
 | Method | Description |
 |--------|-------------|
-| `.mkdir(arg?)` | Create directory |
-| `.remove()` | Remove file |
-| `.rmdir(arg?)` | Remove directory |
+| `.mkdir(arg?)` | Create a directory (options?) |
+| `.remove()` | Remove a file |
+| `.rmdir(arg?)` | Remove a directory (options?) |
 
 ### String
 
@@ -356,7 +495,7 @@
 | `.replace(arg1, arg2)` | Replace all occurrences |
 | `.repr()` | Get representation string |
 | `.slug()` | Convert to URL-safe slug |
-| `.split(arg)` | Split by delimiter into array |
+| `.split(arg)` | Split by string or regex separator into array |
 | `.stripHtml()` | Remove HTML tags |
 | `.stripSpace()` | Remove all whitespace |
 | `.toBase64()` | Encode as Base64 |
@@ -390,43 +529,70 @@
 
 | Method | Description |
 |--------|-------------|
-| `.all(arg)` | Check if all rows match predicate (fn) - returns boolean |
-| `.any(arg)` | Check if any row matches predicate (fn) - returns boolean |
-| `.appendCol(arg1, arg2)` | Add column at end |
-| `.appendRow(arg)` | Add row at end |
+| `.all(arg)` | Check if all rows match predicate (fn) |
+| `.any(arg)` | Check if any row matches predicate (fn) |
+| `.appendCol(arg1, arg2)` | Add column at end (name, values) |
+| `.appendRow(arg)` | Add a row at end (dict) |
+| `.as(arg)` | Bind table to a schema (schema) |
 | `.avg(arg)` | Average column values |
 | `.column(arg)` | Get array of values from column |
 | `.columnCount()` | Get number of columns |
+| `.columnProps(arg)` | Get display props for a column (column) |
+| `.copy()` | Create a copy of the table |
 | `.count()` | Count rows |
 | `.dropCol(arg, ...)` | Remove columns (col1, col2, ...) |
-| `.find(arg)` | Find first row matching predicate (fn) - returns row or null |
+| `.errors()` | Get validation errors |
+| `.find(arg)` | Find first row matching predicate (fn) |
 | `.groupBy(arg1, arg2?)` | Group rows by column(s) (cols, aggregationFn?) |
-| `.insertColAfter(arg1, arg2, arg3)` | Insert column after another |
-| `.insertColBefore(arg1, arg2, arg3)` | Insert column before another |
-| `.insertRowAt(arg1, arg2)` | Insert row at index |
+| `.insertColAfter(arg1, arg2, arg3)` | Insert column after another (after, name, values) |
+| `.insertColBefore(arg1, arg2, arg3)` | Insert column before another (before, name, values) |
+| `.insertRowAt(arg1, arg2)` | Insert row at index (index, dict) |
+| `.invalidRows()` | Get rows that fail validation |
+| `.isValid()` | Check if all rows are valid |
 | `.limit(arg1, arg2?)` | Limit rows (count, offset?) |
-| `.map(arg)` | Transform each row (fn) - preserves schema if Records returned |
+| `.map(arg)` | Transform each row (fn) |
 | `.max(arg)` | Maximum column value |
 | `.min(arg)` | Minimum column value |
+| `.offset(arg)` | Skip rows (count) |
 | `.orderBy(arg, ...)` | Sort rows by column(s) |
-| `.renameCol(arg1, arg2)` | Rename column (oldName, newName) |
+| `.renameCol(arg1, arg2)` | Rename a column (oldName, newName) |
 | `.rowCount()` | Get number of rows |
 | `.select(arg, ...)` | Select specific columns |
 | `.sum(arg)` | Sum column values |
+| `.toArray()` | Convert to array of row dictionaries |
+| `.toBox(arg?)` | Convert to box diagram (options?) |
 | `.toCSV()` | Convert to CSV string |
-| `.toHTML(arg?)` | Convert to HTML table (footer: string\|dict?) |
+| `.toHTML(arg?)` | Convert to HTML table (footer?) |
 | `.toJSON()` | Convert to JSON array |
 | `.toMarkdown()` | Convert to Markdown table |
 | `.unique(arg?)` | Remove duplicate rows (columns?) |
+| `.validRows()` | Get rows that pass validation |
+| `.validate()` | Validate rows against schema |
 | `.where(arg)` | Filter rows by predicate |
 
-### Tablemodule
+### Tablebinding
 
 #### Methods
 
 | Method | Description |
 |--------|-------------|
-| `.fromDict(arg)` | Create table from dictionary |
+| `.all(arg?)` | Get all rows (options?) |
+| `.avg(arg1, arg2?)` | Average a column (column, conditions?) |
+| `.count(arg?)` | Count rows (conditions?) |
+| `.delete(arg)` | Delete a row (id) |
+| `.exists(arg)` | Check if a row exists (conditions) |
+| `.find(arg)` | Find row by primary key (id) |
+| `.findBy(arg1, arg2?)` | Find first row matching conditions (dict, options?) |
+| `.first(arg1?, arg2?)` | Get first row (count?, options?) |
+| `.insert(arg)` | Insert a new row (dict) |
+| `.last(arg1?, arg2?)` | Get last row (count?, options?) |
+| `.max(arg1, arg2?)` | Maximum value of a column (column, conditions?) |
+| `.min(arg1, arg2?)` | Minimum value of a column (column, conditions?) |
+| `.save(arg)` | Insert or update a row (dict) |
+| `.sum(arg1, arg2?)` | Sum a column (column, conditions?) |
+| `.toSQL(arg, ...)` | Generate SQL for an operation (method, args...) |
+| `.update(arg1, arg2?)` | Update a row (record or table, or id and dict) |
+| `.where(arg1, arg2?)` | Get rows matching conditions (dict or sql, params?) |
 
 ### Unit
 
@@ -477,12 +643,15 @@
 
 | Method | Description |
 |--------|-------------|
+| `.href()` | Get full URL string |
+| `.inspect()` | Return full dictionary including __type for debugging |
 | `.origin()` | Get origin (scheme://host:port) |
 | `.pathname()` | Get path component |
-| `.toDict()` | Convert to dictionary |
-| `.toString()` | Convert to string |
-| `.withPath(arg)` | Create URL with new path |
-| `.withQuery(arg)` | Create URL with query params |
+| `.repr()` | Get PLN literal representation |
+| `.search()` | Get query string representation |
+| `.toBox(...)` | Render as box diagram |
+| `.toDict()` | Convert to plain dictionary (without __type marker) |
+| `.toJSON()` | Convert to JSON string |
 
 ## Builtin Functions
 
@@ -490,7 +659,7 @@
 
 | Function | Description |
 |----------|-------------|
-| `asset(path)` | Map a public-directory path to its web-root-relative URL (no hashing; for cache-busting use Basil's `publicUrl()`) |
+| `asset(path)` | Get asset path with cache busting |
 
 ### Connections
 
@@ -542,7 +711,7 @@
 
 | Function | Description |
 |----------|-------------|
-| `format(template, values...)` | Format string with placeholders |
+| `format(duration, locale?)` | Format duration as relative time |
 | `tag(name, attributes?, content?)` | Create HTML tag |
 
 ### Introspection
@@ -570,13 +739,13 @@
 
 | Function | Description |
 |----------|-------------|
+| `match(path, pattern)` | Match path/URL against pattern with named captures (:name, *name) |
 | `path(pathString)` | Create path from string |
 
 ### Regular Expressions
 
 | Function | Description |
 |----------|-------------|
-| `match(string, pattern, flags?)` | Match string against pattern |
 | `regex(pattern, flags?)` | Create regex pattern |
 
 ### Serialization
@@ -614,7 +783,6 @@
 |----------|-------------|
 | `%` | Remainder after division |
 | `*` | Multiply numbers or repeat strings/arrays |
-| `**` | Raise to power |
 | `+` | Add numbers or concatenate strings |
 | `-` | Subtract numbers or compute set difference |
 | `/` | Divide numbers or chunk arrays |
@@ -656,23 +824,11 @@
 | `!~` | Check if string does not match regex |
 | `~` | Match string against regex, returns captures or null |
 
-### Pipe
-
-| Operator | Description |
-|----------|-------------|
-| `\|>` | Pass left value as first argument to right function |
-
 ### Null Handling
 
 | Operator | Description |
 |----------|-------------|
 | `??` | Return left if not null, otherwise right |
-
-### Control Flow
-
-| Operator | Description |
-|----------|-------------|
-| `?:` | Conditional expression: condition ? then : else |
 
 ## Standard Library
 
@@ -791,6 +947,26 @@ Mathematical functions and constants
 | `trunc(arg)` | Truncate to integer |
 | `variance(arg)` | Variance |
 
+### @std/mdDoc
+
+Markdown document analysis and manipulation
+
+#### Functions
+
+| Function | Description |
+|----------|-------------|
+| `mdDoc(arg)` | Parse a Markdown string into a document object |
+
+### @std/mddoc
+
+Markdown document analysis and manipulation
+
+#### Functions
+
+| Function | Description |
+|----------|-------------|
+| `mdDoc(arg)` | Parse a Markdown string into a document object |
+
 ### @std/schema
 
 Schema validation and type checking
@@ -815,16 +991,6 @@ Schema validation and type checking
 | `string(arg?)` | Create string schema validator |
 | `table(arg)` | Create table schema validator |
 | `url()` | Create URL schema validator |
-
-### @std/table
-
-Table data structure with query methods
-
-#### Functions
-
-| Function | Description |
-|----------|-------------|
-| `table(arg, ...)` | Create table from data |
 
 ### @std/valid
 
@@ -884,21 +1050,27 @@ Pre-built HTML components (requires Basil server)
 |----------|-------------|
 | `A()` | Anchor/link element |
 | `Abbr()` | Abbreviation element |
+| `Accordion()` | Exclusive expandable sections |
 | `Blockquote()` | Blockquote element |
 | `Breadcrumb()` | Breadcrumb navigation |
 | `Button()` | Button element |
 | `Checkbox()` | Single checkbox |
 | `CheckboxGroup()` | Checkbox group |
 | `DataTable()` | Data table component |
+| `Details()` | Expandable content section |
+| `Dialog()` | Modal dialog |
+| `ErrorSummary()` | Form validation error summary |
 | `Figure()` | Figure with caption |
 | `Form()` | Form wrapper |
-| `Head()` | HTML head section |
+| `Head()` | Deprecated alias for Meta |
 | `Icon()` | Icon element |
 | `Iframe()` | Iframe element |
 | `Img()` | Image element |
 | `LocalTime()` | Localized time display |
+| `Meta()` | SEO and social media metadata tags |
 | `Nav()` | Navigation wrapper |
 | `Page()` | Page layout wrapper |
+| `Pagination()` | Page navigation |
 | `RadioGroup()` | Radio button group |
 | `RelativeTime()` | Relative time display |
 | `SelectField()` | Select dropdown field |
@@ -908,6 +1080,8 @@ Pre-built HTML components (requires Basil server)
 | `TextareaField()` | Textarea input field |
 | `Time()` | Time element |
 | `TimeRange()` | Time range display |
+| `Toast()` | Notification message |
+| `Toasts()` | Toast container |
 
 ### @basil/http
 
