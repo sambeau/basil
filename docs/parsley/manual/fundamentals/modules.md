@@ -150,6 +150,8 @@ for (user in snapshot) { user.email }         // Uses snapshot
 A module file (`mathutils.pars`):
 
 ```parsley
+import @std/math
+
 // Private — not visible to importers
 let square = fn(x) { x * x }
 

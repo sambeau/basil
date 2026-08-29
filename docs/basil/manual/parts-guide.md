@@ -213,7 +213,8 @@ export placeholder = fn(props) {
 }
 
 export loaded = fn({userId}) {
-    let user <== fetch(`https://api.example.com/users/{userId}`)
+    let response <=/= JSON(@(https://api.example.com/users/{userId}))
+    let user = response.data()
     <div class="profile">
         <h2>user.name</h2>
         <p>user.email</p>

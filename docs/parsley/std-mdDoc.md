@@ -21,7 +21,7 @@ let {mdDoc} = import @std/mdDoc
 
 let doc = mdDoc("# Hello\n\nThis is **bold** text.")
 doc.title()    // "Hello"
-doc.toHTML()   // "<h1 id="hello">Hello</h1>\n<p>This is <strong>bold</strong> text.</p>\n"
+doc.toHTML()   // "<h1 id=\"hello\">Hello</h1>\n<p>This is <strong>bold</strong> text.</p>\n"
 ```
 
 ## Importing
@@ -45,7 +45,7 @@ let {mdDoc} = import @std/mdDoc
 let doc = mdDoc("# Welcome\n\nHello world!")
 
 // From an existing AST dictionary  
-let ast = {type: "document", children: [...]}
+let ast = doc.ast()              // {type: "document", children: [...]}
 let doc2 = mdDoc(ast)
 ```
 
@@ -72,13 +72,9 @@ Extracts all code blocks with their metadata.
 ```parsley
 let {mdDoc} = import @std/mdDoc
 
-let source = `
-Here is some code:
-
-\`\`\`go
-func main() {}
-\`\`\`
-`
+// Use a double-quoted string: braces are literal there, but a template
+// string (backticks) would treat `{}` as an empty interpolation.
+let source = "Here is some code:\n\n```go\nfunc main() {}\n```\n"
 
 let doc = mdDoc(source)
 doc.codeBlocks()  // [{language: "go", code: "func main() {}\n"}]
@@ -184,7 +180,7 @@ let doc = mdDoc("# hello world")
 // Capitalize heading text
 let transformed = doc.map(fn(node) {
     if node.type == "heading" {
-        {type: node.type, level: node.level, text: upper(node.text), id: node.id, children: node.children}
+        {type: node.type, level: node.level, text: node.text.toUpper(), id: node.id, children: node.children}
     } else {
         node
     }
@@ -201,7 +197,7 @@ Extracts all plain text content from the document, stripping formatting.
 let {mdDoc} = import @std/mdDoc
 let doc = mdDoc("# Hello\n\nThis is **bold** text.")
 
-doc.text()  // "Hello This is bold text."
+doc.text()  // "Hello  This is bold text."
 ```
 
 ### title()
@@ -262,7 +258,7 @@ Renders the document back to markdown text.
 let {mdDoc} = import @std/mdDoc
 let doc = mdDoc("# Hello\n\n**Bold** text")
 
-doc.toMarkdown()  // "# Hello\n\n**Bold** text"
+doc.toMarkdown()  // "# Hello\n\n\n**Bold** text"
 ```
 
 ### walk()

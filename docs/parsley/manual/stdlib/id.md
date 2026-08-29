@@ -42,12 +42,12 @@ let id = import @std/id
 ```parsley
 let id = import @std/id
 
-id.new()                         // "01KEQAT4553AQS0P93DXYZ"
+id.new()                         // "01M16JZBTV73MBTBK000001FH7" (26 chars)
 id.uuid()                        // "550e8400-e29b-41d4-a716-446655440000"
 id.uuidv7()                      // "019baead-10a5-734c-8d7e-446655440000"
 id.nanoid()                      // "V1StGXR8_Z5jdHi6B-myT"
 id.nanoid(10)                    // "IRFa-VaY2b"
-id.cuid()                        // "c01keqat4553aqs0p93dxy"
+id.cuid()                        // "cmte9ujj00001hhkivehvaupq" (25 chars)
 ```
 
 ## Which ID to Use

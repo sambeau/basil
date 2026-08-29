@@ -168,10 +168,10 @@ if (basil.auth.user != null && basil.auth.user.role == "admin") {
 
 ### API Modules
 
-API-mode handlers (routes under `/api/` or `type: api`) flip the default: **every handler requires a signed-in user unless you say otherwise.** Wrappers from `@std/api` adjust it:
+API-mode handlers (routes under `/api/` or `type: api`) flip the default: **every handler requires a signed-in user unless you say otherwise.** Wrappers from `@basil/api` adjust it:
 
 ```parsley
-let api = import @std/api
+let api = import @basil/api
 
 // Anyone
 export get = api.public(fn(req) {
@@ -310,7 +310,7 @@ Verification state is in the user object, so gating is a handler-side decision:
 ```parsley
 if (basil.auth.user.email_verification_pending) {
     <p>"Please check your inbox and verify your email."</p>
-    <button onclick="fetch('/__auth/resend-verification', {method: 'POST'}).then(() => alert('Sent!'))">
+    <button onclick='fetch("/__auth/resend-verification", {method: "POST"}).then(() => alert("Sent!"))'>
         "Resend verification email"
     </button>
 } else {

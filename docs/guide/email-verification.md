@@ -151,19 +151,19 @@ Email verification status is exposed in Parsley handlers:
 ```parsley
 <html>
 <body>
-  {if basil.auth.user}
-    {if basil.auth.user.email_verified_at}
-      <p>Email verified: {basil.auth.user.email_verified_at}</p>
-    {else if basil.auth.user.email_verification_pending}
-      <p>Please verify your email address.</p>
-    {/if}
-  {/if}
+  if basil.auth.user {
+    if basil.auth.user.email_verified_at {
+      <p>`Email verified: {basil.auth.user.email_verified_at}`</p>
+    } else if basil.auth.user.email_verification_pending {
+      <p>"Please verify your email address."</p>
+    }
+  }
 </body>
 </html>
 ```
 
 **Available fields:**
-- `basil.auth.user.email_verified_at` - Timestamp or `nil`
+- `basil.auth.user.email_verified_at` - Timestamp or `null`
 - `basil.auth.user.email_verification_pending` - Boolean
 
 ## CLI Commands

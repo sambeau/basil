@@ -73,7 +73,7 @@ let x = 10
 let y = 3
 x + y       // 13
 x * y       // 30
-x / y       // 3.333...
+x / y       // 3 (integer division truncates)
 x % y       // 1 (remainder)
 ```
 

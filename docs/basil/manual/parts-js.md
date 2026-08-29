@@ -63,7 +63,7 @@ Parts.refresh("results", { q: "basil" }, {
 Debouncing is per-Part: rapid calls to the same id collapse into one request. That makes live search a one-liner:
 
 ```parsley
-<input oninput="Parts.refresh('results', {q: this.value}, {view: 'search', debounce: 300})"
+<input oninput='Parts.refresh("results", {q: this.value}, {view: "search", debounce: 300})'
        placeholder="Search…"/>
 
 <Part src={@./results.part} id="results" view="search" q=""/>
@@ -206,7 +206,7 @@ POST /parts/results.part?_view=save               ← form submits
 
 ### Reserved attribute names
 
-`part-click`, `part-submit`, `part-load`, `part-lazy`, `part-lazy-threshold`, `part-refresh`, `part-target`, and `part-form` are runtime instructions — every *other* `part-*` attribute becomes a prop. (`part-form` is reserved for a future release; it doesn't do anything yet.)
+`part-click`, `part-submit`, `part-load`, `part-lazy`, `part-lazy-threshold`, `part-refresh`, `part-target`, and `part-form` are runtime instructions — every *other* `part-*` attribute becomes a prop.
 
 ## See Also
 

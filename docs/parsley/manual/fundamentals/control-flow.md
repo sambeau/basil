@@ -189,7 +189,7 @@ let outcome = try risky()
 // {result: null, error: {message: "oops", code: "USER-0001"}}
 
 let safe = fn() { 42 }
-let outcome = try safe()
+let safeOutcome = try safe()
 // {result: 42, error: null}
 ```
 

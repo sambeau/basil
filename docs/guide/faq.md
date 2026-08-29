@@ -323,6 +323,8 @@ When caught with `try`, the `error` slot is a dictionary — use `error.message`
 Prelude components output semantic HTML that works with any CSS framework. We recommend **Pico CSS** for its simplicity and accessibility:
 
 ```parsley
+let {Page} = import @basil/html
+
 <Page lang="en" title="My App" head={
     <>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/>
@@ -358,13 +360,13 @@ let url = image(@./photo.jpg)
 <img src={url} alt="Photo"/>
 
 // Resize to 800px wide
-let url = image(@./photo.jpg, {width: 800})
+let wide = image(@./photo.jpg, {width: 800})
 
 // Resize and convert to WebP
-let url = image(@./photo.jpg, {width: 800, format: "webp"})
+let webp = image(@./photo.jpg, {width: 800, format: "webp"})
 
 // Crop to an exact 400×300 box
-let url = image(@./photo.jpg, {width: 400, height: 300, crop: "center"})
+let cropped = image(@./photo.jpg, {width: 400, height: 300, crop: "center"})
 ```
 
 The transform runs once — subsequent calls with the same options return the cached URL immediately.

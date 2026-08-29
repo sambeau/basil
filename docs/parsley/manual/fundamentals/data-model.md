@@ -42,7 +42,7 @@ A schema defines the shape of your data — field names, types, constraints, and
 
 ```parsley
 @schema User {
-    id: integer
+    id: int(auto)
     name: string(min: 2, required)
     email: email(required, unique: true)
     role: enum["user", "admin"] = "user"
@@ -100,7 +100,7 @@ See [Records](../builtins/record.md) for methods, form binding, and serializatio
 | | Dictionary | Record |
 |---|---|---|
 | Schema | None | Required |
-| Validation | None | Automatic |
+| Validation | None | Built in — via `.validate()` |
 | Errors | None | Tracked per field |
 | Database | Manual | Schema-driven |
 | Form binding | Manual | `@field` attributes |
@@ -133,7 +133,7 @@ Tables provide SQL-like query methods that return new tables (immutable chaining
 let result = t
     .where(fn(r) { r.age > 20 })
     .orderBy("name")
-    .select("name")
+    .select(["name"])
 ```
 
 ### Typed Tables
@@ -199,7 +199,7 @@ Each step uses the schema as the single source of truth for field names, types, 
 
 - **Schema is a runtime value** — not a compile-time type annotation. You can pass schemas to functions, store them in variables, and introspect them at runtime.
 - **Validation is built in** — no separate validation library. The schema defines constraints; the record tracks errors automatically.
-- **Records are immutable** — `.set()` returns a new record. No in-place mutation of validated data.
+- **Records are immutable** — `.update()` returns a new record. No in-place mutation of validated data.
 - **Tables are query-able** — `.where()`, `.orderBy()`, `.select()`, `.groupBy()` work on any table, not just database results. CSV data gets the same query API as SQL results.
 - **No ORM** — schemas map directly to database columns. There's no object-relational mapping layer, no migrations framework, and no lazy loading. The schema *is* the model.
 

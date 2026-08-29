@@ -11,7 +11,7 @@ Quick reference for beginners and AI agents developing Parsley. Focus on key dif
 | Task | Command |
 |------|---------|
 | Look up type methods | `pars describe string`, `pars describe array`, etc. |
-| Look up a builtin | `pars describe len`, `pars describe range`, etc. |
+| Look up a builtin | `pars describe serialize`, `pars describe JSON`, etc. |
 | Get all API info as JSON | `pars describe all --json` |
 | Verify code works | `pars -e "expression"` |
 | Verify with raw output | `pars -r -e "<div>html</div>"` |
@@ -199,7 +199,7 @@ let double = fn(x) { x * 2 }
 ```parsley
 // Tag attributes have THREE forms:
 
-// 1. Double-quoted strings - literal, no interpolation
+// 1. Double-quoted strings - text, but {expr} IS interpolated
 <button onclick="alert('hello')">
 <a href="/about">
 
@@ -214,11 +214,17 @@ let double = fn(x) { x * 2 }
 <button disabled={!isValid}>           // Boolean expression
 <img width={width} height={height}>
 
-// ❌ WRONG - interpolation in quoted strings
-<div class="user-{id}">               // {id} is literal text
+// ✅ CORRECT - {id} interpolates inside a double-quoted attribute
+<div class="user-{id}">               // class="user-42"
 
-// ✅ CORRECT - use expression braces with template string
+// ✅ CORRECT - or use expression braces with a template string
 <div class={`user-{id}`}>
+
+// ❌ WRONG - braces in double-quoted JS break (parsed as interpolation)
+<button onclick="fetch(url, {method: 'POST'})">   // Error: unexpected ':'
+
+// ✅ CORRECT - single quotes keep braces literal
+<button onclick='fetch(url, {method: "POST"})'>
 ```
 
 ### 11. Single-Quoted Raw Strings (JavaScript Embedding)
@@ -229,7 +235,7 @@ let regex = '\d+\.\d+'              // Backslashes stay literal
 
 // Use @{} for interpolation inside raw strings
 let id = 42
-let js = 'fetch("/api/items/@{id}", {method: "DELETE"})'  // id interpolated
+let deleteJs = 'fetch("/api/items/@{id}", {method: "DELETE"})'  // id interpolated
 
 // Perfect for onclick handlers with dynamic values:
 let myId = 5
@@ -436,9 +442,11 @@ let calc = `2 + 2 = {2 + 2}`    // "2 + 2 = 4"
 let msg = "Hello, {name}!"      // {name} stays literal
 
 // In tag attributes:
-// - Quoted strings are ALWAYS literal (allows JavaScript)
+// - Double-quoted strings DO interpolate {expr}
+// - Single-quoted (raw) strings keep braces literal (use @{expr} instead)
 // - Expression braces allow Parsley code
 <div class="static-class">       // Literal string
+<div class="user-{id}">          // Interpolated → class="user-42"
 <div class={dynamicClass}>       // Parsley expression  
 <div class={`user-{id}`}>        // Template string interpolation
 <button onclick="fetch('/api/search?q=' + this.value)">  // JS works!
@@ -477,7 +485,7 @@ or
 [1, 2] * 3                   // [1, 2, 1, 2, 1, 2]
 
 // Division
-10 / 3                       // 3.333...
+10 / 3                       // 3 (integer division truncates; 10.0 / 3 → 3.333...)
 [1,2,3,4,5,6] / 2           // [[1,2], [3,4], [5,6]] (chunk)
 
 // Logical become set operations on collections
@@ -645,10 +653,11 @@ let response <=/= JSON(@https://api.example.com/users, {
 })
 
 // Fetch as expression (capture response object)
+// NOTE: these are methods, not plain keys — `response.status` returns null
 let response = <=/= JSON(@https://api.example.com/users)
-response.data                    // parsed content
-response.status                  // 200
-response.ok                      // true
+response.data()                  // parsed content
+response.response().status       // 200
+response.response().ok           // true
 
 // Destructured expression form
 let {data, error} = <=/= JSON(@https://api.example.com/users)
@@ -658,7 +667,7 @@ let {data, error} = <=/= JSON(@https://api.example.com/users)
 
 // Remote write as expression (capture response)
 let result = {name: "Alice"} =/=> JSON(@https://api.example.com/users)
-if (!result.ok) { `Failed: {result.status}` }
+if (!result.response().ok) { `Failed: {result.response().status}` }
 
 // Destructured remote write
 let {data, error} = payload =/=> JSON(@https://api.example.com/items)
@@ -672,7 +681,7 @@ patch =/=> JSON(@https://api.example.com/users/1).patch
 
 ### Database (SQLite)
 ```parsley
-let db = @sqlite(@./data.db)
+let db = @sqlite("./data.db")      // DSN is a string, not a path literal
 
 // Query single row (returns dict or null)
 let user = db <=?=> <SQL id={1}>SELECT * FROM users WHERE id = :id</SQL>
@@ -710,10 +719,9 @@ $10.00 + £5.00               // Error!
 $12.34.currency              // "USD"
 $12.34.amount                // 1234 (in cents/minor units)
 $12.34.scale                 // 2 (decimal places)
-$1234.56.format()            // "$1,234.56"
-$1234.56.format("de-DE")     // "1.234,56 $" (German locale)
+$1234.56.format()            // "$ 1,234.56"
+$1234.56.format("de-DE")     // "$ 1.234,56" (German locale)
 $100.00.split(3)             // [$33.34, $33.33, $33.33]
-$50.00.convert("EUR", 0.92)  // Convert with exchange rate
 ```
 
 ---
@@ -768,7 +776,7 @@ $1234.56.full()              // "1,234.56 US dollars"
 
 // Duration (NO full support)
 @2h30m.short()               // "2h30m"
-@2h30m.medium()              // "in 3 hours"
+@2h30m.medium()              // "in 2 hours"
 @2h30m.long()                // "2 hours 30 minutes"
 
 // Units (supports full with conversion)
@@ -1031,11 +1039,13 @@ unit(1024, "B")              // OK
     height: unit(suffix: "cm")    // must be in cm
 }
 
-// Validation
-Product({weight: #5kg}).validate().isValid()     // true
-Product({weight: #5m}).validate().isValid()      // false (length ≠ mass)
-Metric({height: #180cm}).validate().isValid()    // true
-Metric({height: #1.8m}).validate().isValid()     // false (m ≠ cm)
+// Validation — every field is required unless nullable (`?`) or given a default
+Product({weight: #5kg, height: #1.8m, storage: #1GB,
+         temp: #100C, capacity: #2L, floor: #100m2}).validate().isValid()  // true
+Product({weight: #5m, height: #1.8m, storage: #1GB,
+         temp: #100C, capacity: #2L, floor: #100m2}).validate().isValid()  // false (length ≠ mass)
+MetricProduct({weight: #5kg, height: #180cm}).validate().isValid()  // true
+MetricProduct({weight: #5kg, height: #1.8m}).validate().isValid()   // false (m ≠ cm)
 ```
 
 ---
@@ -1057,7 +1067,7 @@ if (error) {
 let {result, error} = try url("user-input")
 if (error) {
     `Invalid URL: {error.message}`
-    error.code                   // e.g. "FORMAT-0001"
+    error.code                   // e.g. "FMT-0003"
 }
 
 // With null coalescing for defaults
@@ -1158,7 +1168,7 @@ let Card = fn({title, contents}) {
 ### Modules
 ```parsley
 // Export from module (utils.pars)
-export let greet = fn(name) { "Hello, {name}!" }
+export let greet = fn(name) { `Hello, {name}!` }
 export PI = 3.14159
 export Logo = <img src="logo.png" alt="Logo"/>
 
@@ -1265,67 +1275,56 @@ lerp(0, 100, 0.5)      // 50
 
 ### Validation Module (`@std/valid`)
 ```parsley
-let {string, number, integer, minLen, maxLen, alpha,
-     alphanumeric, positive, between, email, url,
-     phone, creditCard, date} = import @std/valid
+// Slimmed down for v1.0: type/string/number/format/date validators were removed.
+// Use @schema types and constraints for those; see @std/valid docs.
+let {uuid, ulid, nanoid, cuid,
+     creditCard, luhn, postalCode} = import @std/valid
 
-// Type validators
-string("hello")                    // true
-number(3.14)                       // true
-integer(42)                        // true
+// ID validators
+uuid("550e8400-e29b-41d4-a716-446655440000")  // true
+ulid("01ARZ3NDEKTSV4RRFFQ69G5FAV")            // true
+nanoid("V1StGXR8_Z5jdHi6B-myT")               // true (default 21 chars)
+nanoid("abc", 3)                              // true (custom length)
+cuid("cjld2cjxh0000qzrmn831i7rn")             // true
 
-// String validators
-minLen("hello", 3)                 // true
-maxLen("hello", 10)                // true
-alpha("Hello")                     // true (letters only)
-alphanumeric("abc123")             // true
+// Financial validators
+creditCard("4111111111111111")     // true (Luhn check, 13–19 digits)
+luhn("79927398713")                // true (Luhn, any length)
 
-// Number validators
-positive(5)                        // true
-between(5, 1, 10)                  // true
-
-// Format validators
-email("test@example.com")          // true
-url("https://example.com")         // true
-phone("+1 (555) 123-4567")         // true
-creditCard("4111111111111111")     // true (Luhn check)
-
-// Date validators
-date("2024-12-25")                 // true (ISO)
-date("12/25/2024", "US")           // true
-date("25/12/2024", "GB")           // true
+// Locale-aware validators ("US", "GB", "CA")
+postalCode("90210", "US")          // true
+postalCode("SW1A 1AA", "GB")       // true
+postalCode("M5V 2T6", "CA")        // true
 ```
 
 ### Tables
 
 #### Creating Tables
 ```parsley
-// @table literal (preferred)
+// @table literal (preferred) — every row is a dictionary with the same keys
 let t = @table [
     {name: "Alice", age: 30},
     {name: "Bob", age: 25}
 ]
 
-// From arrays (first row is header)
-let t = @table [
-    ["name", "age"],
-    ["Alice", 30],
-    ["Bob", 25]
-]
+// ❌ WRONG - a header row of arrays is not a @table form
+// @table [["name", "age"], ["Alice", 30]]
+// Parse error: @table row 1: expected dictionary literal, got LBRACKET
 
 // With schema for validation/defaults
+// (a schema default applies only when the field is absent from EVERY row)
 @schema Person { name: string, age: integer = 0 }
-let t = @table(Person) [
-    {name: "Alice", age: 30},
-    {name: "Bob"}              // age defaults to 0
+let people = @table(Person) [
+    {name: "Alice"},
+    {name: "Bob"}              // age defaults to 0 in both rows
 ]
 
 // CSV returns Table directly
-let t = "name,age\nAlice,30".parseCSV()
-let t <== CSV(@./data.csv)
+let fromString = "name,age\nAlice,30".parseCSV()
+let fromFile <== CSV(@./data.csv)
 
-// Table() builtin
-let t = Table([{name: "Alice"}, {name: "Bob"}])
+// table() builtin (lowercase)
+let built = table([{name: "Alice"}, {name: "Bob"}])
 ```
 
 #### Table Operations
@@ -1394,9 +1393,10 @@ unauthorized("Login required")      // 401 error
 }
 
 // Create and validate records
-let user = User({name: "Alice", email: "alice@example.com", age: 30, active: true})
-user.valid       // true if all fields pass validation
-user.errors      // array of validation errors (empty if valid)
+// A record is NOT validated at construction — call .validate() first
+let user = User({name: "Alice", email: "alice@example.com", age: 30, active: true}).validate()
+user.isValid()   // true if all fields pass validation
+user.errors()    // dictionary of {field: {code, message}} (empty if valid)
 ```
 
 ### Form Binding
@@ -1481,11 +1481,13 @@ dev.clearLogPage("/route")         // Clear log for route
 ## 🔒 Security Flags (CLI)
 
 ```bash
-# Development (allow writes and imports)
-./pars -w -x script.pars
+# Development — reads/writes are allowed by default; -x also allows execution
+./pars -x script.pars
 
-# Production (whitelist specific paths)
-./pars --allow-write=./output --allow-execute=./lib script.pars
+# Production — deny writes, or deny only specific paths
+./pars --no-write script.pars
+./pars --restrict-write=/etc script.pars
+./pars --allow-execute=./lib script.pars
 
 # Restrict reads
 ./pars --restrict-read=/etc script.pars
@@ -1567,8 +1569,8 @@ dev.clearLogPage("/route")         // Clear log for route
 | `.entries()` | Get key-value pairs | `{a:1}.entries()` → `[{key:"a", value:1}]` |
 | `.has(key)` | Key exists? | `{a:1}.has("a")` → `true` |
 | `.delete(key)` | Remove key (mutates) | `d.delete("b")` removes key from d |
-| `.insertBefore(key, dict)` | Insert before key | Ordered insert |
-| `.insertAfter(key, dict)` | Insert after key | Ordered insert |
+| `.insertBefore(key, newKey, val)` | Insert before key | `{a:1, c:3}.insertBefore("c", "b", 2)` |
+| `.insertAfter(key, newKey, val)` | Insert after key | `{a:1, c:3}.insertAfter("a", "b", 2)` |
 | `.render(template)` | Template interpolation | Uses `\@{key}` syntax in raw strings |
 | `.toJSON()` | To JSON string | `{a:1}.toJSON()` → `"{\"a\":1}"` |
 
@@ -1584,8 +1586,8 @@ dev.clearLogPage("/route")         // Clear log for route
 | `.medium()` | Standard format | `123456.medium()` → `"123,456"` |
 | `.long()` | Full precision | `1234.5.long()` → `"1,234.50"` |
 | `.humanize()` | Human-readable | `1500.humanize()` → `"1.5K"` |
-| `.currency(code)` | Currency format | `99.currency("USD")` → `"$99.00"` |
-| `.percent()` | Percentage | `0.125.percent()` → `"13%"` |
+| `.currency(code)` | Currency format | `99.currency("USD")` → `"$ 99.00"` |
+| `.percent()` | Percentage | `0.125.percent()` → `"12%"` |
 | `.round(n?)` | Round (floats only) | `3.456.round(2)` → `3.46` |
 | `.floor()` | Round down (floats) | `3.9.floor()` → `3` |
 | `.ceil()` | Round up (floats) | `3.1.ceil()` → `4` |
@@ -1598,15 +1600,15 @@ dev.clearLogPage("/route")         // Clear log for route
 |--------|-------------|---------|
 | `.abs()` | Absolute value | `(-$50).abs()` → `$50.00` |
 | `.negate()` | Negate amount | `$50.negate()` → `-$50.00` |
-| `.fmt()` | Default format | `$1234.56.fmt()` → `"$1,234.56"` |
+| `.fmt()` | Default format | `$1234.56.fmt()` → `"$ 1,234.56"` |
 | `.fmt(style)` | With style | `$1234.56.fmt("short")` → `"$1.2K"` |
 | `.short()` | Compact format | `$1234567.short()` → `"$1.2M"` |
-| `.medium()` | Standard format | `$1234.56.medium()` → `"$1,234.56"` |
+| `.medium()` | Standard format | `$1234.56.medium()` → `"$ 1,234.56"` |
 | `.long()` | Full precision | `$1234.56.long()` → `"$1,234.56"` |
 | `.full()` | With currency name | `$1234.56.full()` → `"1,234.56 US dollars"` |
 | `.split(n)` | Fair division | `$100.split(3)` → `[$33.34, $33.33, $33.33]` |
 | `.repr()` | Parseable literal | `$50.repr()` → `"$50.00"` |
-| `.toDict()` | To dictionary | `$50.toDict()` → `{amount: 5000, currency: "USD", ...}` |
+| `.toDict()` | To dictionary | `$50.toDict()` → `{amount: 50, currency: "USD"}` |
 | `.toJSON()` | JSON string | `$50.toJSON()` → `"{...}"` |
 | `.inspect()` | Debug dictionary | `$50.inspect()` → `{__type: "money", ...}` |
 
@@ -1619,8 +1621,8 @@ dev.clearLogPage("/route")         // Clear log for route
 | `.hour`, `.minute`, `.second` | Time components | `@14:30.hour` → `14` |
 | `.weekday` | Day name | `@2024-12-25.weekday` → `"Wednesday"` |
 | `.unix`, `.timestamp` | Unix timestamp | `@2024-12-25.unix` → `1735084800` |
-| `.date` | Date string | `@2024-12-25T14:30.date` → `"2024-12-25"` |
-| `.time` | Time string | `@2024-12-25T14:30.time` → `"14:30"` |
+| `.date` | Date string | `@2024-12-25T14:30:00.date` → `"2024-12-25"` |
+| `.time` | Time string | `@2024-12-25T14:30:00.time` → `"14:30"` |
 | `.iso` | ISO 8601 string | `@2024-12-25.iso` → `"2024-12-25T00:00:00Z"` |
 | `.week` | ISO week number | `@2024-12-25.week` → `52` |
 | `.dayOfYear` | Day of year | `@2024-12-25.dayOfYear` → `360` |
@@ -1644,7 +1646,7 @@ dev.clearLogPage("/route")         // Clear log for route
 | Method | Description | Example |
 |--------|-------------|---------|
 | `.format(style?)` | Format duration | `@2h30m.format("short")` → `"2h30m"` |
-| `.toDict()` | To dictionary | `@2h.toDict()` → `{months: 0, seconds: 7200}` |
+| `.toDict()` | To dictionary | `@2h.toDict()` → `{months: 0, seconds: 7200, totalSeconds: 7200}` |
 
 ### Unit Properties & Methods
 | Property | Type | Description |
@@ -1659,7 +1661,7 @@ dev.clearLogPage("/route")         // Clear log for route
 | Method | Description | Example |
 |--------|-------------|---------|
 | `.abs()` | Absolute value | `(#-6m).abs()` → `#6m` |
-| `.to(suffix)` | Convert to another unit | `#1mi.to("km")` → `#1.61km` |
+| `.to(suffix)` | Convert to another unit | `#1mi.to("km")` → `#1.609344km` |
 | `.fmt()` | Default format | `#5m.fmt()` → `"5.00m"` |
 | `.fmt(precision)` | With precision | `#12.345m.fmt(2)` → `"12.35m"` |
 | `.fmt(style)` | With style | `#5m.fmt("long")` → `"5.00 meters"` |

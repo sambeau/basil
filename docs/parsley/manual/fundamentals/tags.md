@@ -370,20 +370,20 @@ See [Database](../features/database.md) for complete database documentation.
 
 ### Cache <small>(Basil only)</small>
 
-The `<Cache>` tag caches rendered fragments by key. Requires the Basil server — in standalone `pars`, the tag still renders its content but caching is a no-op.
+The `<basil.cache.Cache>` tag caches rendered fragments by key. Requires the Basil server — in standalone `pars`, the tag still renders its content but caching is a no-op.
 
 ```parsley
-<Cache key="sidebar" maxAge={300}>
+<basil.cache.Cache key="sidebar" maxAge={@5m}>
     <nav>
         // ... expensive rendering ...
     </nav>
-</Cache>
+</basil.cache.Cache>
 ```
 
 | Attribute | Type | Description |
 |---|---|---|
 | `key` | string | Cache key (required) |
-| `maxAge` | integer | TTL in seconds (required) |
+| `maxAge` | duration | TTL as a duration literal, e.g. `{@5m}` (required) |
 | `enabled` | boolean | Enable/disable caching (default: `true`) |
 
 ### Part <small>(Basil only)</small>
@@ -394,7 +394,7 @@ The `<Part>` tag creates an AJAX-loadable fragment. Requires the Basil server an
 <Part src={@./sidebar.part} view="default"/>
 ```
 
-Parts are loaded from `.part` files — modules where all exports are view functions. Attributes include `src` (required), `view`, `refresh`, `lazy`, and `id`.
+Parts are loaded from `.part` files — modules where all exports are view functions. Attributes include `src` (required), `view`, `id`, `part-refresh`, and `part-lazy`.
 
 ## tag() Builtin
 

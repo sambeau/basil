@@ -135,7 +135,7 @@ Functions capture their enclosing environment by reference:
 
 ```parsley
 let make_counter = fn() {
-    let count = 0
+    var count = 0
     fn() {
         count = count + 1
         count

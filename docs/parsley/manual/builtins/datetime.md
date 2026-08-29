@@ -91,15 +91,16 @@ let dt3 = @(2024-12-{baseDay + 5})
 dt3.day    // 15
 ```
 
-### The `time()` Function
+### The `date()`, `time()` and `datetime()` Functions
 
-Create datetime values programmatically:
+Create datetime values programmatically. `date()` parses a date, `time()` parses a time-only value, and `datetime()` parses a full datetime from a string, a Unix timestamp, or a dictionary of components:
 
 ```parsley
-time("2024-12-25")                   // Parse ISO date
-time("2024-12-25T14:30:00")          // Parse ISO datetime
-time(1735142400)                     // Unix timestamp
-time({year: 2024, month: 12, day: 25})  // From components
+date("2024-12-25")                          // Parse ISO date
+time("14:30")                               // Parse time-only value
+datetime("2024-12-25T14:30:00")             // Parse ISO datetime
+datetime(1735142400)                        // Unix timestamp
+datetime({year: 2024, month: 12, day: 25})  // From components
 ```
 
 ## Operators
@@ -245,9 +246,9 @@ The `kind` property indicates what type of datetime literal was used:
 Kind is preserved through arithmetic:
 
 ```parsley
-(@2024-12-25 + @1d).kind         // "date"
-(@12:30 + 3600).kind             // "time"
-(@2024-12-25T14:30:00 + @1h).kind // "datetime"
+let dateKind = (@2024-12-25 + @1d).kind            // "date"
+let timeKind = (@12:30 + 3600).kind                // "time"
+let datetimeKind = (@2024-12-25T14:30:00 + @1h).kind  // "datetime"
 ```
 
 ## Methods
@@ -262,7 +263,7 @@ Format with default style (medium) and locale (en-US):
 
 ```parsley
 @2024-12-25.fmt()       // "Dec 25, 2024"
-@14:30.fmt()            // "2:30 PM"
+@14:30.fmt()            // "14:30"
 ```
 
 #### Usage: fmt(style)
@@ -306,7 +307,7 @@ Compact date format:
 
 ```parsley
 @2024-12-25.short()           // "12/25/24"
-@2024-12-25T14:30:00.short()  // "12/25/24, 2:30 PM"
+@2024-12-25T14:30:00.short()  // "12/25/24" (styles render the date only)
 
 // With locale:
 @2024-12-25.short("de-DE")    // "25.12.24"
@@ -318,7 +319,7 @@ Balanced format (default style):
 
 ```parsley
 @2024-12-25.medium()          // "Dec 25, 2024"
-@2024-12-25T14:30:00.medium() // "Dec 25, 2024, 2:30 PM"
+@2024-12-25T14:30:00.medium() // "Dec 25, 2024"
 
 // With locale:
 @2024-12-25.medium("de-DE")   // "25. Dez. 2024"
@@ -330,7 +331,7 @@ Verbose format with full month name:
 
 ```parsley
 @2024-12-25.long()            // "December 25, 2024"
-@2024-12-25T14:30:00.long()   // "December 25, 2024 at 2:30 PM"
+@2024-12-25T14:30:00.long()   // "December 25, 2024"
 
 // With locale:
 @2024-12-25.long("de-DE")     // "25. Dezember 2024"
@@ -343,7 +344,7 @@ Maximum context with day of week:
 
 ```parsley
 @2024-12-25.full()            // "Wednesday, December 25, 2024"
-@2024-12-25T14:30:00.full()   // "Wednesday, December 25, 2024 at 2:30 PM"
+@2024-12-25T14:30:00.full()   // "Wednesday, December 25, 2024"
 
 // With locale:
 @2024-12-25.full("de-DE")     // "Mittwoch, 25. Dezember 2024"
@@ -375,7 +376,8 @@ Returns a parseable literal representation:
 Returns the JSON representation (ISO 8601 string):
 
 ```parsley
-@2024-12-25.toJSON()          // "\"2024-12-25T00:00:00Z\""
+@2024-12-25.toJSON()          // "\"2024-12-25\""
+@2024-12-25T14:30:00.toJSON() // "\"2024-12-25T14:30:00Z\""
 ```
 
 ### inspect()
@@ -384,7 +386,8 @@ Returns a debug dictionary with type information:
 
 ```parsley
 @2024-12-25.inspect()
-// {__type: "datetime", kind: "date", year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0}
+// {__type: "datetime", kind: "date", year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0,
+//  weekday: "Wednesday", unix: 1735084800, iso: "2024-12-25T00:00:00Z"}
 ```
 
 ### toDict()
@@ -393,7 +396,8 @@ Returns a clean dictionary for reconstruction (without `__type`):
 
 ```parsley
 @2024-12-25.toDict()
-// {kind: "date", year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0}
+// {kind: "date", year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0,
+//  weekday: "Wednesday", unix: 1735084800, iso: "2024-12-25T00:00:00Z"}
 ```
 
 Useful for serialization or passing datetime data to other systems.
@@ -407,9 +411,23 @@ Renders the datetime in a box diagram:
 ```
 
 ```
-┌────────────┐
-│ 2024-12-25 │
-└────────────┘
+┌─────────┬───────────┐
+│       datetime        │
+├─────────┬───────────┤
+│ year    │ 2024      │
+├─────────┼───────────┤
+│ month   │ 12        │
+├─────────┼───────────┤
+│ day     │ 25        │
+├─────────┼───────────┤
+│ hour    │ 0         │
+├─────────┼───────────┤
+│ minute  │ 0         │
+├─────────┼───────────┤
+│ second  │ 0         │
+├─────────┼───────────┤
+│ weekday │ Wednesday │
+└─────────┴───────────┘
 ```
 
 ### dayOfYear()
@@ -472,7 +490,7 @@ today + @1mo         // Next month
 today + @1y          // Next year
 
 @2024-02-28 + @1d    // February 29 (leap year)
-@2024-01-31 + @1mo   // February 29 (smart month handling)
+@2024-01-31 + @1mo   // March 2 (month arithmetic overflows a short month)
 ```
 
 ### Duration Results
@@ -510,11 +528,11 @@ let nextMeeting = @today + @1mo      // One month from now
 let event = @2024-12-25T19:00:00
 
 // Different formats for different contexts
-event.short()                        // "12/25/24, 7:00 PM"
-event.medium()                       // "Dec 25, 2024, 7:00 PM"
-event.long()                         // "December 25, 2024 at 7:00 PM"
-event.full()                         // "Wednesday, December 25, 2024 at 7:00 PM"
-event.long("de-DE")                  // "25. Dezember 2024 um 19:00"
+event.short()                        // "12/25/24"
+event.medium()                       // "Dec 25, 2024"
+event.long()                         // "December 25, 2024"
+event.full()                         // "Wednesday, December 25, 2024"
+event.long("de-DE")                  // "25. Dezember 2024"
 ```
 
 ### Combine Date and Time

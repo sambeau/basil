@@ -69,7 +69,7 @@ In authenticated handlers:
 
 ```parsley
 if basil.auth.user {
-  <p>Hello, {basil.auth.user.name}!</p>
+  <p>`Hello, {basil.auth.user.name}!`</p>
 }
 ```
 

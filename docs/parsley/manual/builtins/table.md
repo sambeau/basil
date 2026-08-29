@@ -156,9 +156,10 @@ products[0].in_stock  // true (boolean, not string)
 Database table bindings return Tables with full schema information:
 
 ```parsley
-// Basil database binding
-let users = Users.all()
-let active = Users.where(fn(u) { u.active })
+// Database table binding
+let people = db.bind(User, "users")
+let users = people.all()
+let active = people.where({active: true})
 
 // Raw SQL also returns Table
 let results = db <=??=> "SELECT * FROM orders WHERE total > 100"
@@ -175,8 +176,8 @@ users.schema  // Contains column types from database
 JSON APIs return arrays by default. Convert to Table explicitly:
 
 ```parsley
-let response <=/= fetch("https://api.example.com/users")
-let users = table(response.json)
+let response <=/= JSON(@https://api.example.com/users)
+let users = table(response.data)
 ```
 
 ---
@@ -250,9 +251,9 @@ Non-nullable fields without defaults must be provided:
 
 // This is an ERROR — missing required "email":
 let bad = @table(User) [
-    {id: "01H..."}
+    {id: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
 ]
-// Error: Table row 1: missing required field 'email'
+// Error: Table row 0: missing required field 'email'
 ```
 
 ---
@@ -349,7 +350,7 @@ let users = @table [
 ]
 
 for (user in users) {
-    <p>"{user.name} is a {user.role}"</p>
+    <p>`{user.name} is a {user.role}`</p>
 }
 ```
 
@@ -498,8 +499,8 @@ sales
 - **Constructor `table(array)`** — Runtime validation. `TABLE-0001` if the input is not an array; `TABLE-0002` if a row is not a dictionary; `TABLE-0003/0004` for missing/extra columns. `table()` with no args yields an empty table.
 - **Schema call `Schema([...])`** — Calling a schema with an array returns a typed (unvalidated) table with defaults applied. Column order uses sorted schema field names (schema declaration order is not preserved in this call).
 - **`parseCSV(hasHeader=true)`** — When `hasHeader` is true (default), returns a Table whose columns come from the header row and values are coerced to int/float/bool/string. With `hasHeader=false`, returns an array-of-arrays instead of a Table.
-- **Database/query DSL** — `Users.all()`, `Users.where(...)`, and `@query` results are Tables with an attached schema and `FromDB=true`; indexing them returns Records marked validated (no revalidation is run on access).
-- **Compat: `import @std/table`** — Provides the legacy `table` module and `table.fromDict(dict, keyName?, valueName?)` helper; prefer literals or `table()`.
+- **Database/query DSL** — `binding.all()`, `binding.where({...})` (from `db.bind(Schema, "table")`), and `@query` results are Tables with an attached schema and `FromDB=true`; indexing them returns Records marked validated (no revalidation is run on access).
+- **Removed: `import @std/table`** — The legacy `table` module (and its `fromDict` helper) has been removed; importing it is an error. Use `@table [...]`, `table(...)`, or a schema call instead.
 
 Empty tables are allowed in all forms: `@table []` and `table([])` both produce `length = 0` and `columns = []`.
 
@@ -575,7 +576,7 @@ Example with aggregation:
 
 ```parsley
 let totals = sales.groupBy(["region", "product"], fn(rows) {
-    let sum = 0
+    var sum = $0
     for (r in rows) { sum = sum + r.amount }
     {total: sum}
 })
@@ -618,8 +619,8 @@ Example:
 @schema User { id: ulid, email: email }
 
 let raw = table([
-    {id: "01H7...", email: "alice@example.com"},
-    {id: "01H8...", email: "not-an-email"}
+    {id: "01ARZ3NDEKTSV4RRFFQ69G5FAV", email: "alice@example.com"},
+    {id: "01BX5ZZKBKACTAV9WEVGEMMVRZ", email: "not-an-email"}
 ]).as(User)
 
 let checked = raw.validate()
@@ -647,7 +648,7 @@ checked.validRows()  // only the valid row
 
 - Indexing a typed table (including database/query results) returns a `Record`; database-backed tables mark records as already validated when indexed.
 - `parseCSV` with a header returns a Table directly; without a header you get an array-of-arrays, so wrap with `table()` if you need Table methods.
-- The `table` module from `@std/table` remains for backward compatibility but is no longer required; prefer `@table [...]`, `table(...)`, and schema calls.
+- The `table` module from `@std/table` has been removed; use `@table [...]`, `table(...)`, and schema calls.
 
 ## See Also
 

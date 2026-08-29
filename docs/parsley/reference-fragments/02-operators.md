@@ -80,11 +80,11 @@ The logical operators are overloaded to perform set operations when applied to a
 
 ```parsley
 // Intersection: elements in BOTH arrays
-([1, 2, 3] && [2, 3, 4]).toJSON()    // [2, 3]
+let both = [1, 2, 3] && [2, 3, 4]    // [2, 3]
 
 // Union: elements in EITHER array (duplicates removed)
-([1, 2, 3] || [3, 4, 5]).toJSON()    // [1, 2, 3, 4, 5]
-([1, 2] | [2, 3]).toJSON()           // [1, 2, 3]
+let either = [1, 2, 3] || [3, 4, 5]  // [1, 2, 3, 4, 5]
+let alt = [1, 2] | [2, 3]            // [1, 2, 3]
 ```
 
 This is useful for filtering, merging lists, and finding common elements without writing explicit loops.
@@ -354,7 +354,7 @@ Multiplying two length values produces an area. Dividing an area by a length pro
 #144in2 / #12in                 // #12in
 
 // Round-trip: (L × L) / L = L
-(#5m * #3m) / #3m               // #5m
+let back = (#5m * #3m) / #3m    // #5m
 ```
 
 **Display hint rules:**

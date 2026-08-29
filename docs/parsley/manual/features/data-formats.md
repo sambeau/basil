@@ -65,7 +65,7 @@ let doc = "---\ntitle: My Post\ndate: 2024-06-15\ntags:\n  - parsley\n  - guide\
 
 let result = doc.parseMarkdown()
 result.md.title                  // "My Post"
-result.md.date                   // "2024-06-15"
+result.md.date                   // 2024-06-15T00:00:00Z (a datetime, not a string)
 result.md.tags                   // ["parsley", "guide"]
 result.raw                       // "# Content\n\nBody text."
 ```
@@ -204,14 +204,14 @@ Converts a value to a JSON string. Available on strings, integers, floats, array
 
 ```parsley
 {name: "Alice", age: 30}.toJSON()
-// '{\n  "age": 30,\n  "name": "Alice"\n}'
+// '{"age":30,"name":"Alice"}'
 
 [1, 2, 3].toJSON()               // "[1,2,3]"
 42.toJSON()                      // "42"
 "hello".toJSON()                 // '"hello"'
 ```
 
-JSON output is pretty-printed with 2-space indentation for dictionaries.
+`.toJSON()` returns compact JSON, with dictionary keys sorted alphabetically. Writing to a `JSON()` file handle pretty-prints with 2-space indentation instead.
 
 ### File Handles
 
@@ -270,16 +270,16 @@ let config = {
 }
 config ==> JSON(@./config.json)
 let loaded <== JSON(@./config.json)
-loaded.launchDate                // "2024-06-01" (string!)
-loaded.budget                    // 50000 (number, lost currency!)
-loaded.dataPath                  // "./data/users.csv" (string!)
+loaded.launchDate                // {year: 2024, month: 6, day: 1, …} (plain dictionary!)
+loaded.budget                    // "$50000.00" (string, lost the money type!)
+loaded.dataPath                  // {segments: [".", "data", "users.csv"], …} (plain dictionary!)
 
 // Using PLN (preserves types)
 config ==> PLN(@./config.pln)
-let loaded <== PLN(@./config.pln)
-loaded.launchDate                // @2024-06-01 (datetime ✓)
-loaded.budget                    // $50000.00 (money ✓)
-loaded.dataPath                  // @./data/users.csv (path ✓)
+let reloaded <== PLN(@./config.pln)
+reloaded.launchDate              // @2024-06-01 (date ✓)
+reloaded.budget                  // $50000.00 (money ✓)
+reloaded.dataPath                // @./data/users.csv (path ✓)
 ```
 
 See [PLN](../pln.md) for the full specification.

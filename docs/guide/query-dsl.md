@@ -15,6 +15,7 @@ The Query DSL provides a concise syntax for database operations in Parsley. It's
 
 // Connect and bind
 let db = @sqlite(":memory:")
+db.createTable(User, "users")
 let Users = db.bind(User, "users")
 
 // Query
@@ -209,9 +210,11 @@ let user = @insert(Users
     |< username: "alice-smith"
     |< email: "alice@example.com"
     |< phone: "+1 (555) 123-4567"
+    |< website: "https://alice.example.com"
     |< role: "user"
     |< bio: "Hello, world!"
     |< age: 25
+    |< created_at: "2024-01-15"
     ?-> *)
 ```
 
@@ -271,6 +274,10 @@ let targetStatus = "active"
 @query(Products | price > cost ??-> *)
 ```
 
+**Note:** this rule applies to *conditions* only. A `|<` write value is an ordinary
+Parsley expression, so it takes no braces: `|< name: userData.name`, not
+`|< name: {userData.name}` (which parses as a dictionary literal).
+
 ### Operators
 
 ```parsley
@@ -303,7 +310,7 @@ let targetStatus = "active"
 
 // Negation
 | not status == "banned"
-| not (deleted or archived)
+| not (deleted == true or archived == true)
 ```
 
 ### Logical Operators
@@ -320,7 +327,7 @@ let targetStatus = "active"
 
 // NOT
 @query(Users | not status == "banned" ??-> *)
-@query(Users | not (deleted or archived) ??-> *)
+@query(Users | not (deleted == true or archived == true) ??-> *)
 ```
 
 ## Modifiers
@@ -375,7 +382,7 @@ let userId = db.lastInsertId()
 
 // Insert with variables
 let userData = {name: "Charlie", email: "charlie@test.com"}
-@insert(Users |< name: {userData.name} |< email: {userData.email} ?-> *)
+@insert(Users |< name: userData.name |< email: userData.email ?-> *)
 
 // Batch insert
 @insert(Users * each userList as user |< name: user.name |< email: user.email .)
@@ -476,8 +483,8 @@ let user = User({name: "Alice", email: "alice@example.com"})
 let saved = users.save(user)  // Inserts, returns Record with generated id
 
 // Save an existing record (has id)
-let user = users.find("123")
-let updated = users.save(user.update({name: "Alice Smith"}))  // Updates
+let existing = users.find("123")
+let updated = users.save(existing.update({name: "Alice Smith"}))  // Updates
 
 // Bulk save from Table
 let mixedUsers = table([
@@ -502,7 +509,7 @@ let user = users.find("123")
 users.delete(user)  // Deletes row with id "123"
 
 // Delete multiple rows from a Table
-let toDelete = users.where({status: "inactive"}).all()
+let toDelete = users.where({status: "inactive"})
 users.delete(toDelete)  // Returns {deleted: N}
 ```
 
@@ -600,7 +607,7 @@ Wrap multiple operations in `@transaction` for atomic execution:
 ```parsley
 @transaction {
     let user = @insert(Users |< name: "Alice" ?-> *)
-    @insert(Profiles |< user_id: {user.id} |< bio: "Hello" .)
+    @insert(Profiles |< user_id: user.id |< bio: "Hello" .)
     user
 }
 ```
@@ -612,7 +619,7 @@ Wrap multiple operations in `@transaction` for atomic execution:
 ```parsley
 let result = @transaction {
     let author = @insert(Users |< name: "Alice" ?-> *)
-    @insert(Posts |< title: "Hello", user_id: {author.id} ?-> *)
+    @insert(Posts |< title: "Hello" |< user_id: author.id ?-> *)
 }
 // result will be the last expression (the inserted Post) on success
 // or an Error object if the transaction failed
@@ -686,7 +693,7 @@ let popular = @query(Posts as p
 let newPost = @insert(Posts 
     |< title: "Hello World"
     |< body: "My first post"
-    |< author_id: {currentUser.id}
+    |< author_id: currentUser.id
     |< status: "draft"
     ?-> *)
 ```
@@ -728,8 +735,8 @@ All three methods work transparently across SQLite versions (3.x to 3.45+).
 let db = @sqlite("app.db")
 
 // Query version directly
-let version = db <=?=> "SELECT sqlite_version() as v" ?-> v
-<p>"Using SQLite version: {version}"</p>
+let version = db <=?=> "SELECT sqlite_version() as v"
+<p>`Using SQLite version: {version.v}`</p>
 
 // Version is also stored in connection
 // (available internally for fallback detection)
@@ -748,7 +755,7 @@ let Orders = db.bind(Order, "orders")
   let userId = db.lastInsertId()
   
   // Insert order for that user
-  @insert(Orders |< user_id: {userId} |< total: 100.00 .)
+  @insert(Orders |< user_id: userId |< total: 100.00 .)
   let orderId = db.lastInsertId()
   
   {userId: userId, orderId: orderId}

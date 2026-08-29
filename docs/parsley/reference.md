@@ -392,7 +392,7 @@ let id = 123
 
 ### 1.14 Table Literals
 
-Table literals create structured tabular data with named columns. Tables can be created from arrays of dictionaries, arrays of arrays (with header row), or with an optional schema.
+Table literals create structured tabular data with named columns. Rows are always dictionary literals; every row must have the same keys as the first row. A schema may be supplied to validate rows and fill in defaults.
 
 #### Basic Syntax
 
@@ -401,13 +401,6 @@ Table literals create structured tabular data with named columns. Tables can be 
 @table [
     {name: "Alice", age: 30},
     {name: "Bob", age: 25}
-]
-
-// From array of arrays (first row is header)
-@table [
-    ["name", "age"],
-    ["Alice", 30],
-    ["Bob", 25]
 ]
 ```
 
@@ -418,10 +411,10 @@ Tables can reference a schema for validation and defaults:
 ```parsley
 @schema Person { name: string, age: integer = 0 }
 
-// Schema validates and applies defaults
+// Schema validates rows and fills in defaults for omitted columns
 @table(Person) [
-    {name: "Alice", age: 30},
-    {name: "Bob"}              // age defaults to 0
+    {name: "Alice"},
+    {name: "Bob"}              // neither row gives age, so both get 0
 ]
 ```
 
@@ -431,7 +424,7 @@ Tables can reference a schema for validation and defaults:
 // Empty table with no columns
 @table []
 
-// Empty table with schema (has columns but no rows)
+// Empty table carrying a schema (no columns until rows are added)
 @table(Person) []
 ```
 
@@ -841,11 +834,11 @@ The logical operators are overloaded to perform set operations when applied to a
 
 ```parsley
 // Intersection: elements in BOTH arrays
-([1, 2, 3] && [2, 3, 4]).toJSON()    // [2, 3]
+let both = [1, 2, 3] && [2, 3, 4]    // [2, 3]
 
 // Union: elements in EITHER array (duplicates removed)
-([1, 2, 3] || [3, 4, 5]).toJSON()    // [1, 2, 3, 4, 5]
-([1, 2] | [2, 3]).toJSON()           // [1, 2, 3]
+let either = [1, 2, 3] || [3, 4, 5]  // [1, 2, 3, 4, 5]
+let alt = [1, 2] | [2, 3]            // [1, 2, 3]
 ```
 
 This is useful for filtering, merging lists, and finding common elements without writing explicit loops.
@@ -1115,7 +1108,7 @@ Multiplying two length values produces an area. Dividing an area by a length pro
 #144in2 / #12in                 // #12in
 
 // Round-trip: (L × L) / L = L
-(#5m * #3m) / #3m               // #5m
+let back = (#5m * #3m) / #3m    // #5m
 ```
 
 **Display hint rules:**
@@ -1355,7 +1348,7 @@ let evens = for (x in 1..6) {
 for x in 1..10 {
     if (x > 5) stop     // No braces needed
     x
-}\
+}
 // [1, 2, 3, 4, 5]
 ```
 
@@ -1715,7 +1708,7 @@ Computed exports:
 **Consumer caching:**
 
 ```parsley
-import {activeUsers} from @./data.pars
+let {activeUsers} = import @./data.pars
 
 // Each access recalculates
 for (user in activeUsers) { user.name }  // Query 1
@@ -1876,28 +1869,14 @@ let upper = name.toUpper()      // Assign to use the result
 
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
-| `.toBox(opts?)` | `opts?: {style, title, maxWidth, align}` | `string` | Render value in a box with box-drawing characters |
+| `.toBox()` | none | `string` | Render value in a box with box-drawing characters |
 
-**toBox options:**
-- `style`: `"single"` (default), `"double"`, `"ascii"`, `"rounded"` - box border style
-- `title`: `string` - optional title row at top of box
-- `maxWidth`: `integer` - truncate content to this width (adds `...`)
-- `align`: `"left"` (default), `"right"`, `"center"` - text alignment
+`string.toBox()` takes no arguments. The `opts` dictionary (`style`, `title`, `maxWidth`, `align`) is only accepted by the array, dictionary and table forms — see 5.2, 5.3 and 5.12.
 
 ```parsley
 "hello".toBox()                 // ┌───────┐
                                 // │ hello │
                                 // └───────┘
-
-"hello".toBox({style: "double"})  // ╔═══════╗
-                                  // ║ hello ║
-                                  // ╚═══════╝
-
-"hello".toBox({title: "Greeting"})  // ┌──────────┐
-                                    // │ Greeting │
-                                    // ├──────────┤
-                                    // │  hello   │
-                                    // └──────────┘
 ```
 
 ```parsley
@@ -2078,8 +2057,8 @@ record.insertAfter("first", "middle", "Jane")
 // {first: "Alice", middle: "Jane", last: "Smith"}
 
 // Reorder keys with an array (keeps only listed keys, in order)
-let d = {a: 1, b: 2, c: 3}
-d.reorder(["c", "a"])           // {c: 3, a: 1}
+let counts = {a: 1, b: 2, c: 3}
+counts.reorder(["c", "a"])      // {c: 3, a: 1}
 
 // Reorder and rename with a dictionary {newKey: "oldKey"}
 let user = {first_name: "Alice", last_name: "Smith", age: 30}
@@ -2133,12 +2112,12 @@ Floats have all integer methods plus these math methods:
 
 ```parsley
 // Math methods
-(-5).abs()                      // 5
-(-3.7).abs()                    // 3.7
-(3.7).round()                   // 4
-(3.14159).round(2)              // 3.14
-(3.2).ceil()                    // 4
-(3.9).floor()                   // 3
+let absInt = (-5).abs()         // 5
+let absFloat = (-3.7).abs()     // 3.7
+let rounded = (3.7).round()     // 4
+let rounded2 = (3.14159).round(2)  // 3.14
+let ceiled = (3.2).ceil()       // 4
+let floored = (3.9).floor()     // 3
 
 // Formatting
 let n = 1234567
@@ -2150,8 +2129,8 @@ n.fmt("medium", "de-DE")        // "1.234.567"
 let f = 1234.5678
 f.fmt({precision: 2})           // "1,234.57"
 
-n.currency("USD")               // "$1,234,567.00"
-n.currency("EUR", "de-DE")      // "1.234.567,00 €"
+n.currency("USD")               // "$ 1,234,567.00"
+n.currency("EUR", "de-DE")      // "€ 1.234.567,00"
 
 let pct = 0.1234
 pct.percent()                   // "12%"
@@ -2532,7 +2511,7 @@ m.scale                         // 2
 m.fmt()                         // "$ 1,234.56"
 m.fmt("short")                  // "$1.2K"
 m.fmt("full")                   // "1,234.56 US dollars"
-m.fmt("medium", "de-DE")        // "1.234,56 $"
+m.fmt("medium", "de-DE")        // "$ 1.234,56"
 
 // Style sugar methods
 m.short()                       // "$1.2K"
@@ -2544,7 +2523,7 @@ m.full("de-DE")                 // "1.234,56 US-Dollar"
 $100.00 + $50.00                // $150.00
 $100.00 * 3                     // $300.00
 $100.00.split(3)                // [$33.34, $33.33, $33.33]
-(-$50.00).abs()                 // $50.00
+let positive = (-$50.00).abs()  // $50.00
 
 m.repr()                        // "$1234.56"
 m.inspect()                     // {__type: "money", amount: 123456, currency: "USD", scale: 2}
@@ -2662,7 +2641,7 @@ d.long("en-GB")                 // "5.00 metres"
 #1mi.to("km")                   // #1.609344km
 #100cm.to("m")                  // #1m
 
-(#-6m).abs()                    // #6m
+let absLen = (#-6m).abs()       // #6m
 #5m.repr()                      // "#5m"
 #3/8in.toFraction()             // "3/8\""
 #5m.inspect()                   // {__type: "unit", amount: 5000000, ...}
@@ -2672,10 +2651,10 @@ d.long("en-GB")                 // "5.00 metres"
 #32F.to("C")                    // #0C
 #100C.to("K")                   // #373.15K
 celsius(#212F)                  // #100C
-(#-40C).abs()                   // #40C
+let absTemp = (#-40C).abs()     // #40C
 
 // Volume
-#1gal.to("qt")                  // 4 quarts
+#1gal.to("qt")                  // #4qt
 #1/3cup.toFraction()            // "1/3cup"
 
 // Area
@@ -2718,11 +2697,10 @@ let rows <== CSV(@./sales.csv)                       // Returns Table
 let users = @query(Users ??-> *)   // Returns Table
 
 // table() builtin constructor
-let t = table([{name: "Alice"}, {name: "Bob"}])
+let t2 = table([{name: "Alice"}, {name: "Bob"}])
 
 // From single dictionary (each key becomes a row)
-let {table} = import @std/table
-let config = table.fromDict({debug: true, port: 8080})
+let config = table({debug: true, port: 8080}.entries("key", "value"))
 ```
 
 #### Properties
@@ -2781,14 +2759,12 @@ Functional-style methods for transforming and querying table data:
 | `.find(fn)` | `fn: function(row)` | `dictionary\|null` | First row matching predicate |
 | `.any(fn)` | `fn: function(row)` | `boolean` | True if any row matches |
 | `.all(fn)` | `fn: function(row)` | `boolean` | True if all rows match |
-| `.reduce(fn, init)` | `fn: function(acc, row)`, `init: any` | `any` | Fold rows to accumulator |
-| `.groupBy(fn\|col)` | `fn: function(row)` or `col: string` | `dictionary` | Group rows by key (values are Tables) |
-| `.unique(col?)` | `col?: string` | `table` | Remove duplicate rows |
-| `.sortBy(fn)` | `fn: function(row)` | `table` | Sort by computed key |
+| `.groupBy(cols, fn?)` | `cols: string\|array`, `fn?: function(rows)` | `table` | Group rows by column(s) |
+| `.unique(col?)` | `col?: string\|array` | `table` | Remove duplicate rows |
 
 **Schema behavior with collection methods:**
 - `map(fn)`: If fn returns Records of same schema → preserves schema. If different schema → adopts new. If plain dicts → clears schema.
-- `groupBy`: Returns `{key: Table, ...}` where each group Table has same schema as source.
+- `groupBy`: Returns a Table of group keys plus a `rows` array (or the aggregate). Grouped tables do not preserve schemas.
 - `renameCol`, `dropCol`: Clear schema (structure changed).
 
 ```parsley
@@ -2809,21 +2785,21 @@ let alice = users.find(fn(r) { r.name == "Alice" })
 users.any(fn(r) { r.age > 30 })     // true
 users.all(fn(r) { r.age >= 25 })    // true
 
-// Reduce to single value
-let totalAge = users.reduce(fn(acc, r) { acc + r.age }, 0)  // 90
+// Aggregate a column
+let totalAge = users.sum("age")     // 90
 
-// Group by column
+// Group by column — one row per group, with a `rows` array
 let byDept = users.groupBy("dept")
-// {Engineering: Table[2 rows], Sales: Table[1 row]}
+// dept: "Engineering", rows: [{...}, {...}] / dept: "Sales", rows: [{...}]
 
-// Group by computed key
-let byAgeGroup = users.groupBy(fn(r) { if (r.age >= 30) "senior" else "junior" })
+// Group with an aggregation callback over each group's rows
+let headcount = users.groupBy("dept", fn(rows) { {staff: rows.length()} })
 
 // Remove duplicates
 let uniqueDepts = users.unique("dept")  // 2 rows (Engineering, Sales)
 
-// Sort by computed key
-let byNameLength = users.sortBy(fn(r) { r.name.length() })
+// Sort by a column ("desc" reverses)
+let byAge = users.orderBy("age", "desc")
 ```
 
 #### Inspection Methods
@@ -3076,6 +3052,7 @@ TableBinding represents a database table bound to a schema. It provides query an
     id: integer
     name: string
     email: email
+    status: string
 }
 
 let db = @sqlite(":memory:")
@@ -3095,13 +3072,13 @@ let users = db.bind(User, "users")   // Bind schema to table
 | Method | Arguments | Returns | Description |
 |--------|-----------|---------|-------------|
 | `.all()` | none | `Table` | All rows as Table |
-| `.where(cond)` | `cond: dictionary` | `TableBinding` | Filter by conditions |
+| `.where(cond)` | `cond: dictionary` | `Table` | Rows matching the conditions |
 | `.find(id)` | `id: any` | `Record\|null` | Find row by primary key |
 | `.first()` | none | `Record\|null` | First matching row |
 
 ```parsley
 let allUsers = users.all()
-let active = users.where({status: "active"}).all()
+let active = users.where({status: "active"})
 let user = users.find("abc-123")
 ```
 
@@ -3188,7 +3165,7 @@ let user = users.find("abc-123")
 users.delete(user)                   // {deleted: 1}
 
 // Delete Table (bulk)
-let inactive = users.where({status: "inactive"}).all()
+let inactive = users.where({status: "inactive"})
 users.delete(inactive)               // {deleted: N}
 ```
 
@@ -3290,15 +3267,17 @@ info.methods                    // ["format", "toDict", ...]
 
 | Function | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
-| `format(arr, style?)` | `arr: array`, `style?: string` | `string` | Format array as prose list |
 | `tag(name, attrs?, content?)` | `name: string`, `attrs?: dictionary`, `content?: any` | `tag` | Create HTML tag programmatically |
 
-**Format styles**: `"and"` (default), `"or"`, or any conjunction string.
+Prose lists come from the array method `.format(style?)`; the `format()` builtin no longer accepts an array.
+
+**Format styles**: `"and"` (default), `"or"`, `"unit"` (comma-separated, no conjunction).
 
 ```parsley
-format(["a", "b", "c"])         // "a, b, and c"
-format(["a", "b", "c"], "or")   // "a, b, or c"
-format(["a", "b"], "unit")      // "a and b" (no Oxford comma for 2 items)
+["a", "b", "c"].format()        // "a, b, and c"
+["a", "b", "c"].format("or")    // "a, b, or c"
+["a", "b"].format("and")        // "a and b" (no Oxford comma for 2 items)
+["a", "b", "c"].format("unit")  // "a, b, c"
 
 tag("div", {class: "box"}, "Hello")  // <div class="box">Hello</div>
 ```
@@ -3446,6 +3425,7 @@ p.isAbsolute                    // true
 p.components                    // ["home", "user", "file.txt"]
 
 // Use when path comes from dynamic source
+// Basil only — needs the running server
 let userPath = path(request.query.file)
 ```
 
@@ -3851,7 +3831,7 @@ Mathematical functions and constants. All trigonometric functions use radians.
 |----------|-----------|-------------|
 | `floor(n)` | `n: number` | Round down to integer |
 | `ceil(n)` | `n: number` | Round up to integer |
-| `round(n, decimals?)` | `n: number`, `decimals?: integer` | Round to nearest (optional decimal places) |
+| `round(n)` | `n: number` | Round to nearest integer (use `.round(n)` on a number for decimal places) |
 | `trunc(n)` | `n: number` | Truncate toward zero |
 
 #### Comparison & Clamping
@@ -3940,7 +3920,7 @@ let math = import @std/math
 // Rounding
 math.floor(3.7)                 // 3
 math.ceil(3.2)                  // 4
-math.round(3.567, 2)            // 3.57
+math.round(3.567)               // 4
 math.trunc(-3.7)                // -3
 
 // Comparison
@@ -4101,18 +4081,18 @@ id.nanoid(10)                   // "IRFa-VaY2b"
 
 ---
 
-### 7.6 @std/table (Deprecated)
+### 7.6 @std/table (Removed)
 
-> **⚠️ Deprecated:** Use `@table` literal syntax instead. This module still works but emits a deprecation warning.
+> **⚠️ Removed:** `import @std/table` now raises an error. Use the `@table` literal syntax or the `table()` builtin instead — the methods below are the methods of the resulting Table value.
 
-The table module provides SQL-like data manipulation for arrays of dictionaries. Tables are immutable—all operations return new tables.
+Tables give SQL-like data manipulation over arrays of dictionaries. Tables are immutable—all operations return new tables.
 
 #### Constructors
 
 | Function | Arguments | Description |
 |----------|-----------|-------------|
-| `table.table(arr)` | `arr: array` | Create table from array of dictionaries |
-| `table.table.fromDict(dict, keyCol?, valCol?)` | `dict: dictionary` | Create table from dictionary entries |
+| `table(arr)` | `arr: array` | Create table from array of dictionaries |
+| `table(dict.entries(keyCol, valCol))` | `dict: dictionary` | Create table from dictionary entries |
 
 #### Query Methods
 
@@ -4166,15 +4146,13 @@ All mutation methods return a new Table.
 | `toHTML()` | none | tag | Export as HTML table |
 
 ```parsley
-let table = import @std/table
-
 let data = [
     {name: "Alice", age: 30, dept: "Eng"},
     {name: "Bob", age: 25, dept: "Sales"},
     {name: "Carol", age: 35, dept: "Eng"}
 ]
 
-let t = table.table(data)
+let t = table(data)
 
 // Query
 let engineers = t.where(fn(row) { row.dept == "Eng" })
@@ -4193,13 +4171,13 @@ t.min("age")                    // 25
 t.max("age")                    // 35
 
 // Export
-t.toCSV()                       // "name,age,dept\nAlice,30,Eng\n..."
+t.toCSV()                       // "name,age,dept\r\nAlice,30,Eng\r\n..."
 t.toMarkdown()                  // "| name | age | dept |\n..."
 
 // From dictionary
 let counts = {a: 1, b: 2, c: 3}
-let t2 = table.table.fromDict(counts, "letter", "count")
-t2.toCSV()                      // "letter,count\na,1\nb,2\nc,3"
+let t2 = table(counts.entries("letter", "count"))
+t2.toCSV()                      // "letter,count\r\na,1\r\nb,2\r\nc,3\r\n"
 ```
 
 ---
@@ -4342,7 +4320,7 @@ let editProfile = api.auth(fn(req) {
 })
 
 // Error responses
-fn getUser(req) {
+let getUser = fn(req) {
     let user = findUser(req.params.id)
     if (user == null) {
         return api.notFound("User not found")
@@ -4351,12 +4329,12 @@ fn getUser(req) {
 }
 
 // Redirects
-fn handleLogin(req) {
+let handleLogin = fn(req) {
     // ... authenticate ...
     return api.redirect("/dashboard")
 }
 
-fn handleOldUrl(req) {
+let handleOldUrl = fn(req) {
     return api.redirect("/new-url", 301)  // Permanent redirect
 }
 ```
@@ -4473,7 +4451,7 @@ Development logging utilities. **Requires Basil server context**—not available
 // In a Basil handler
 let {dev} = import @basil/log
 
-fn handleRequest(req) {
+let handleRequest = fn(req) {
     dev.log("request", req.params)
     dev.log("user", currentUser)
     // ...
@@ -5230,10 +5208,8 @@ Floats have all integer methods plus:
 | `find(fn)` | 1 | First row matching predicate |
 | `any(fn)` | 1 | True if any row matches |
 | `all(fn)` | 1 | True if all rows match |
-| `reduce(fn, init)` | 2 | Fold rows to accumulator |
-| `groupBy(fn\|col)` | 1 | Group rows by key |
+| `groupBy(cols, fn?)` | 1-2 | Group rows by column(s) |
 | `unique(col?)` | 0-1 | Remove duplicate rows |
-| `sortBy(fn)` | 1 | Sort by computed key |
 | `rowCount()` | 0 | Number of rows |
 | `columnCount()` | 0 | Number of columns |
 | `toHTML(footer?)` | 0-1 | Convert to HTML |

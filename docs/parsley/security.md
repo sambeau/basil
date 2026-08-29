@@ -39,10 +39,10 @@ Parsley has two operational modes:
 
 ### How Command Execution Works
 
-The `execute()` function runs external commands using Go's `exec.Command`:
+The `@shell` literal and the execute operator `<=#=>` run external commands using Go's `exec.Command`:
 
 ```parsley
-let result = execute(cmd("ls", "-la"))
+let result = @shell("ls", ["-la"]) <=#=> null
 // Equivalent to: exec.Command("ls", "-la")
 ```
 
@@ -53,7 +53,7 @@ Arguments are passed directly to the binary, **not through a shell**:
 
 ```parsley
 // This is SAFE - semicolon is literal argument, not command separator
-execute(cmd("echo", "hello; rm -rf /"))
+@shell("echo", ["hello; rm -rf /"]) <=#=> null
 // Equivalent to: echo "hello; rm -rf /"
 // Result: prints "hello; rm -rf /" (semicolon NOT interpreted)
 ```
@@ -63,7 +63,7 @@ If the binary name is user-controlled:
 
 ```parsley
 let userInput = "../../usr/bin/dangerous"
-execute(cmd(userInput))  // Can execute any binary!
+@shell(userInput, []) <=#=> null  // Can execute any binary!
 ```
 
 **Mitigation**: Security policy checks resolved binary path:
@@ -79,7 +79,7 @@ if env.Security != nil {
 Simple binary names are resolved via PATH:
 
 ```parsley
-execute(cmd("python"))  // Looks up "python" in PATH
+@shell("python", []) <=#=> null  // Looks up "python" in PATH
 ```
 
 If an attacker can manipulate PATH (via options.env), they can redirect to malicious binary.
@@ -90,10 +90,10 @@ If an attacker can manipulate PATH (via options.env), they can redirect to malic
 
 #### Scenario 1: Argument Injection (SAFE)
 ```parsley
-// Attacker tries: execute(cmd("ls", userInput))
+// Attacker tries: @shell("ls", [userInput]) <=#=> null
 // where userInput = "-la; rm -rf /"
 
-execute(cmd("ls", "-la; rm -rf /"))
+@shell("ls", ["-la; rm -rf /"]) <=#=> null
 // Result: ls receives ONE argument: "-la; rm -rf /"
 // Shell metacharacters (;) are literal - NO DANGER
 ```
@@ -101,7 +101,7 @@ execute(cmd("ls", "-la; rm -rf /"))
 
 #### Scenario 2: Binary Path Traversal (BLOCKED)
 ```parsley
-execute(cmd("../../../usr/bin/evil"))
+@shell("../../../usr/bin/evil", []) <=#=> null
 // Security policy checks resolved path
 // Result: Error if path not in AllowExecute list
 ```
@@ -109,7 +109,7 @@ execute(cmd("../../../usr/bin/evil"))
 
 #### Scenario 3: Environment Variable Injection (PARTIAL RISK)
 ```parsley
-execute(cmd("gcc"), {env: {("LD_PRELOAD"): "/tmp/evil.so"}})
+@shell("gcc", [], {env: {LD_PRELOAD: "/tmp/evil.so"}}) <=#=> null
 // Loads malicious shared library into gcc process
 ```
 ⚠️ **Risk**: Custom environment can inject dangerous variables.
@@ -118,7 +118,7 @@ execute(cmd("gcc"), {env: {("LD_PRELOAD"): "/tmp/evil.so"}})
 
 #### Scenario 4: Working Directory Escape (BLOCKED)
 ```parsley
-execute(cmd("cat", "flag.txt"), {dir: path("../../../etc")})
+@shell("cat", ["flag.txt"], {dir: path("../../../etc")}) <=#=> null
 // Tries to read /etc/flag.txt
 ```
 ✅ **Mitigated**: Security policy checks `dir` path.
@@ -136,36 +136,38 @@ execute(cmd("cat", "flag.txt"), {dir: path("../../../etc")})
 
 2. **Never Allow User-Controlled Binary Names**
    ```parsley
+   // Basil only — needs the running server
    // UNSAFE:
-   let binary = request.params.get("cmd")
-   execute(cmd(binary))  // Arbitrary code execution!
-   
+   let binary = @params.cmd
+   @shell(binary, []) <=#=> null  // Arbitrary code execution!
+
    // SAFE:
    let commands = {
-       ("list"): cmd("ls", "-la"),
-       ("status"): cmd("git", "status"),
+       list: @shell("ls", ["-la"]),
+       status: @shell("git", ["status"]),
    }
-   execute(commands.get(request.params.get("cmd")))  // Fixed set
+   let result = commands[@params.cmd] <=#=> null  // Fixed set
    ```
 
 3. **Validate Arguments**
    Even though args are safe from shell injection, validate for application logic:
    ```parsley
-   let branch = request.params.get("branch")
-   if (!branch.match(/^[a-zA-Z0-9_-]+$/)) {
+   // Basil only — needs the running server
+   let branch = @params.branch
+   if (!(branch ~ /^[a-zA-Z0-9_-]+$/)) {
        fail("invalid branch name")
    }
-   execute(cmd("git", "checkout", branch))
+   let result = @shell("git", ["checkout", branch]) <=#=> null
    ```
 
 4. **Use Timeouts**
    Prevent indefinite hangs:
    ```parsley
-   execute(cmd("slow-command"), {timeout: dur(30, "s")})
+   @shell("slow-command", [], {timeout: @30s}) <=#=> null
    ```
 
 5. **Production Mode: Block All Commands**
-   For web servers, consider blocking execute() entirely:
+   For web servers, consider blocking command execution entirely:
    ```go
    AllowExecute: []string{}  // Empty = no commands allowed
    ```
@@ -181,19 +183,20 @@ As of 2026-01-07, Parsley **automatically validates all SQL identifiers** (table
 #### ✅ SAFE: Validated Identifiers
 ```parsley
 @schema users {
-    id: integer primary,
-    name: string,
+    id: integer(auto)
+    name: string
     email: string
 }
 
-let db = database("sqlite:./app.db")
-let Users = db.table("users", schema: users)
+let db = @sqlite("./app.db")
+db.createTable(users, "users")
+let Users = db.bind(users, "users")
 
 // Column names are validated
 Users.insert({name: "Alice", email: "alice@example.com"})
 
-// Projection columns are validated  
-@query(Users) ?-> ["id", "name"]
+// Projection columns are validated
+Users.all({select: ["id", "name"]})
 ```
 
 All identifiers must match: `^[a-zA-Z_][a-zA-Z0-9_]*$` (alphanumeric, underscore, max 64 chars)
@@ -203,15 +206,15 @@ All identifiers must match: `^[a-zA-Z_][a-zA-Z0-9_]*$` (alphanumeric, underscore
 // These are BLOCKED with VAL-0003 error:
 
 // Column name injection
-Users.insert({("name; DROP TABLE users--"): "evil"})
+Users.where({["name; DROP TABLE users--"]: "evil"})
 // Error: invalid SQL identifier
 
-// Projection injection  
-@query(Users) ?-> ["id", "name' OR '1'='1"]
-// Error: invalid column name in projection
+// Projection injection
+Users.all({select: ["id", "name' OR '1'='1"]})
+// Error: invalid column name in select
 
 // Table name injection (at binding creation)
-db.table("users; DROP TABLE", schema: users)
+db.bind(users, "users; DROP TABLE")
 // Error: invalid table name
 ```
 
@@ -219,22 +222,24 @@ db.table("users; DROP TABLE", schema: users)
 
 #### Scenario 1: Column Name Injection (BLOCKED)
 ```parsley
+// Basil only — needs the running server
 let userFields = {
-    ("email"): request.params.get("email"),
-    ("role; DELETE FROM users--"): "admin"  // Injection attempt
+    email: @params.email,
+    ["role; DELETE FROM users--"]: "admin"  // Injection attempt
 }
-Users.insert(userFields)
+Users.where(userFields)
 // Result: VAL-0003 error - invalid SQL identifier
 ```
 ✅ **Blocked**: All dictionary keys used as column names are validated.
 
-#### Scenario 2: Query DSL Injection (BLOCKED)
+#### Scenario 2: Dynamic Column Injection (BLOCKED)
 ```parsley
-let sortCol = request.params.get("sort")  // User input: "id; DROP TABLE"
-@query(Users) ?-> [sortCol]
-// Result: VAL-0003 error - invalid column name in projection
+// Basil only — needs the running server
+let sortCol = @params.sort  // User input: "id; DROP TABLE"
+Users.all({orderBy: sortCol})
+// Result: VAL-0003 error - invalid column name in orderBy
 ```
-✅ **Blocked**: Projection columns validated before SQL generation.
+✅ **Blocked**: Ordering and projection columns are validated before SQL generation.
 
 #### Scenario 3: Parametrized Values (SAFE)
 ```parsley
@@ -266,39 +271,42 @@ Users.where({name: userInput})
 All file operations check security policy:
 
 ```parsley
-let file = fs.read("/etc/passwd")
+let file <== text(@/etc/passwd)
 // If env.Security set: checks AllowRead and DenyRead
 ```
 
 ### Safe Patterns
 
-```parsley
-// Restrict to specific directory tree
-AllowRead: []string{"/var/app/data/**"}
-DenyRead: []string{"/var/app/data/secrets/**"}
+Restrict to a specific directory tree in the host policy:
 
+```go
+AllowRead: []string{"/var/app/data/**"}
+DenyRead:  []string{"/var/app/data/secrets/**"}
+```
+
+```parsley
 // Read allowed
-fs.read("/var/app/data/public/file.txt")  // OK
+let ok <== text(@/var/app/data/public/file.txt)  // OK
 
 // Read denied
-fs.read("/var/app/data/secrets/key.pem")  // Error
-fs.read("/etc/passwd")  // Error
+let key <== text(@/var/app/data/secrets/key.pem)  // Error
+let pw <== text(@/etc/passwd)  // Error
 ```
 
 ### Unsafe Patterns
 
 ```parsley
+// Basil only — needs the running server
 // UNSAFE: User-controlled path without validation
-let filename = request.params.get("file")
-fs.read("/var/app/data/" + filename)
+let filename = @params.file
+let data <== text(path("/var/app/data/" + filename))
 // Attack: filename = "../../etc/passwd" → reads /etc/passwd
 
 // SAFE: Validate and sanitize
-let filename = request.params.get("file")
-if (filename.contains("..") || filename.contains("/")) {
+if (filename.includes("..") || filename.includes("/")) {
     fail("invalid filename")
 }
-fs.read("/var/app/data/" + filename)  // Now safe
+let safe <== text(path("/var/app/data/" + filename))  // Now safe
 ```
 
 ---
@@ -308,7 +316,7 @@ fs.read("/var/app/data/" + filename)  // Now safe
 ### HTTP Requests
 
 ```parsley
-let response = http.get("https://api.example.com")
+let response <=/= @https://api.example.com
 ```
 
 **Security considerations**:
@@ -319,18 +327,18 @@ let response = http.get("https://api.example.com")
 ### SSRF Prevention
 
 ```parsley
+// Basil only — needs the running server
 // UNSAFE: User-controlled URL
-let url = request.params.get("url")
-http.get(url)  // Can request internal services!
+let target = @params.url
+let page <=/= url(target)  // Can request internal services!
 
 // SAFE: Whitelist
 let allowedHosts = ["api.example.com", "cdn.example.com"]
-let url = request.params.get("url")
-let parsedURL = url(url)
-if (!allowedHosts.contains(parsedURL.host)) {
+let parsedURL = url(target)
+if (parsedURL.host not in allowedHosts) {
     fail("invalid host")
 }
-http.get(url)
+let safePage <=/= parsedURL
 ```
 
 ---
@@ -425,8 +433,9 @@ env.Security = &evaluator.SecurityPolicy{
 
 ### ✅ Validated User Input
 ```parsley
-let email = request.params.get("email")
-if (!email.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
+// Basil only — needs the running server
+let email = @params.email
+if (!(email ~ /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
     fail("invalid email")
 }
 Users.insert({email: email})
@@ -434,21 +443,22 @@ Users.insert({email: email})
 
 ### ✅ Whitelisted Operations
 ```parsley
+// Basil only — needs the running server
 let operations = {
-    ("list"): fn() { @query(Users) ?-> * },
-    ("count"): fn() { @query(Users) ?-> .count },
+    list: fn() { @query(Users ??-> *) },
+    count: fn() { @query(Users ?-> count) },
 }
-let op = request.params.get("op")
+let op = @params.op
 if (!operations.has(op)) {
     fail("invalid operation")
 }
-operations.get(op)()
+operations[op]()
 ```
 
 ### ✅ Parameterized Queries
 ```parsley
 // Values automatically parameterized
-@query(Users).where({email: userInput}) ?-> *
+@query(Users | email == {userInput} ??-> *)
 ```
 
 ---
@@ -457,25 +467,28 @@ operations.get(op)()
 
 ### ❌ User-Controlled Binary Names
 ```parsley
-let cmd = request.params.get("command")
-execute(cmd(cmd))  // Arbitrary code execution!
+// Basil only — needs the running server
+let binary = @params.command
+@shell(binary, []) <=#=> null  // Arbitrary code execution!
 ```
 
 ### ❌ Path Traversal
 ```parsley
-let filename = request.params.get("file")
-fs.read("/data/" + filename)  // "../../../etc/passwd"
+// Basil only — needs the running server
+let filename = @params.file
+let data <== text(path("/data/" + filename))  // "../../../etc/passwd"
 ```
 
 ### ❌ SSRF
 ```parsley
-let url = request.params.get("url")
-http.get(url)  // Can hit internal services
+// Basil only — needs the running server
+let target = @params.url
+let page <=/= url(target)  // Can hit internal services
 ```
 
 ### ❌ Trusting nil Security
-```parsley
-// In web server handler:
+```go
+// In the Go host that embeds Parsley:
 if env.Security == nil {
     // DANGEROUS: Full system access in production!
 }

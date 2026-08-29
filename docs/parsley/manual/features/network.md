@@ -39,15 +39,15 @@ The fetch operator can also be used as a standalone expression on the right side
 
 ```parsley
 let response = <=/= JSON(@https://api.example.com/users)
-response.data                    // the parsed content
-response.ok                      // true if status 200–299
+response.data()                  // the parsed content
+response.response().ok           // true if status 200–299
 ```
 
 This is equivalent to the statement form (`let response <=/= ...`) but works anywhere an expression is expected — in function arguments, conditionals, or chained operations:
 
 ```parsley
 // Use in a conditional
-if ((<=/= JSON(@https://api.example.com/health)).ok) {
+if ((<=/= JSON(@https://api.example.com/health)).response().ok) {
     "API is up"
 }
 
@@ -84,15 +84,16 @@ When assigned to a single variable, the fetch operator returns a **response dict
 
 ```parsley
 let response <=/= JSON(@https://api.example.com/users)
-response.data                    // the parsed content
-response.status                  // 200
-response.statusText              // "200 OK"
-response.ok                      // true (status 200–299)
-response.url                     // final URL (after redirects)
-response.headers                 // response headers dictionary
+response.data()                  // the parsed content
+response.format()                // "json"
+response.response().status       // 200
+response.response().statusText   // "200 OK"
+response.response().ok           // true (status 200–299)
+response.response().url          // final URL (after redirects)
+response.response().headers      // response headers dictionary
 ```
 
-The response wraps the parsed data alongside HTTP metadata. Access the data directly through dictionary destructuring or via the `data` property.
+The response wraps the parsed data alongside HTTP metadata. Access the data through dictionary destructuring or via the `data()` method; the HTTP metadata lives behind the `response()` method. These are methods, not plain keys — `response.status` returns null.
 
 ## Error Handling
 
@@ -187,7 +188,7 @@ The `=/=>` operator only accepts network targets (HTTP request handles or SFTP f
 The append variant `=/=>>` works the same way but signals append semantics (relevant for SFTP targets):
 
 ```parsley
-"log entry\n" =/=>> text(sftp, "/var/log/app.log")
+"log entry\n" =/=>> sftp(@/var/log/app.log).text
 ```
 
 ### Remote Write as an Expression
@@ -197,9 +198,9 @@ Like fetch, the remote write operator is a true expression — it returns a resp
 ```parsley
 // Capture the full response
 let response = payload =/=> JSON(@https://api.example.com/items)
-response.data                    // response body (parsed)
-response.status                  // HTTP status code
-response.ok                      // true if status 200–299
+response.data()                  // response body (parsed)
+response.response().status       // HTTP status code
+response.response().ok           // true if status 200–299
 ```
 
 This works for all remote write variants (`=/=>` and `=/=>>`).
@@ -209,8 +210,8 @@ This works for all remote write variants (`=/=>` and `=/=>>`).
 ```parsley
 // Capture the full response
 let response = payload =/=> JSON(@https://api.example.com/items)
-if (!response.ok) {
-    `Failed: {response.status} - {response.error}`
+if (!response.response().ok) {
+    `Failed: {response.response().status} - {response.response().error}`
 }
 
 // Destructured capture
@@ -275,14 +276,17 @@ At least one authentication method (key file or password) must be provided.
 Use the network I/O operators with SFTP connections:
 
 ```parsley
+// Call the connection with a path to get a remote file handle,
+// then pick the format with an accessor (.json, .text, .csv, .lines, .bytes)
+
 // Read a remote JSON file (network read)
-let config <=/= JSON(sftp, "/etc/app/config.json")
+let config <=/= sftp(@/etc/app/config.json).json
 
 // Write to a remote file (network write)
-"new content" =/=> text(sftp, "/var/data/output.txt")
+"new content" =/=> sftp(@/var/data/output.txt).text
 
 // Append to a remote log (network append)
-"log entry\n" =/=>> text(sftp, "/var/log/app.log")
+"log entry\n" =/=>> sftp(@/var/log/app.log).text
 ```
 
 ### Connection Methods
@@ -305,16 +309,13 @@ let names = for (user in users) {
 ### API with Authentication
 
 ```parsley
-let request = {
-    url: @https://api.example.com/data,
+let {data, error} <=/= JSON(@https://api.example.com/data, {
     method: "GET",
-    format: "json",
     headers: {
         Authorization: "Bearer " + apiToken,
         Accept: "application/json"
     }
-}
-let {data, error} <=/= request
+})
 ```
 
 ### Safe Fetch with Fallback

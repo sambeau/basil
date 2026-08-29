@@ -201,7 +201,7 @@ for (product in products) {
 }
 ```
 
-> **Heads-up:** query results don't currently echo back the `url` you gave `add()` — file-indexed documents have `path`, but manual documents have neither. Until that gap is filled, make titles distinctive enough to identify the page, or keep a title-to-URL lookup on the side.
+> **Heads-up:** manual documents have no source file, so their results carry no `path` — link to them with the `url` you gave `add()`, which comes back on every result.
 
 Mixing works fine, by the way: one instance can watch a folder *and* take manual additions, and a query searches everything together.
 

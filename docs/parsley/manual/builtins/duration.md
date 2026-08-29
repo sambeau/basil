@@ -21,7 +21,7 @@ let meeting = @1h30m
 
 vacation.seconds  // 1209600
 project.months    // 3
-meeting.fmt()     // "in 2 hours"
+meeting.fmt()     // "in 1 hour"
 ```
 
 ## Literals
@@ -326,7 +326,7 @@ Format with a named style:
 let d = @2h30m
 
 d.fmt("short")   // "2h30m"
-d.fmt("medium")  // "in 3 hours"
+d.fmt("medium")  // "in 2 hours"
 d.fmt("long")    // "2 hours 30 minutes"
 ```
 
@@ -396,7 +396,7 @@ Verbose human-readable format:
 @1y6mo.long()         // "1 year 6 months"
 
 // With locale:
-@2h30m.long("de-DE")  // "2 Stunden 30 Minuten"
+@2h30m.long("de-DE")  // "2 hours 30 minutes" (the long style is not localised)
 ```
 
 ### format()
@@ -423,7 +423,7 @@ Returns a parseable literal representation:
 Returns the JSON representation:
 
 ```parsley
-@2h30m.toJSON()       // "{\"months\":0,\"seconds\":9000}"
+@2h30m.toJSON()       // "{\"years\":0,\"months\":0,\"days\":0,\"hours\":2,\"minutes\":30,\"seconds\":0}"
 ```
 
 ### inspect()
@@ -432,7 +432,7 @@ Returns a debug dictionary with type information:
 
 ```parsley
 @2h30m.inspect()
-// {__type: "duration", months: 0, seconds: 9000}
+// {__type: "duration", months: 0, seconds: 9000, totalSeconds: 9000}
 
 @1y6mo.inspect()
 // {__type: "duration", months: 18, seconds: 0}
@@ -444,7 +444,7 @@ Returns a clean dictionary for reconstruction (without `__type`):
 
 ```parsley
 @2h30m.toDict()
-// {months: 0, seconds: 9000}
+// {months: 0, seconds: 9000, totalSeconds: 9000}
 
 @1y6mo.toDict()
 // {months: 18, seconds: 0}
@@ -461,9 +461,13 @@ Renders the duration in a box diagram:
 ```
 
 ```
-┌────────────────────────┐
-│ 2 hours 30 minutes     │
-└────────────────────────┘
+┌─────────┬────┐
+│    duration    │
+├─────────┬────┤
+│ hours   │ 2  │
+├─────────┼────┤
+│ minutes │ 30 │
+└─────────┴────┘
 ```
 
 ## Formatting Styles Summary
@@ -471,7 +475,7 @@ Renders the duration in a box diagram:
 | Style | Example (`@2h30m`) | Description |
 |-------|-------------------|-------------|
 | `short` | `"2h30m"` | Compact abbreviations |
-| `medium` (default) | `"in 3 hours"` | Relative time |
+| `medium` (default) | `"in 2 hours"` | Relative time |
 | `long` | `"2 hours 30 minutes"` | Verbose human-readable |
 
 > **Note:** Duration does not support `full` style.
@@ -609,11 +613,11 @@ let start = meeting - buffer         // 09:30 (exact)
 ```parsley
 let posted = @2024-12-10T14:00:00
 let now = @now
-let ago = now - posted
+let ago = posted - now
 
 ago.fmt()       // "5 days ago" (depends on current date)
-ago.short()     // "5d"
-ago.long()      // "5 days"
+ago.short()     // "-5d"
+ago.long()      // "5 days ago"
 ```
 
 ### Format Selection by Context
@@ -625,7 +629,7 @@ let duration = @2h30m
 duration.short()     // "2h30m"
 
 // For natural language contexts
-duration.medium()    // "in 3 hours"
+duration.medium()    // "in 2 hours"
 
 // For detailed displays
 duration.long()      // "2 hours 30 minutes"

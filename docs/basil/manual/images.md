@@ -31,7 +31,7 @@ Four builtins for transforming, optimising, and serving images from Basil handle
 
 ```parsley
 let url = image(@./hero.jpg)
-let url = image(@./hero.jpg, {width: 800, format: "webp"})
+let webp = image(@./hero.jpg, {width: 800, format: "webp"})
 let resp = imageSrcset(@./hero.jpg, {width: 800}, [400, 800, 1200])
 let placeholder = imageBlur(@./hero.jpg)
 let info = imageInfo(@./hero.jpg)

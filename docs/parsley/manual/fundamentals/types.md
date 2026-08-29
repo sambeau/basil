@@ -158,7 +158,7 @@ Every value has a `.type()` method returning a string that identifies its type:
 [1, 2].type()                    // "array"
 {a: 1}.type()                    // "dictionary"
 null.type()                      // "null"
-(fn() { }).type()                // "function"
+fn() { }.type()                  // "function"
 ```
 
 `.type()` is the one method that works on `null` — everything else null-propagates.

@@ -104,7 +104,7 @@ Access the CSRF token through the request context to protect state-changing form
 <form method="post">
     <input type="hidden" name="_csrf" value={basil.csrf.token}/>
     // form fields...
-    <button type="submit">Submit</button>
+    <button type="submit">"Submit"</button>
 </form>
 ```
 

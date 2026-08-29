@@ -225,11 +225,11 @@ cors:
 
 In your handler:
 ```parsley
-let {basil} = import @std/basil
+let {response} = import @basil/http
 
-basil.http.response.headers["X-Total-Count"] = "150"
-basil.http.response.headers["X-Page"] = "2"
-basil.http.response.headers["X-Per-Page"] = "20"
+response.headers["X-Total-Count"] = "150"
+response.headers["X-Page"] = "2"
+response.headers["X-Per-Page"] = "20"
 ```
 
 JavaScript:
@@ -561,10 +561,10 @@ routes:
 
 **handlers/items.pars:**
 ```parsley
-let {basil} = import @std/basil
+let {response} = import @basil/http
 
-basil.http.response.headers["Content-Type"] = "application/json"
-basil.http.response.headers["X-Total-Count"] = "100"
+response.headers["Content-Type"] = "application/json"
+response.headers["X-Total-Count"] = "100"
 
 {
   items: [

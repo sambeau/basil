@@ -177,7 +177,7 @@ See [HTTP & Networking](../features/network.md) for full details on fetch and re
 - **URLs are objects, not strings** — they have typed properties (`.scheme`, `.host`, `.query` as a dictionary) and methods. No manual string parsing needed.
 - **Interpolation uses `{expr}`** — `@(https://api.com/{version}/users)`, not template string syntax.
 - **Query params are a dictionary** — access `u.query.page` directly instead of parsing query strings.
-- **URLs double as fetch sources** — pass a URL to a file handle constructor and use `<==` to fetch remote data. No separate `fetch()` function needed.
+- **URLs double as fetch sources** — pass a URL to a format constructor and use `<=/=` to fetch remote data. No separate `fetch()` function needed.
 
 ## See Also
 

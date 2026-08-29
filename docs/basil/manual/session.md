@@ -157,6 +157,8 @@ basil.session.regenerate()
 ### Login / Logout
 
 ```parsley
+let api = import @basil/api
+
 // Login handler
 let handleLogin = fn(req) {
     let user = authenticate(req.body.email, req.body.password)

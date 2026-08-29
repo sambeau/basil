@@ -96,11 +96,11 @@ Match against a route-style pattern. Returns a dictionary of captures or `null`:
 
 ```parsley
 let p = @./users/123/profile.json
-p.match("/users/:id/:file")      // {id: "123", file: "profile.json"}
-p.match("/products/:id")         // null
+p.match("./users/:id/:file")     // {id: "123", file: "profile.json"}
+p.match("./products/:id")        // null
 ```
 
-Pattern syntax: `:param` matches a single segment, `*splat` matches multiple.
+Pattern syntax: `:param` matches a single segment, `*splat` matches multiple. The pattern is matched against the path's own segments, so a `@./` path's leading `.` must be matched too.
 
 ### .toURL(prefix)
 
@@ -117,6 +117,7 @@ p.toURL("https://cdn.example.com")
 Get the public web-serving URL for this path:
 
 ```parsley
+// Basil only — needs the running server
 let p = @./assets/style.css
 p.public()                       // "/assets/style.css"
 ```

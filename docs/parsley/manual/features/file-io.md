@@ -215,9 +215,12 @@ When using the `{data, error}` pattern, read errors are captured instead of halt
 The `asset()` builtin maps a file path under the public directory to its web-root-relative URL by stripping the `public_dir` prefix:
 
 ```parsley
+// Basil only — needs the running server (the prefix comes from basil.public_dir)
 <img src={asset(@./public/images/logo.png)} alt="Logo"/>
 // Produces: <img src="/images/logo.png" alt="Logo" />
 ```
+
+Outside Basil there is no `public_dir` to strip, so `asset()` returns the path unchanged.
 
 It is a pure path-to-URL transform — it does **not** hash file contents or add a cache-busting suffix, and it also accepts the file dictionaries returned by `fileList()`.
 

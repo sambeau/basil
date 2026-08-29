@@ -39,7 +39,7 @@ let {dev} = import @basil/log
 
 dev.log(someValue)
 dev.log("user", currentUser)
-dev.log("uh oh", err, {level: "error"})   // "info" | "warn" | "error"
+dev.log("uh oh", err, {level: "warn"})   // "info" (default) | "warn"
 ```
 
 Every `dev.*` function is a **no-op in production** and in plain `pars`, so it's safe to leave the calls in.

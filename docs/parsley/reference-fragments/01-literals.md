@@ -369,7 +369,7 @@ let id = 123
 
 ### 1.14 Table Literals
 
-Table literals create structured tabular data with named columns. Tables can be created from arrays of dictionaries, arrays of arrays (with header row), or with an optional schema.
+Table literals create structured tabular data with named columns. Rows are always dictionary literals; every row must have the same keys as the first row. A schema may be supplied to validate rows and fill in defaults.
 
 #### Basic Syntax
 
@@ -378,13 +378,6 @@ Table literals create structured tabular data with named columns. Tables can be 
 @table [
     {name: "Alice", age: 30},
     {name: "Bob", age: 25}
-]
-
-// From array of arrays (first row is header)
-@table [
-    ["name", "age"],
-    ["Alice", 30],
-    ["Bob", 25]
 ]
 ```
 
@@ -395,10 +388,10 @@ Tables can reference a schema for validation and defaults:
 ```parsley
 @schema Person { name: string, age: integer = 0 }
 
-// Schema validates and applies defaults
+// Schema validates rows and fills in defaults for omitted columns
 @table(Person) [
-    {name: "Alice", age: 30},
-    {name: "Bob"}              // age defaults to 0
+    {name: "Alice"},
+    {name: "Bob"}              // neither row gives age, so both get 0
 ]
 ```
 
@@ -408,7 +401,7 @@ Tables can reference a schema for validation and defaults:
 // Empty table with no columns
 @table []
 
-// Empty table with schema (has columns but no rows)
+// Empty table carrying a schema (no columns until rows are added)
 @table(Person) []
 ```
 

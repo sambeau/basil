@@ -243,8 +243,8 @@ let form = User({name: "Alice"})
 // Shorthand (preferred)
 form.title("name")              // "Full Name"
 form.placeholder("email")       // "you@example.com"
-form.meta("name", "help")       // "Your legal name"
-form.enumValues("role")         // ["user", "admin", "moderator"]
+form.meta("age", "help")        // "Must be a positive number"
+form.enumValues("role")         // enum options, or [] if the field is not an enum
 
 // Long form (also works)
 form.schema().title("name")
@@ -262,20 +262,20 @@ The `format()` method formats values according to metadata hints:
     createdAt: datetime | {format: "date"}
 }
 
-let m = Metrics({views: 1234567, revenue: 52000, conversionRate: 0.15})
+let m = Metrics({views: 1234567, revenue: 52000, conversionRate: 0.15, createdAt: @2025-01-15})
 
 m.format("views")           // "1,234,567"
-m.format("revenue")         // "$52,000.00"
+m.format("revenue")         // "$ 52,000.00"
 m.format("conversionRate")  // "15%"
-m.format("createdAt")       // "Jan 15, 2025"
+m.format("createdAt")       // "January 15, 2025"
 ```
 
 | Format | Example Input | Example Output |
 |--------|---------------|----------------|
 | `"number"` | `1234567` | "1,234,567" |
-| `"currency"` | `52000` | "$52,000.00" |
+| `"currency"` | `52000` | "$ 52,000.00" |
 | `"percent"` | `0.15` | "15%" |
-| `"date"` | `2025-01-15` | "Jan 15, 2025" |
+| `"date"` | `2025-01-15` | "January 15, 2025" |
 | `"datetime"` | `2025-01-15T14:30:00Z` | "Jan 15, 2025 2:30 PM" |
 
 ### Field Props: All-in-One Input Attributes
@@ -397,16 +397,19 @@ Validation checks in order:
 
 | Code | Meaning | Example Message |
 |------|---------|-----------------|
-| `REQUIRED` | Missing required field | "This field is required" |
-| `TYPE` | Wrong data type | "Must be a number" |
+| `REQUIRED` | Missing required field | "Name is required" |
+| `TYPE` | Wrong data type | "Age must be a integer" |
 | `FORMAT` | Invalid format | "Email is not a valid email address" |
-| `ENUM` | Value not in allowed set | "Must be one of: user, admin" |
-| `MIN_LENGTH` | String too short | "Must be at least 2 characters" |
-| `MAX_LENGTH` | String too long | "Must be at most 100 characters" |
-| `MIN_VALUE` | Number too small | "Must be at least 0" |
-| `MAX_VALUE` | Number too large | "Must be at most 150" |
-| `PATTERN` | Doesn't match regex | "Invalid format" |
+| `ENUM` | Value not in allowed set | "Role must be one of: user, admin" |
+| `MIN_LENGTH` | String too short | "Name must be at least 2 characters" |
+| `MAX_LENGTH` | String too long | "Name must be at most 100 characters" |
+| `MIN_VALUE` | Number too small | "Age must be at least 0" |
+| `MAX_VALUE` | Number too large | "Age must be at most 150" |
+| `PATTERN` | Doesn't match regex | "Slug does not match the required format" |
 | `CUSTOM` | Added via `withError()` | (Your message) |
+
+Built-in messages are prefixed with the field's title — its `title` metadata, or the
+title-cased field name.
 
 ### Accessing Errors
 
@@ -418,7 +421,7 @@ form.errors()           // {name: {code: "MIN_LENGTH", message: "..."},
                         //  email: {code: "FORMAT", message: "..."}}
 
 // Single field
-form.error("name")      // "Must be at least 2 characters"
+form.error("name")      // "Name must be at least 2 characters"
 form.errorCode("name")  // "MIN_LENGTH"
 form.hasError("name")   // true
 
@@ -432,7 +435,7 @@ form.errorList()        // [{field: "name", code: "MIN_LENGTH", message: "..."},
 For business rules and cross-field validation, use `withError()`:
 
 ```parsley
-let form = User(props).validate()
+var form = User(props).validate()   // var — each withError() rebinds it
 
 // Cross-field validation
 if (form.password != props.confirmPassword) {
@@ -458,7 +461,7 @@ Sometimes you want to highlight multiple fields as invalid without showing indiv
     year: int(min: 1900, max: 2100)
 }
 
-let form = Person(props).validate()
+var form = Person(props).validate()   // var — each withError() rebinds it
 
 // Check if person already exists (multi-field validation)
 if (personExists(form.firstName, form.lastName)) {
@@ -470,7 +473,8 @@ if (personExists(form.firstName, form.lastName)) {
 }
 
 // Check if date fields form a valid date
-if (not valid.date(`{form.year}-{form.month}-{form.day}`)) {
+let parsed = try fn() { date(`{form.year}-{form.month}-{form.day}`) }()
+if (parsed.error) {
     // Highlight all three date fields
     form = form
         .withError("day")
@@ -516,9 +520,9 @@ Defaults are applied on **creation**, not validation:
     sort: string(default: "created_at")
 }
 
-let r = Request({})              // r.page = 1, r.limit = 20, r.sort = "created_at"
-let r = Request({page: 5})       // r.page = 5, r.limit = 20, r.sort = "created_at"
-let r = Request({page: null})    // r.page = 1 (null treated as missing)
+let empty = Request({})          // page = 1, limit = 20, sort = "created_at"
+let paged = Request({page: 5})   // page = 5, limit = 20, sort = "created_at"
+let nulled = Request({page: null})  // page = null — a default fills a *missing* key, not a null one
 ```
 
 ### Field Filtering (Whitelisting)
@@ -643,7 +647,7 @@ user.isValid()       // true
 // Update returns new revalidated record
 let updated = user.update({name: "A"})  // too short
 updated.isValid()    // false (auto-revalidated)
-updated.error("name") // "Must be at least 2 characters"
+updated.error("name") // "Name must be at least 2 characters"
 
 user.name            // "Alice" (original unchanged)
 updated.name         // "A" (new record)
@@ -711,7 +715,7 @@ Renders to:
 ```html
 <form method="POST" action="/save">
     <input type="hidden" name="id" value="42"/>
-    <input name="name" value="Alice" type="text"/>
+    <input name="name" value="Alice" required aria-required="true" autocomplete="name"/>
 </form>
 ```
 
@@ -800,7 +804,7 @@ let form = User({email: "invalid"}).validate()
 // → <div class="field">
 //       <label for="email">Email</label>
 //       <input ... aria-invalid="true" aria-describedby="email-error"/>
-//       <span id="email-error" class="error" role="alert">Invalid email format</span>
+//       <span id="email-error" class="error" role="alert">Email is not a valid email address</span>
 //   </div>
 ```
 
@@ -838,10 +842,13 @@ Expands to:
        value="alice@example.com" 
        type="email"
        required
-       aria-invalid="false"
-       aria-describedby="email-error"
-       aria-required="true"/>
+       aria-required="true"
+       autocomplete="email"
+       aria-invalid="false"/>
 ```
+
+`aria-invalid` appears only once the record has been through `validate()`, and
+`aria-describedby="email-error"` is added only when that field actually has an error.
 
 ### Type Derivation
 
@@ -912,7 +919,7 @@ Use `@tag` to change the element type:
 
 ```parsley
 <error @field="email"/>
-// When error exists: <span id="email-error" class="error" role="alert">Invalid email</span>
+// When error exists: <span id="email-error" class="error" role="alert">Email is not a valid email address</span>
 // When no error: (nothing rendered)
 ```
 
@@ -948,13 +955,13 @@ Use for help text, hints, or custom metadata:
 
 ```parsley
 @schema User {
-    status: enum["active", "pending", "inactive"]
+    status: enum["active", "pending", "inactive"] | {placeholder: "Select status"}
 }
 
 <select @field="status"/>
 ```
 
-Renders:
+Renders (for a validated record whose `status` is `"pending"`):
 
 ```html
 <select name="status" required aria-required="true" aria-invalid="false">
@@ -1137,9 +1144,9 @@ export save = fn(props) {
 ```parsley
 let user = User({name: "Alice", email: "alice@example.com"})
 
-user.data()           // {name: "Alice", email: "alice@example.com"}
-user.keys()           // ["name", "email"] (declaration order)
-user.toJSON()         // '{"name":"Alice","email":"alice@example.com"}'
+user.data()           // {name: "Alice", email: "alice@example.com"} (declaration order)
+user.keys()           // ["email", "name"] (sorted alphabetically)
+user.toJSON()         // '{"email":"alice@example.com","name":"Alice"}'
 ```
 
 ### Direct Property Access
@@ -1184,7 +1191,7 @@ let users = User([
 ])
 
 // Or use table() with .as()
-let users = table(csvData).as(User)
+let imported = table(csvData).as(User)
 ```
 
 ### Table Validation
@@ -1267,7 +1274,7 @@ let admins = @query(Users | role == "admin" ??-> *)
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `data()` | Dictionary | Plain dict of all data |
-| `keys()` | Array | Field names in declaration order |
+| `keys()` | Array | Field names, sorted alphabetically |
 | `schema()` | Schema or null | The bound schema |
 | `toJSON()` | String | JSON encoding of data |
 

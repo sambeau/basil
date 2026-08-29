@@ -185,7 +185,7 @@ Add two units of the same family. Cross-system addition is allowed—the left op
 #5m + #3m        // #8m
 #1ft + #6in      // #1+1/2ft
 #1cm + #1in      // #3.54cm (cross-system, result in SI)
-#1in + #1cm      // #1.39in (cross-system, result in US)
+#1in + #1cm      // #1.3937...in (cross-system, result in US)
 ```
 
 Different families produce an error:
@@ -390,31 +390,31 @@ Format with an options dictionary:
 #12.345m.fmt({precision: 2})                 // "12.35m"
 ```
 
-#### Usage: fmt(formatString)
+#### Compound formats: format(formatString)
 
-Format using a compound format string:
+Compound format strings are handled by `format()`, not `fmt()`:
 
 ```parsley
-#63in.fmt("ft-in")      // "5' 3\""
-#63.375in.fmt("ft-in")  // "5' 3+3/8\""
-#37oz.fmt("lb-oz")      // "2lb 5oz"
-#1500mL.fmt("L-mL")     // "1L 500mL"
-#13pt.fmt("gal-qt-pt")  // "1gal 2qt 1pt"
+#63in.format("ft-in")      // "5' 3\""
+#63.375in.format("ft-in")  // "5' 3+3/8\""
+#37oz.format("lb-oz")      // "2lb 5oz"
+#1500mL.format("L-mL")     // "1L 500mL"
+#13pt.format("gal-qt-pt")  // "1gal 2qt 1pt"
 ```
 
 The `"compound"` format auto-detects the appropriate compound format:
 
 ```parsley
-#63in.fmt("compound")   // "5' 3\"" (feet-inches)
-#37oz.fmt("compound")   // "2lb 5oz" (pounds-ounces)
-#1500mL.fmt("compound") // "1L 500mL" (litres-millilitres)
+#63in.format("compound")   // "5' 3\"" (feet-inches)
+#37oz.format("compound")   // "2lb 5oz" (pounds-ounces)
+#1500mL.format("compound") // "1L 500mL" (litres-millilitres)
 ```
 
 Cross-system auto-conversion is supported:
 
 ```parsley
-#1.8288m.fmt("ft-in")   // "6'" (auto-converts to US)
-#1gal.fmt("L-mL")       // "3L 785.412mL" (auto-converts to SI)
+#1.8288m.format("ft-in")   // "6'" (auto-converts to US)
+#1gal.format("L-mL")       // "3L 785.412mL" (auto-converts to SI)
 ```
 
 ### short()
@@ -423,9 +423,9 @@ Compact format with unit suffix only:
 
 ```parsley
 #5m.short()           // "5m"
-#12.3m.short()        // "12.3m"
+#12.3m.short()        // "12m" (short rounds to whole units)
 #5ft.short()          // "5ft"
-#3/8in.short()        // "3/8in"
+#3/8in.short()        // "0in" (rounds to whole units)
 
 // With locale:
 #5m.short("de-DE")    // "5m"
@@ -467,10 +467,10 @@ Maximum context with cross-system conversion:
 
 ```parsley
 #5m.full()            // "5.00 meters (16.4 ft)"
-#5ft.full()           // "5.00 feet (1.52 m)"
-#100C.full()          // "100.00 degrees Celsius (212 °F)"
-#212F.full()          // "212.00 degrees Fahrenheit (100 °C)"
-#5kg.full()           // "5.00 kilograms (11.02 lb)"
+#5ft.full()           // "5.00 feet (1.5 m)"
+#100C.full()          // "100.00 degrees Celsius (212.0F)"
+#212F.full()          // "212.00 degrees Fahrenheit (100.0C)"
+#5kg.full()           // "5.00 kilograms (11.0 lb)"
 
 // With locale:
 #5m.full("en-GB")     // "5.00 metres (16.4 ft)"
@@ -478,10 +478,11 @@ Maximum context with cross-system conversion:
 
 ### format()
 
-Alias for `fmt()`. Retained for backward compatibility:
+Legacy formatting method, retained for backward compatibility. Unlike `fmt()`, it defaults to
+minimal decimals and accepts the compound format strings above:
 
 ```parsley
-#12.3m.format()       // "12.30m"
+#12.3m.format()       // "12.3m"
 #12.3m.format(2)      // "12.30m"
 #63in.format("ft-in") // "5' 3\""
 ```
@@ -506,8 +507,8 @@ Convert to a different unit within the same family:
 #1in.to("cm")    // #2.54cm
 #100C.to("F")    // #212F
 #32F.to("C")     // #0C
-#1kg.to("lb")    // #2.205lb
-#1gal.to("L")    // #3.785L
+#1kg.to("lb")    // #2.2046...lb
+#1gal.to("L")    // #3.785411784L
 ```
 
 Converting between incompatible families produces an error:
@@ -574,9 +575,9 @@ Renders the unit in a box diagram:
 ```
 
 ```
-┌───────────────┐
-│ 5.00 meters   │
-└───────────────┘
+┌─────┐
+│ #5m │
+└─────┘
 ```
 
 ## Formatting Styles Summary
@@ -709,7 +710,7 @@ let a = #5m + #10ft  // Works, but consider converting first
 let height = #1.83m
 
 // For compact displays
-height.short()       // "1.83m"
+height.short()       // "1m" (short rounds to whole units)
 
 // For standard displays
 height.medium()      // "1.83m"
@@ -718,14 +719,14 @@ height.medium()      // "1.83m"
 height.long()        // "1.83 meters"
 
 // For international contexts
-height.full()        // "1.83 meters (6 ft)"
+height.full()        // "1.83 meters (6.0 ft)"
 ```
 
 ### Use Compound Formatting for User Display
 
 ```parsley
 let height = #68in
-height.fmt("ft-in")  // "5' 8\"" - more readable for users
+height.format("ft-in")  // "5' 8\"" - more readable for users
 ```
 
 ### Convert Early When Mixing Systems

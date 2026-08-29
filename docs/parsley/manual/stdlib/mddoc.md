@@ -51,7 +51,7 @@ let doc = mddoc.mdDoc("# Hello\n\nSome **bold** text.")
 let mddoc = import @std/mddoc
 let doc = mddoc.mdDoc("# Hello\n\nA paragraph.")
 doc.toHTML()                     // "<h1 id=\"hello\">Hello</h1>\n<p>A paragraph.</p>\n"
-doc.toMarkdown()                 // "# Hello\n\nA paragraph.\n"
+doc.toMarkdown()                 // "# Hello\n\n\nA paragraph."
 ```
 
 ## Query Methods
@@ -124,11 +124,11 @@ let mddoc = import @std/mddoc
 let doc = mddoc.mdDoc("# My Doc\n\nThis is a short document.\n\n## Sub-section\n\nMore words here.")
 
 doc.title()                      // "My Doc"
-doc.wordCount()                  // 9
-doc.text()                       // "My Doc This is a short document. Sub-section More words here."
+doc.wordCount()                  // 10
+doc.text()                       // "My Doc  This is a short document.Sub-section  More words here."
 
 doc.toc()
-// [{level: 1, text: "My Doc", id: "my-doc"}, {level: 2, text: "Sub-section", id: "sub-section"}]
+// [{level: 1, text: "My Doc", id: "my-doc", indent: 0}, {level: 2, text: "Sub-section", id: "sub-section", indent: 1}]
 ```
 
 ## Transform Methods
@@ -141,7 +141,7 @@ doc.toc()
 
 ```parsley
 // Count all nodes
-let count = 0
+var count = 0
 doc.walk(fn(node) {
     count = count + 1
 })
@@ -154,11 +154,11 @@ let noImages = doc.filter(fn(node) {
 
 ## AST Access
 
-The `.ast` property exposes the raw abstract syntax tree as a dictionary:
+The `.ast()` method returns the raw abstract syntax tree as a dictionary:
 
 ```parsley
 let doc = mdDoc.mdDoc("# Hello\n\nA paragraph.")
-doc.ast                          // {type: "document", children: [...]}
+doc.ast()                        // {type: "document", children: [...]}
 ```
 
 The AST structure follows the CommonMark specification. Each node has a `type` field and type-specific properties. Use `.findAll()` and `.findFirst()` for structured queries instead of walking the AST manually.
@@ -190,7 +190,7 @@ let external = for (link in doc.links()) {
 ### Documentation Index
 
 ```parsley
-let files = fileList(@./docs, "*.md")
+let files = fileList(@./docs/*.md)
 for (f in files) {
     let content <== text(f)
     let mddoc = import @std/mddoc

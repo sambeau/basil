@@ -59,7 +59,7 @@ let result = @shell("echo", ["hello"]) <=#=> null
 Pass a string to pipe it to the command's stdin:
 
 ```parsley
-let input = "line1\nline2\nline3"
+let input = "line1\nline2\nline3\n"
 let result = @shell("wc", ["-l"]) <=#=> input
 result.stdout                    // "       3\n"
 ```

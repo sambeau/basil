@@ -7,6 +7,8 @@ Prelude components output semantic HTML that works with any CSS framework—or n
 Add Pico CSS and the Basil supplement to your page:
 
 ```parsley
+let {Page} = import @basil/html
+
 <Page lang="en" title="My App" head={
     <>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/>
@@ -57,6 +59,8 @@ Pico CSS covers most components, but a few need extra styles. Copy `examples/css
 Prelude form components work directly with Pico:
 
 ```parsley
+let {Form, TextField, TextareaField, SelectField, Button} = import @basil/html
+
 <Form action="/register" method="POST">
     <TextField name="email" label="Email" type="email" required={true}/>
     <TextField name="password" label="Password" type="password" required={true}/>
@@ -74,6 +78,8 @@ Prelude form components work directly with Pico:
 **Validation states:** Add `error` prop to show validation errors. Pico automatically styles inputs with `aria-invalid="true"`.
 
 ```parsley
+let {TextField} = import @basil/html
+
 <TextField 
     name="email" 
     label="Email" 
@@ -87,6 +93,8 @@ Prelude form components work directly with Pico:
 Show all form errors at the top with links to each field:
 
 ```parsley
+let {ErrorSummary} = import @basil/html
+
 <ErrorSummary errors={[
     {field: "email", message: "Enter a valid email address"},
     {field: "password", message: "Password must be at least 8 characters"}
@@ -98,6 +106,8 @@ Show all form errors at the top with links to each field:
 Native HTML5 dialog with Pico styling:
 
 ```parsley
+let {Dialog, Button} = import @basil/html
+
 <Dialog id="confirm-delete" title="Delete Item" footer={
     <>
         <Button class="secondary" onclick="this.closest('dialog').close()">"Cancel"</Button>
@@ -118,6 +128,8 @@ Native HTML5 dialog with Pico styling:
 Native HTML5 exclusive accordion—only one section open at a time:
 
 ```parsley
+let {Accordion} = import @basil/html
+
 <Accordion name="faq" items={[
     {title: "What is Basil?", content: <p>"A web framework for Parsley."</p>},
     {title: "What is Parsley?", content: <p>"A language for building web pages."</p>},
@@ -128,6 +140,8 @@ Native HTML5 exclusive accordion—only one section open at a time:
 For individual expandable sections:
 
 ```parsley
+let {Details} = import @basil/html
+
 <Details title="Click to expand">
     <p>"This content is hidden by default."</p>
 </Details>
@@ -142,6 +156,8 @@ For individual expandable sections:
 Notification messages with positioning:
 
 ```parsley
+let {Toasts, Toast} = import @basil/html
+
 <Toasts position="top-right">
     <Toast message="Changes saved" type="success"/>
     <Toast message="Connection lost" type="error"/>
@@ -157,6 +173,8 @@ Notification messages with positioning:
 Page navigation with accessibility:
 
 ```parsley
+let {Pagination} = import @basil/html
+
 <Pagination 
     current={3} 
     total={150} 
@@ -177,6 +195,8 @@ Page navigation with accessibility:
 Navigation with Schema.org markup:
 
 ```parsley
+let {Breadcrumb} = import @basil/html
+
 <Breadcrumb items={[
     {label: "Home", href: "/"},
     {label: "Products", href: "/products"},
@@ -191,9 +211,11 @@ Navigation with Schema.org markup:
 Pico provides a `.container` class for centered, max-width content:
 
 ```parsley
+let {Page, Nav} = import @basil/html
+
 <Page lang="en" title="My Site">
     <header class="container">
-        <Nav>...</Nav>
+        <Nav>"..."</Nav>
     </header>
     <main id="main" class="container">
         <h1>"Page Title"</h1>
@@ -238,6 +260,8 @@ Or let users toggle:
 Pico provides button variants via classes:
 
 ```parsley
+let {Button} = import @basil/html
+
 <Button>"Primary"</Button>
 <Button class="secondary">"Secondary"</Button>
 <Button class="contrast">"Contrast"</Button>
@@ -289,6 +313,8 @@ If you were using custom CSS for Prelude components:
 **After:** No default body ID. Put `id="main"` on your `<main>` element:
 
 ```parsley
+let {Page} = import @basil/html
+
 <Page lang="en" title="My Site">
     <main id="main">  // Add this for skip link target
         contents

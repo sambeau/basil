@@ -83,7 +83,7 @@ All values passed through `<SQL>` tag parameters or the Query DSL are bound as S
 ```parsley
 // SAFE — value is parameterized
 let user = db <=?=> <SQL name={userInput}>
-    "SELECT * FROM users WHERE name = ?"
+    SELECT * FROM users WHERE name = :name
 </SQL>
 ```
 

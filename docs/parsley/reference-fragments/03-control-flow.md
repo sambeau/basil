@@ -148,7 +148,7 @@ let evens = for (x in 1..6) {
 for x in 1..10 {
     if (x > 5) stop     // No braces needed
     x
-}\
+}
 // [1, 2, 3, 4, 5]
 ```
 

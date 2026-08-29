@@ -37,7 +37,8 @@ Parsley has two numeric types: **Integers** (`42`) and **Floats** (`3.14`). Arit
 Standard arithmetic (`+`, `-`, `*`, `/`, `%`) and comparisons (`==`, `!=`, `<`, `>`, `<=`, `>=`) work on numbers. A few things to note:
 
 ```parsley
-5 / 2               // 2.5 — division always returns a float
+5 / 2               // 2 — integer ÷ integer truncates
+5 / 2.0             // 2.5 — one float operand gives a float result
 17 % 5              // 2
 3 + 0.5             // 3.5 — int/float coercion is automatic
 ```
@@ -156,9 +157,9 @@ Formats with currency symbol and two decimal places:
 
 ```parsley
 let x = 99
-x.currency("USD")      // "$99.00"
-x.currency("EUR")      // "€99.00"
-x.currency("GBP")      // "£99.00"
+x.currency("USD")      // "$ 99.00"
+x.currency("EUR")      // "€ 99.00"
+x.currency("GBP")      // "£ 99.00"
 ```
 
 > For precise currency arithmetic (avoiding floating-point rounding), use the [Money](money.md) type instead.
@@ -168,7 +169,7 @@ x.currency("GBP")      // "£99.00"
 Format as a percentage:
 
 ```parsley
-0.125.percent()        // "13%"
+0.125.percent()        // "12%" (exact ties round to even)
 0.5.percent()          // "50%"
 ```
 
@@ -220,8 +221,10 @@ Renders the number in a box diagram:
 Returns the absolute value. Available on both integers and floats:
 
 ```parsley
-(-5).abs()             // 5 (integer)
-(-3.14).abs()          // 3.14 (float)
+let n = -5
+n.abs()                // 5 (integer)
+let f = -3.14
+f.abs()                // 3.14 (float)
 ```
 
 ### round() (float only)
@@ -229,8 +232,8 @@ Returns the absolute value. Available on both integers and floats:
 Round to the nearest integer or to n decimal places:
 
 ```parsley
-(3.7).round()          // 4
-(3.14159).round(2)     // 3.14
+3.7.round()            // 4
+3.14159.round(2)       // 3.14
 ```
 
 ### floor() (float only)
@@ -238,8 +241,9 @@ Round to the nearest integer or to n decimal places:
 Round down to the nearest integer:
 
 ```parsley
-(3.7).floor()          // 3
-(-3.2).floor()         // -4
+3.7.floor()            // 3
+let n = -3.2
+n.floor()              // -4
 ```
 
 ### ceil() (float only)
@@ -247,8 +251,9 @@ Round down to the nearest integer:
 Round up to the nearest integer:
 
 ```parsley
-(3.2).ceil()           // 4
-(-3.7).ceil()          // -3
+3.2.ceil()             // 4
+let n = -3.7
+n.ceil()               // -3
 ```
 
 > **Note:** `round()`, `floor()`, and `ceil()` are only available on floats. Integers don't need rounding. For integers, use `@std/math` functions if needed.
@@ -256,9 +261,9 @@ Round up to the nearest integer:
 ## Type Conversions
 
 ```parsley
-number("42")           // 42
-number("3.14")         // 3.14
-42.string()            // "42"
+toNumber("42")         // 42
+toNumber("3.14")       // 3.14
+toString(42)           // "42"
 ```
 
 Numbers interpolate naturally in template strings:
@@ -298,7 +303,7 @@ See [@std/math](../stdlib/math.md) for the full reference.
 
 | Gotcha | Parsley | Other languages |
 |---|---|---|
-| Division | `5 / 2` → `2.5` (always float) | Often integer division |
+| Division | `5 / 2` → `2` (integer division truncates; `5 / 2.0` → `2.5`) | `2.5` in JS/Python 3 |
 | Increment | `let x = x + 1` | `x++` |
 | Equality | `==` only | `===` in JS |
 | Scientific notation | Not supported | `1e3` |

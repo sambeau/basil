@@ -59,14 +59,15 @@ Results are displayed in PLN (Parsley Literal Notation) format — strings are q
 
 ## Variables Persist
 
-Variables defined in one expression are available in subsequent expressions:
+Variables defined in one expression are available in subsequent expressions. A
+declaration prints `OK` rather than the value it bound:
 
 ```
 >> let name = "Alice"
-"Alice"
+OK
 
 >> let age = 30
-30
+OK
 
 >> `{name} is {age}`
 "Alice is 30"
@@ -113,30 +114,34 @@ Module: @std/math
 
 ### :env
 
-View all variables currently in scope:
+View all variables currently in scope, with their types:
 
 ```
 >> let x = 10
-10
+OK
 
 >> let name = "Bob"
-"Bob"
+OK
 
 >> :env
-name = "Bob"
-x = 10
+  @args: ARRAY = []
+  @env: DICTIONARY = {HOME: /Users/you, PATH: ...}
+  name: STRING = Bob
+  x: INTEGER = 10
 ```
 
 ### :clear
 
-Reset the environment, removing all user-defined variables:
+Reset the environment, removing all user-defined variables. The globals `@args`
+and `@env` remain:
 
 ```
 >> :clear
 Environment cleared
 
 >> :env
-(empty)
+  @args: ARRAY = []
+  @env: DICTIONARY = {HOME: /Users/you, PATH: ...}
 ```
 
 ### :raw
@@ -148,13 +153,13 @@ Toggle between PLN output and raw output mode:
 "hello"
 
 >> :raw
-Raw output mode enabled
+Raw output mode ON (script-style output)
 
 :> "hello"
 hello
 
 :> :raw
-PLN output mode enabled
+Raw output mode OFF (Parsley literal output)
 
 >> "hello"
 "hello"
@@ -183,7 +188,7 @@ PLN mode shows the exact Parsley value — useful for debugging. Raw mode shows 
 
 ## History
 
-The REPL remembers your command history within a session. Use the up and down arrow keys to navigate previous commands.
+The REPL remembers your command history and writes it to `.parsley_history` in the system temporary directory on exit, so it is restored in the next session. Use the up and down arrow keys to navigate previous commands.
 
 ## Multiline Input
 
@@ -194,7 +199,7 @@ For multiline expressions, the REPL automatically detects incomplete input and w
 ..   name: "Alice",
 ..   age: 30
 .. }
-{name: "Alice", age: 30}
+OK
 
 >> for (i in 1..3) {
 ..   i * 10
@@ -210,13 +215,18 @@ Errors are displayed with context but don't exit the REPL:
 
 ```
 >> 1 / 0
-Runtime error: division by zero
+Runtime error: line 1, column 3
+  Division by zero
+  hint: Check if the divisor is zero before dividing
 
 >> "hello".nonexistent()
-Runtime error: Unknown method `nonexistent` for string
+Runtime error: line 1, column 8
+  Unknown method `nonexistent` for string
 
 >> let x =
-Parser error: unexpected end of input
+..
+Parser error: line 1, column 8
+  unexpected 'end of file'
 ```
 
 You can continue entering new expressions after an error.
@@ -231,9 +241,12 @@ Use `.inspect()` to see type information:
 >> (42).inspect()
 {__type: "integer", value: 42}
 
->> @now.inspect()
-{__type: "datetime", ...}
+>> @now.inspect().__type
+"datetime"
 ```
+
+Some types (dates, money, paths) print back as their own literal form even after
+`.inspect()`, so read a field such as `.__type` to see the underlying shape.
 
 ### Check Types
 
@@ -241,7 +254,7 @@ Use `describe()` on a value to see its type and available methods:
 
 ```
 >> describe([1, 2, 3])
-"array with 3 elements\n\nMethods:\n  .filter(arg)..."
+"Type: array\n\nMethods:\n  .filter(arg)           - Filter by predicate\n..."
 ```
 
 ### Log Intermediate Values
@@ -250,7 +263,7 @@ Use `log()` to print debug output without affecting the result:
 
 ```
 >> let double = fn(x) { log("input:", x); x * 2 }
-fn(x)
+OK
 
 >> double(21)
 input: 21
@@ -259,9 +272,9 @@ input: 21
 
 ## Limitations
 
-- The REPL runs in a single environment — there's no module system or file imports
-- Command history is not persisted between sessions
-- Some features requiring file context (like relative imports) may not work
+- The REPL runs in a single, flat environment — every line shares one scope
+- `:clear` removes user variables but leaves the globals `@args` and `@env` in place
+- Relative paths in `import` and file handles resolve against the directory you started `pars` in, not against any script file
 
 ## Use Cases
 

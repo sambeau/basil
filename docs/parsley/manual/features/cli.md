@@ -219,7 +219,8 @@ See [REPL](repl.md) for details on REPL commands and features.
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Error (parse, runtime, or I/O) |
+| 1 | Error (parse, runtime, or I/O) when running a script; syntax errors under `-c` |
+| 2 | Parse error under `-e`; a file `-c` could not read |
 
 ## Examples
 

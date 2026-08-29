@@ -836,7 +836,7 @@ Only non-zero values override the base config. Omitted fields are inherited.
 
 ### `meta`
 
-Custom metadata accessible in Parsley handlers as `basil.meta.*`. Can contain any YAML structure.
+Custom metadata accessible in Parsley handlers as the `meta` global (`meta.*`). Can contain any YAML structure.
 
 ```yaml
 meta:
@@ -850,8 +850,7 @@ meta:
 Access in handlers:
 
 ```parsley
-let {basil} = import @std/basil
-basil.meta.site_name   // "My Blog"
+meta.site_name   // "My Blog"
 ```
 
 ---

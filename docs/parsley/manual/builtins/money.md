@@ -189,7 +189,7 @@ $1234.56.fmt("full")    // "1,234.56 US dollars"
 Format with style and locale:
 
 ```parsley
-EUR#1234.56.fmt("medium", "de-DE")  // "1.234,56 €"
+EUR#1234.56.fmt("medium", "de-DE")  // "€ 1.234,56"
 EUR#1234.56.fmt("full", "de-DE")    // "1.234,56 Euro"
 ```
 
@@ -199,7 +199,7 @@ Format with an options dictionary:
 
 ```parsley
 $1234.56.fmt({style: "full"})                      // "1,234.56 US dollars"
-$1234.fmt({style: "medium", locale: "de-DE"})      // "1.234,00 $"
+$1234.fmt({style: "medium", locale: "de-DE"})      // "$ 1.234,00"
 ```
 
 ### short()
@@ -211,7 +211,7 @@ $1234.56.short()        // "$1.2K"
 $1234567.short()        // "$1.2M"
 
 // With locale:
-EUR#1234567.short("de-DE")  // "1,2M €"
+EUR#1234567.short("de-DE")  // "1,2M€"
 ```
 
 ### medium()
@@ -222,7 +222,7 @@ Standard format with thousand separators (default style):
 $1234.56.medium()       // "$ 1,234.56"
 
 // With locale:
-EUR#1234.56.medium("de-DE")  // "1.234,56 €"
+EUR#1234.56.medium("de-DE")  // "€ 1.234,56"
 ```
 
 ### long()
@@ -261,7 +261,7 @@ Returns the absolute value of the Money amount.
 
 ```parsley
 let loss = $0.00 - $50.00
-loss       // -$50.00
+loss       // $-50.00
 loss.abs() // $50.00
 ```
 
@@ -301,7 +301,7 @@ JPY#1000.repr()     // "¥1000"
 Returns the JSON representation:
 
 ```parsley
-$50.00.toJSON()     // "{\"amount\":50,\"currency\":\"USD\"}"
+$50.00.toJSON()     // "{\"amount\":\"50.00\",\"currency\":\"USD\"}"
 ```
 
 ### toDict()
@@ -310,7 +310,7 @@ Returns a clean dictionary for reconstruction (without `__type`):
 
 ```parsley
 $50.00.toDict()
-// {amount: 50.0, currency: "USD"}
+// {amount: 50, currency: "USD"}
 
 EUR#25.50.toDict()
 // {amount: 25.5, currency: "EUR"}
@@ -347,9 +347,13 @@ $99.99.toBox()
 ```
 
 ```
-┌────────┐
-│ $99.99 │
-└────────┘
+┌──────────┬───────┐
+│       money        │
+├──────────┬───────┤
+│ amount   │ 99.99 │
+├──────────┼───────┤
+│ currency │ USD   │
+└──────────┴───────┘
 ```
 
 ## Formatting Styles Summary
@@ -384,8 +388,8 @@ let tax = subtotal * 0.0825
 let total = subtotal + tax  // $21.64
 
 // ❌ Avoid - floating point errors accumulate
-let subtotal = 19.99
-let tax = subtotal * 0.0825  // 1.649175 (imprecise)
+let floatSubtotal = 19.99
+let floatTax = floatSubtotal * 0.0825  // 1.649175 (imprecise)
 ```
 
 ### Use split() for Fair Division

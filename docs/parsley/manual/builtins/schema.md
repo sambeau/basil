@@ -51,7 +51,7 @@ Schemas provide a single source of truth for your data structure:
 
 | Feature | Without Schema | With Schema |
 |---------|---------------|-------------|
-| Type safety | None | Validated on creation |
+| Type safety | None | Validated on demand with `.validate()` |
 | Default values | Manual per row | Automatic |
 | Database tables | Write SQL manually | Auto-generated |
 | Form labels | Hardcoded | `schema.title(field)` |
@@ -411,8 +411,8 @@ User({username: "Alice"}).validate().errorCode("username")  // "PATTERN"
     username: string(min: 1, pattern: /^[a-z0-9_]+$/)
 }
 
-Profile({slug: ""}).validate().isValid()      // true (empty passes)
-Profile({username: ""}).validate().isValid()  // false (fails MIN_LENGTH first)
+Profile({slug: ""}).validate().hasError("slug")           // false (empty passes)
+Profile({username: ""}).validate().errorCode("username")  // "MIN_LENGTH" (fails min first)
 ```
 
 **Behavior:**
@@ -494,11 +494,11 @@ When a `money` field has `currency` metadata, `record.format()` uses it for loca
     fee: money | {currency: "JPY"}
 }
 
-let p = Product({price: 1999, cost: 1500, fee: 5000})
+let p = Product({price: $1999.00, cost: $1500.00, fee: $5000})
 
-p.format("price")  // "$ 1,999.00" (USD)
-p.format("cost")   // "€ 1,500.00" (EUR)
-p.format("fee")    // "¥ 5,000" (JPY, no decimals)
+p.format("price")  // "$1999.00" (USD)
+p.format("cost")   // "€1500.00" (EUR)
+p.format("fee")    // "¥5000" (JPY, no decimals)
 ```
 
 Without `currency` metadata, `format()` uses the default locale currency symbol.
@@ -529,8 +529,8 @@ Returns a dictionary of all field definitions with their type information.
 
 User.fields
 // {
-//   name: {name: "name", type: "string", required: true, nullable: false},
-//   age: {name: "age", type: "integer", required: true, nullable: false, default: "0"}
+//   name: {name: "name", type: "string", required: true, nullable: false, auto: false, readOnly: false},
+//   age: {name: "age", type: "integer", required: true, nullable: false, auto: false, readOnly: false, default: 0}
 // }
 ```
 
@@ -545,9 +545,16 @@ Access a field name directly to get its type:
     email: email
 }
 
-Person.name                     // "string"
 Person.age                      // "integer"
 Person.email                    // "email"
+Person.name                     // "Person" — the `name` attribute shadows a field called `name`
+```
+
+Dot access only works for a literal field name. To look up a type from a variable, index
+`fields` instead — schemas cannot be indexed directly:
+
+```parsley
+Person.fields["age"].type       // "integer"
 ```
 
 ---
@@ -737,7 +744,7 @@ Converts validation errors into a single catchable error, bridging schema valida
 
 // Chain into processing — fails automatically if invalid
 let user = User(formData).validate().failIfInvalid()
-db.insert(user)
+Users.insert(user)
 
 // Catch with try for custom handling
 let {result, error} = try fn() {
@@ -828,13 +835,16 @@ Schemas power Parsley's database table bindings:
 
 let db = @sqlite("./app.db")
 
-// Bind schema to database table (creates table if needed)
+// Create the table from the schema, then bind the schema to it
+// (bind() does not create the table)
+db.createTable(User, "users")
 let Users = db.bind(User, "users")
 
 // Now use typed queries
 let all = Users.all()
-let alice = Users.where({name: "Alice"}).first()
-let newUser = Users.create({name: "Bob", email: "bob@example.com"})
+let alices = Users.where({name: "Alice"})   // a Table of matches — where() is not chainable
+let alice = Users.first()                   // one Record, or null
+let newUser = Users.insert(User({name: "Bob", email: "bob@example.com"}))
 ```
 
 The schema:
@@ -860,6 +870,12 @@ The field named `id` is automatically treated as the primary key. This conventio
 Bound tables support method-based CRUD operations that accept Record or Table objects directly:
 
 ```parsley
+@schema User {
+    id: id(auto)
+    name: string
+    email: email
+}
+
 let db = @sqlite(":memory:")
 db.createTable(User, "users")
 let users = db.bind(User, "users")
@@ -869,14 +885,14 @@ let user = User({name: "Alice", email: "alice@example.com"})
 let inserted = users.insert(user)
 inserted.id                       // Generated ID
 
-// Update using Record
-let updated = users.update(user.update({name: "Alice Smith"}))
+// Update using Record — use the inserted copy, it is the one carrying the id
+let updated = users.update(inserted.update({name: "Alice Smith"}))
 
 // Save (upsert) - inserts if new, updates if exists
-let saved = users.save(User({id: inserted.id, name: "Alice Jones"}))
+let saved = users.save(inserted.update({name: "Alice Jones"}))
 
 // Delete by Record
-users.delete(user)
+users.delete(inserted)            // {affected: 1}
 ```
 
 #### Bound Table Mutation Methods
@@ -888,10 +904,10 @@ users.delete(user)
 | `update(record)` | Record | Record | Update row by ID |
 | `update(table)` | Table | `{updated: N}` | Update all rows by ID |
 | `save(record)` | Record | Record | Upsert single row |
-| `save(table)` | Table | `{inserted: N, updated: M}` | Upsert all rows |
-| `delete(record)` | Record | `{deleted: 1}` | Delete row by ID |
-| `delete(table)` | Table | `{deleted: N}` | Delete all rows by ID |
-| `delete(id)` | String/Int | `{deleted: 1}` | Delete row by ID value |
+| `save(table)` | Table | `{saved: N, total: M}` | Upsert all rows |
+| `delete(record)` | Record | `{affected: 1}` | Delete row by ID |
+| `delete(table)` | Table | `{affected: N}` | Delete all rows by ID |
+| `delete(id)` | String/Int | `{affected: 1}` | Delete row by ID value |
 
 > **Note:** The `delete(record)` form requires the record to have a non-null primary key (`id` field). If you're constructing records from form data where `id` is marked `readOnly`, the ID will be filtered to `null`. In this case, use `delete(id)` directly:
 >
@@ -934,7 +950,7 @@ users.insert({name: "Bob", email: "bob@example.com"})  // Works
 }
 
 let FormField = fn(schema, field) {
-    let type = schema[field]
+    let type = schema.fields[field].type
     let isEnum = schema.enumValues(field).length() > 0
     
     <div class="form-group">
@@ -966,7 +982,7 @@ let FormField = fn(schema, field) {
     for (field in ContactForm.visibleFields()) {
         FormField(ContactForm, field)
     }
-    <button type="submit">Send</button>
+    <button type="submit">"Send"</button>
 </form>
 ```
 

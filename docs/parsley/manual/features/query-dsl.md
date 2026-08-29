@@ -37,8 +37,10 @@ Every example on this page assumes this boilerplate:
 @schema User {
     id: int
     name: string
-    email: string
-    status: string
+    email: string?
+    status: string?
+    age: int?
+    score: int?
 }
 
 let db = @sqlite(":memory:")
@@ -53,9 +55,9 @@ Every DSL expression ends with a **terminal** that controls what gets returned. 
 | Terminal | Name | Returns | Use for |
 |---|---|---|---|
 | `?-> *` | return one | Record or null | Single row with all columns |
-| `?-> col1, col2` | return one (projection) | dictionary | Single row with named columns |
-| `??-> *` | return many | array | All matching rows |
-| `??-> col1, col2` | return many (projection) | array | All matching rows with named columns |
+| `?-> col1, col2` | return one (projection) | Record (dictionary if a column isn't in the schema) | Single row with named columns |
+| `??-> *` | return many | Table | All matching rows |
+| `??-> col1, col2` | return many (projection) | Table (array of dictionaries if a column isn't in the schema) | All matching rows with named columns |
 | `.` | execute | null | Fire-and-forget mutations |
 | `.-> count` | execute count | integer | Number of affected rows |
 | `?-> count` | count | integer | COUNT query |
@@ -262,6 +264,8 @@ Load related records in a single query. Relations must be declared in the schema
     author: Author via author_id         // belongs-to
 }
 
+db.createTable(Author, "authors")
+db.createTable(Post, "posts")
 let Authors = db.bind(Author, "authors")
 let Posts = db.bind(Post, "posts")
 
@@ -286,15 +290,15 @@ Nested relations use dot notation:
 @query(Authors | with posts.comments ?-> *)
 ```
 
-You can add conditions, ordering, and limits to eager-loaded relations:
+You can add conditions, ordering, and limits to eager-loaded relations. They go in parentheses after the relation name — clauses written at the top level would filter the outer table instead:
 
 ```parsley
 @query(
 	Authors 
-	| with posts 
-	| status == "published" 
-	| order created_at desc 
-	| limit 5 
+	| with posts(
+		status == "published" 
+		| order created_at desc 
+		| limit 5) 
 	?-> *)
 ```
 
@@ -638,17 +642,20 @@ info.params                                         // the bound parameters
 The DSL validates inserted and updated values against the schema. Type-constrained fields (email, URL, slug, enum) are checked before the SQL is generated:
 
 ```parsley
-@schema User {
+@schema Account {
     id: int
     email: email(required)
     role: enum["admin", "user", "guest"]
 }
 
+db.createTable(Account, "accounts")
+let Accounts = db.bind(Account, "accounts")
+
 // Error: invalid email format
-@insert(Users |< email: "not-an-email" .)
+@insert(Accounts |< email: "not-an-email" .)
 
 // Error: invalid enum value
-@insert(Users |< role: "superadmin" .)
+@insert(Accounts |< email: "a@test.com" |< role: "superadmin" .)
 ```
 
 ## Key Differences from Other Languages

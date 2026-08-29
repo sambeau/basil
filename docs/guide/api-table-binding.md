@@ -13,8 +13,8 @@ This document explains the API surface for Parsley-based JSON APIs: `std/api` ro
 ## Library surface (snippets)
 
 ```parsley
-{api} = import(@std/api)
-{schema} = import(@std/schema)
+let api = import @std/api
+let schema = import @std/schema
 ```
 
 **Auth wrappers**
@@ -35,7 +35,7 @@ let User = schema.define("User", {
   name: schema.string({required: true}),
 })
 
-let db = SQLITE(":memory:")  // or managed basil.sqlite from server
+let db = @sqlite(":memory:")  // or managed basil.sqlite from server
 let Users = schema.table(User, db, "users")
 
 Users.insert({email: "a@example.com", name: "A"})  // validates + auto id
@@ -50,15 +50,15 @@ Users.delete("abc")      // returns {affected: n}
 A single file API for `/api/todos` that only lists and creates todos in SQLite.
 
 ```parsley
-{api} = import(@std/api)
-{schema} = import(@std/schema)
+let api = import @std/api
+let schema = import @std/schema
 
 let Todo = schema.define("Todo", {
   id: schema.id(),
   title: schema.string({required: true, min: 1, max: 200}),
 })
 
-let db = SQLITE(":memory:")
+let db = @sqlite(":memory:")
 let _ = db <=!=> "CREATE TABLE todos (id TEXT PRIMARY KEY, title TEXT)"
 let Todos = schema.table(Todo, db, "todos")
 
@@ -83,8 +83,8 @@ What you get for free here:
 Adds fields, role protection, and `getById`/`patch` handlers.
 
 ```parsley
-{api} = import(@std/api)
-{schema} = import(@std/schema)
+let api = import @std/api
+let schema = import @std/schema
 
 let User = schema.define("User", {
   id: schema.id({format: "uuidv7"}),
@@ -134,7 +134,7 @@ What you get here:
 
 ## Tips
 
-- If you need custom error codes, return `api.error(code, status, message)` (via `APIError`) or the validation dict from `schema.validate` / table methods.
+- If you need custom error codes, raise `fail({message, code, status})`, use an `api.*` helper (`api.badRequest`, `api.notFound`, `api.forbidden`, `api.unauthorized`, `api.conflict`, `api.serverError`), or return the `{valid, errors}` dict that the table methods produce.
 - To disable pagination caps for a one-off list, pass `limit=0` in the query string (interpreted as "no limit").
 - For public read but protected write, wrap readers with `api.public` and writers with `api.auth`/`api.adminOnly`.
 - Tables are SQLite-only for now; managed connection `basil.sqlite` is provided to API modules automatically.

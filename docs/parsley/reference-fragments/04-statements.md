@@ -221,7 +221,7 @@ Computed exports:
 **Consumer caching:**
 
 ```parsley
-import {activeUsers} from @./data.pars
+let {activeUsers} = import @./data.pars
 
 // Each access recalculates
 for (user in activeUsers) { user.name }  // Query 1

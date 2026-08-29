@@ -146,10 +146,10 @@ let divide = fn(a, b) {
     a / b
 }
 
-let {result, error} = try divide(10, 0)
+var {result, error} = try divide(10, 0)
 error.message                    // "division by zero"
 
-let {result, error} = try divide(10, 2)
+{result, error} = try divide(10, 2)
 result                           // 5
 ```
 
@@ -275,7 +275,7 @@ When validation fails, `failIfInvalid()` returns an error with:
     message: "Validation failed",
     fields: [
         {field: "name", code: "REQUIRED", message: "Name is required"},
-        {field: "email", code: "FORMAT", message: "Email is not a valid email"}
+        {field: "email", code: "FORMAT", message: "Email is not a valid email address"}
     ]
 }
 ```

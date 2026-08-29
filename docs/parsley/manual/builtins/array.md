@@ -395,11 +395,11 @@ Grid layout (auto-detected for array of arrays):
 ┌─────────┐
 │ Numbers │
 ├─────────┤
-│    1    │
+│ 1       │
 ├─────────┤
-│    2    │
+│ 2       │
 ├─────────┤
-│    3    │
+│ 3       │
 └─────────┘
 ```
 
@@ -426,7 +426,7 @@ let adults = people
 let prices = [£10.00, £15.50, £8.25, £12.75]
 let total = prices.reduce(fn(sum, p) { sum + p }, £0.00)
 let average = total / prices.length()
-// average = £11.63
+// average = £11.62
 ```
 
 ### Random Selection

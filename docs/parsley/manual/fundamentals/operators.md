@@ -100,7 +100,7 @@ Works on numbers, strings, money, and datetimes. Equality (`==`, `!=`) works on 
 
 ```parsley
 !true                // false
-not false            // true
+let inverted = not false  // true
 true & false         // false
 true | false         // true
 true and false       // false
@@ -108,6 +108,10 @@ true or false        // true
 true && false        // false   (alias for &)
 true || false        // true    (alias for |)
 ```
+
+> ⚠️ `!` and `not` are the same token, and following a complete expression it is read as
+> the start of `not in`. So a line beginning with `!` or `not` that follows another
+> expression is a parse error — bind it with `let` (as above) to start a fresh statement.
 
 All six forms (`&`/`&&`/`and`, `|`/`||`/`or`) are equivalent. `and` has higher precedence than `or`:
 
@@ -266,8 +270,8 @@ exactly where you require a value to exist.
 let [first, ...rest] = [1, 2, 3, 4]
 // first = 1, rest = [2, 3, 4]
 
-let {a, ...rest} = {a: 1, b: 2, c: 3}
-// a = 1, rest = {b: 2, c: 3}
+let {a, ...others} = {a: 1, b: 2, c: 3}
+// a = 1, others = {b: 2, c: 3}
 ```
 
 **Spread in tags** — expands a dictionary into tag attributes:
@@ -285,10 +289,10 @@ These operators are syntactic sugar for file and database operations. They are c
 
 | Operator | Meaning | Example |
 |----------|---------|---------|
-| `<==` | Read from file | `data <== @./file.txt` |
-| `<=/=` | Fetch from URL | `data <=/= @https://api.example.com` |
-| `==>` | Write to file | `data ==> @./output.txt` |
-| `==>>` | Append to file | `line ==>> @./log.txt` |
+| `<==` | Read from file | `let data <== text(@./file.txt)` |
+| `<=/=` | Fetch from URL | `let data <=/= @https://api.example.com` |
+| `==>` | Write to file | `data ==> text(@./output.txt)` |
+| `==>>` | Append to file | `line ==>> text(@./log.txt)` |
 | `=/=>` | Write to network target | `payload =/=> JSON(@https://api.example.com)` |
 | `=/=>>` | Append to network target | `line =/=>> text(sftp, "/var/log/app.log")` |
 
@@ -305,9 +309,9 @@ See [File I/O](../features/file-io.md) and [HTTP & Networking](../features/netwo
 
 | Operator | Meaning | Example |
 |----------|---------|---------|
-| `<=?=>` | Query one row | `db <=?=> "SELECT ..."` |
-| `<=??=>` | Query many rows | `db <=??=> "SELECT ..."` |
-| `<=!=>` | Execute (INSERT, etc.) | `db <=!=> "INSERT ..."` |
+| `<=?=>` | Query one row | `let user = db <=?=> "SELECT ..."` |
+| `<=??=>` | Query many rows | `let users = db <=??=> "SELECT ..."` |
+| `<=!=>` | Execute (INSERT, etc.) | `let result = db <=!=> "INSERT ..."` |
 
 See [Database](../features/database.md).
 

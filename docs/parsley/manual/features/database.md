@@ -31,10 +31,10 @@ Parsley has built-in database support with dedicated connection literals, query 
 Create a connection by calling a driver literal with a DSN string:
 
 ```parsley
-let db = @sqlite("./myapp.sqlite")       // SQLite file
-let db = @sqlite(":memory:")              // SQLite in-memory
-let db = @postgres("postgres://user:pass@localhost/mydb")
-let db = @mysql("user:pass@tcp(localhost:3306)/mydb")
+let db = @sqlite("./myapp.sqlite")        // SQLite file
+let mem = @sqlite(":memory:")             // SQLite in-memory
+let pg = @postgres("postgres://user:pass@localhost/mydb")
+let my = @mysql("user:pass@tcp(localhost:3306)/mydb")
 ```
 
 Each driver takes an optional second argument — an options dictionary:
@@ -58,7 +58,7 @@ Connections are cached by DSN. Calling `@sqlite("./myapp.sqlite")` twice returns
 Inside a Basil server handler, `@DB` returns the server's configured database connection:
 
 ```parsley
-let user = @DB <=?=> <GetUser id={params.id} />
+let user = @DB <=?=> <GetUser id={@params.id} />
 ```
 
 `@DB` is only available in server context. Using it in a standalone script produces a state error.

@@ -337,7 +337,7 @@ Iterate over a dictionary with `for`. The loop provides key and value:
 ```parsley
 let scores = {alice: 95, bob: 87, carol: 92}
 for (name, score in scores) {
-    name ++ ": " ++ score
+    name + ": " + score
 }
 ```
 
@@ -552,16 +552,17 @@ data.render("Total: @{price * (1 + tax)}")
 
 ### repr()
 
-Return a string representation suitable for debugging. Note that dictionary values are lazily evaluated, so `repr()` may show `<unevaluated>` for complex values:
+Return a string representation suitable for debugging. Values are shown in Parsley
+literal form, so strings keep their quotes:
 
 ```parsley
 let d = {name: "Alice", count: 3}
 d.repr()
 ```
 
-**Result:** `"{name: <unevaluated>, count: <unevaluated>}"`
+**Result:** `"{name: \"Alice\", count: 3}"`
 
-For fully evaluated representations, use `.toJSON()` instead.
+For a JSON-compatible representation, use `.toJSON()` instead.
 
 ---
 
@@ -576,10 +577,11 @@ Render the dictionary as an ASCII box:
 **Result:**
 
 ```
-┌───────┬───────┐
-│ name  │ Alice │
-│ age   │ 30    │
-└───────┴───────┘
+┌──────┬───────┐
+│ name │ Alice │
+├──────┼───────┤
+│ age  │ 30    │
+└──────┴───────┘
 ```
 
 Options:
@@ -755,7 +757,7 @@ Dictionary values can be spread into HTML tag attributes using `...dict`:
 
 ```parsley
 let attrs = {class: "button", id: "submit-btn"}
-<button ...attrs>Click</button>
+<button ...attrs>"Click"</button>
 ```
 
 **Result:** `<button class="button" id="submit-btn">Click</button>`
@@ -764,7 +766,7 @@ Later attributes override earlier ones:
 
 ```parsley
 let base = {class: "btn", disabled: true}
-<button ...base class="btn-primary">Submit</button>
+<button ...base class="btn-primary">"Submit"</button>
 ```
 
 **Result:** `<button disabled class="btn-primary">Submit</button>`
@@ -828,7 +830,7 @@ Use `for` to transform an array into dictionary entries:
 
 ```parsley
 let pairs = [["a", 1], ["b", 2], ["c", 3]]
-let result = {}
+var result = {}
 for (pair in pairs) {
     let key = pair[0]
     result = result ++ {[key]: pair[1]}

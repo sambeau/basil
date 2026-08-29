@@ -329,7 +329,7 @@ let config <== f
 The following types cannot be serialized:
 
 - Functions (`fn(x) { x }`)
-- Builtins (`len`, `print`)
+- Builtins (`log`, `serialize`)
 - File handles
 - Database connections
 - Modules
@@ -354,7 +354,7 @@ PLN is designed for safe data exchange:
 // These will all fail:
 deserialize("1 + 1")      // Error: expressions not allowed
 deserialize("x")          // Error: identifiers not allowed
-deserialize("print(42)")  // Error: function calls not allowed
+deserialize("log(42)")    // Error: function calls not allowed
 ```
 
 ---

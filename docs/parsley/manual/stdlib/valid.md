@@ -146,7 +146,9 @@ if (!zipOk) { "Invalid ZIP code" }
 ### API Input Validation
 
 ```parsley
+// Basil only — needs the running server
 let valid = import @std/valid
+let api = import @basil/api
 
 let handler = fn(req) {
     let id = req.params.id

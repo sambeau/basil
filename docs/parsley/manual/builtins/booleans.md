@@ -67,9 +67,9 @@ if (count) { "non-zero" }         // fails for 0
 The `!` operator inverts truthiness and always returns a boolean. The `not` keyword is an identical alias:
 
 ```parsley
-!true               // false
-!null               // true
-not ""              // true
+let a = !true       // false
+let b = !null       // true
+let c = not ""      // true
 ```
 
 ### And / Or: `&&` / `||` and aliases
@@ -181,7 +181,7 @@ Use parentheses to clarify intent when mixing operators:
 let a = true
 let b = false
 let c = true
-(a || b) && c       // true
+let result = (a || b) && c   // true
 ```
 
 ## Key Differences from Other Languages
