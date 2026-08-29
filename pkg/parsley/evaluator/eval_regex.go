@@ -40,6 +40,32 @@ func compileRegex(pattern, flags string) (*regexp.Regexp, error) {
 	return regexp.Compile(fullPattern)
 }
 
+// regexDictPatternFlags pulls the pattern and flags strings out of a regex dictionary.
+// Missing or non-string fields come back as "".
+func regexDictPatternFlags(dict *Dictionary, env *Environment) (pattern, flags string) {
+	if patternExpr, ok := dict.Pairs["pattern"]; ok {
+		if p := Eval(patternExpr, env); p != nil {
+			if s, ok := p.(*String); ok {
+				pattern = s.Value
+			}
+		}
+	}
+	if flagsExpr, ok := dict.Pairs["flags"]; ok {
+		if f := Eval(flagsExpr, env); f != nil {
+			if s, ok := f.(*String); ok {
+				flags = s.Value
+			}
+		}
+	}
+	return pattern, flags
+}
+
+// compileRegexDict compiles the regex described by a regex dictionary
+func compileRegexDict(dict *Dictionary, env *Environment) (*regexp.Regexp, error) {
+	pattern, flags := regexDictPatternFlags(dict, env)
+	return compileRegex(pattern, flags)
+}
+
 // hasNamedGroups checks if the compiled regex has any named capture groups
 func hasNamedGroups(re *regexp.Regexp) bool {
 	names := re.SubexpNames()

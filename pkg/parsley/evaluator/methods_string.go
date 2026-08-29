@@ -50,7 +50,7 @@ func init() {
 		"split": {
 			Fn:          stringSplit,
 			Arity:       "1",
-			Description: "Split by delimiter into array",
+			Description: "Split by string or regex separator into array",
 		},
 		"replace": {
 			Fn:          stringReplace,
@@ -245,11 +245,26 @@ func stringTrim(receiver Object, args []Object, env *Environment) Object {
 
 func stringSplit(receiver Object, args []Object, env *Environment) Object {
 	str := receiver.(*String)
-	delim, ok := args[0].(*String)
-	if !ok {
-		return newTypeError("TYPE-0012", "split", "a string", args[0].Type())
+
+	var parts []string
+	switch delim := args[0].(type) {
+	case *String:
+		parts = strings.Split(str.Value, delim.Value)
+
+	case *Dictionary:
+		if !isRegexDict(delim) {
+			return newTypeError("TYPE-0012", "split", "a string or regex", delim.Type())
+		}
+		re, err := compileRegexDict(delim, env)
+		if err != nil {
+			return newFormatError("FMT-0007", err)
+		}
+		parts = re.Split(str.Value, -1)
+
+	default:
+		return newTypeError("TYPE-0012", "split", "a string or regex", args[0].Type())
 	}
-	parts := strings.Split(str.Value, delim.Value)
+
 	elements := make([]Object, len(parts))
 	for i, part := range parts {
 		elements[i] = &String{Value: part}

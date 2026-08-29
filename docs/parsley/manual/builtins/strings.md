@@ -207,7 +207,7 @@ Case conversion methods handle snake_case, kebab-case, camelCase, PascalCase, sp
 |--------|-------------|
 | `.length()` | Character count (Unicode-aware): `"café".length()` → `4` |
 | `.includes(sub)` | Contains substring: `"hello".includes("ell")` → `true` |
-| `.split(delim)` | Split into array: `"a,b,c".split(",")` → `["a", "b", "c"]` |
+| `.split(delim)` | Split into array on a string or regex: `"a,b,c".split(",")` → `["a", "b", "c"]` |
 | `.replace(old, new)` | Replace all occurrences: `"hello".replace("l", "L")` → `"heLLo"` |
 | `.digits()` | Extract only digits: `"abc123def".digits()` → `"123"` |
 | `.truncate(len, suffix?)` | Truncate to length with suffix (default `"..."`). Unicode-aware. |
@@ -227,6 +227,21 @@ The `replace` method also accepts a **regex** as the first argument and a **func
 "hello".replace(/l/, "L")                // "heLlo" (regex: first match only)
 "hello".replace(/l/g, "L")               // "heLLo" (regex + g flag: all matches)
 "hello world".replace(/\w+/g, fn(m) { m.toTitle() })  // "Hello World"
+```
+
+The `split` method takes a **string** or a **regex** separator. A regex is handy when the separator varies — runs of whitespace, or a choice of punctuation:
+
+```parsley
+"a,b,c".split(",")                       // ["a", "b", "c"] (string separator)
+"one   two \t three".split(/\s+/)        // ["one", "two", "three"]
+"Alice, Bob;  Carol".split(/\s*[,;]\s*/) // ["Alice", "Bob", "Carol"]
+"nothing here".split(/\d+/)              // ["nothing here"] (no match: one part)
+```
+
+Splitting always uses **every** match, so the `g` flag makes no difference. Capture groups mark part of the separator — they are not returned as elements:
+
+```parsley
+"a1b2c".split(/(\d)/)                    // ["a", "b", "c"] — the digits are separators
 ```
 
 ### HTML

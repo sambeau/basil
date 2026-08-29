@@ -53,6 +53,7 @@ func init() {
 		"format":  {Fn: regexFormat, Arity: "0-1", Description: "Format as string (pattern, literal, verbose)"},
 		"test":    {Fn: regexTest, Arity: "1", Description: "Test if string matches pattern"},
 		"replace": {Fn: regexReplace, Arity: "2", Description: "Replace matches in string"},
+		"split":   {Fn: regexSplit, Arity: "1", Description: "Split string on matches"},
 		"toJSON":  {Fn: regexToJSON, Arity: "0", Description: "Convert to JSON object with pattern and flags"},
 		"toBox":   {Fn: regexToBoxMethod, Arity: "0+", Description: "Render as box diagram"},
 	}
@@ -377,6 +378,15 @@ func regexReplace(receiver Object, args []Object, env *Environment) Object {
 		return newTypeError("TYPE-0012", "replace", "a string", args[0].Type())
 	}
 	return regexReplaceOnString(str.Value, dict, args[1], env)
+}
+
+func regexSplit(receiver Object, args []Object, env *Environment) Object {
+	dict := receiver.(*Dictionary)
+	str, ok := args[0].(*String)
+	if !ok {
+		return newTypeError("TYPE-0012", "split", "a string", args[0].Type())
+	}
+	return stringSplit(str, []Object{dict}, env)
 }
 
 func regexToJSON(receiver Object, args []Object, env *Environment) Object {

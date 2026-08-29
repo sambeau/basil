@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sambeau/basil/pkg/parsley/evaluator"
@@ -150,6 +151,66 @@ func TestSplitMethod(t *testing.T) {
 	for _, tt := range tests {
 		evaluated := testEvalHelper(tt.input)
 		testExpectedObject(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestSplitWithRegex(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// Separator patterns
+		{`"a1b22c333d".split(/\d+/)`, `["a", "b", "c", "d"]`},
+		{`"Alice, Bob;  Carol|Dave".split(/\s*[,;|]\s*/)`, `["Alice", "Bob", "Carol", "Dave"]`},
+		{`"one   two \t three".split(/\s+/)`, `["one", "two", "three"]`},
+
+		// No match leaves the string whole
+		{`"nothing here".split(/\d+/)`, `["nothing here"]`},
+
+		// Leading/trailing matches produce empty strings, as string split does
+		{`",a,b".split(/,/)`, `["", "a", "b"]`},
+		{`"a1".split(/\d/)`, `["a", ""]`},
+
+		// Flags are honoured; g is redundant but harmless
+		{`"aXbxc".split(/x/i)`, `["a", "b", "c"]`},
+		{`"a1b2c".split(/\d/g)`, `["a", "b", "c"]`},
+
+		// Capture groups are separators, not results
+		{`"a1b2c".split(/(\d)/)`, `["a", "b", "c"]`},
+
+		// Regexes built at runtime work too
+		{`let r = regex("\\s*,\\s*"); "a , b,c".split(r)`, `["a", "b", "c"]`},
+
+		// Chains onto array methods
+		{`"a1b2c".split(/\d/).length()`, `3`},
+
+		// The mirror method on regex
+		{`/\s*,\s*/.split("a , b,c")`, `["a", "b", "c"]`},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEvalHelper(tt.input)
+		testExpectedObject(t, tt.input, evaluated, tt.expected)
+	}
+}
+
+func TestSplitWithRegexErrors(t *testing.T) {
+	tests := []string{
+		`"hello".split(123)`,
+		`"hello".split({a: 1})`,
+		`/\d/.split(42)`,
+	}
+
+	for _, input := range tests {
+		evaluated := testEvalHelper(input)
+		errObj, ok := evaluated.(*evaluator.Error)
+		if !ok {
+			t.Errorf("Expected error for input '%s', got %T", input, evaluated)
+			continue
+		}
+		if !strings.Contains(errObj.Message, "must be a string") {
+			t.Errorf("For input '%s': unexpected error message %q", input, errObj.Message)
+		}
 	}
 }
 
