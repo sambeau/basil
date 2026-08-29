@@ -197,7 +197,9 @@ func TestDictionarySpreadWithComponents(t *testing.T) {
 					maxlength={100}
 				/>
 			`,
-			expected: `<input name="email" type="text" maxlength="100" placeholder="you@example.com" required />`,
+			// The rest dictionary keeps the props' declaration order, so the
+			// spread attributes render placeholder/required/maxlength as written.
+			expected: `<input name="email" type="text" placeholder="you@example.com" required maxlength="100" />`,
 		},
 		{
 			name: "component with conditional spreads",
@@ -329,7 +331,7 @@ func TestExpressionAttributeSyntax(t *testing.T) {
 				let {value, ...rest} = props
 				<input value={value} ...rest/>
 			`,
-			expected: `<input name="search" placeholder="search" type="search" />`,
+			expected: `<input name="search" type="search" placeholder="search" />`,
 		},
 	}
 

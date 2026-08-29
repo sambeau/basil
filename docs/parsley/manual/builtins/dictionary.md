@@ -680,6 +680,7 @@ Order is preserved through:
 - `.keys()`, `.values()`, `.entries()` methods
 - Concatenation with `++`
 - `.insertAfter()` and `.insertBefore()` methods
+- Rest destructuring — `let {id, ...rest} = d` leaves `rest` in `d`'s order
 
 ---
 

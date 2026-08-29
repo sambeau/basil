@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/sambeau/basil/pkg/parsley/ast"
@@ -958,14 +959,17 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 	// Type check: value must be a dictionary or record
 	// Extract pairs and env from either type
 	var pairs map[string]ast.Expression
+	var keyOrder []string
 	var valEnv *Environment
 
 	switch v := val.(type) {
 	case *Dictionary:
 		pairs = v.Pairs
+		keyOrder = v.KeyOrder
 		valEnv = v.Env
 	case *Record:
 		pairs = v.Data
+		keyOrder = v.KeyOrder
 		valEnv = v.Env
 	default:
 		err := newDestructuringError("DEST-0001", val)
@@ -1055,7 +1059,29 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 			}
 		}
 
-		restDict := &Dictionary{Pairs: restPairs, Env: valEnv}
+		// Carry over the source's insertion order, minus the extracted keys.
+		restOrder := make([]string, 0, len(restPairs))
+		ordered := make(map[string]bool, len(restPairs))
+		for _, key := range keyOrder {
+			if _, ok := restPairs[key]; ok && !ordered[key] {
+				restOrder = append(restOrder, key)
+				ordered[key] = true
+			}
+		}
+		// A source built without a complete KeyOrder leaves stragglers; append
+		// them sorted so the result is at least deterministic.
+		if len(restOrder) < len(restPairs) {
+			extras := make([]string, 0, len(restPairs)-len(restOrder))
+			for key := range restPairs {
+				if !ordered[key] {
+					extras = append(extras, key)
+				}
+			}
+			sort.Strings(extras)
+			restOrder = append(restOrder, extras...)
+		}
+
+		restDict := &Dictionary{Pairs: restPairs, KeyOrder: restOrder, Env: valEnv}
 		if pattern.Rest.Value != "_" {
 			if isLet {
 				if err := env.CheckRedeclare(pattern.Rest.Value); err != nil {
